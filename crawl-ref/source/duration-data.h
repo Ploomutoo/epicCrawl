@@ -640,6 +640,10 @@ static const duration_def duration_data[] =
     { DUR_BEOGH_CAN_RECRUIT, LIGHTBLUE, "Recruit", "", "can recruit",
       "You may recruit a defeated apostle into your service", D_EXPIRES,
        {{ "", end_beogh_recruit_window}}},
+    { DUR_PRIMORDIAL_NIGHTFALL, MAGENTA, "Nightfall",
+      "nightfall", "nightfall",
+      "You are enveloped in primordial darkness.", D_EXPIRES,
+      {{ "Night gives way to day once more." }}},
 
     // The following are visible in wizmode only, or are handled
     // specially in the status lights and/or the % or @ screens.
@@ -715,7 +719,6 @@ static const duration_def duration_data[] =
     { DUR_BEOGH_SEEKING_VENGEANCE, LIGHTRED, "Vengeance", "", "vengeance",
       "You are seeking vengeance for the death of your brethren.", D_NO_FLAGS},
     { DUR_CONSTRICTION_IMMUNITY, 0, "", "", "constrict immune", "", D_NO_FLAGS, {{""}}},
-
 
 #if TAG_MAJOR_VERSION == 34
     // And removed ones

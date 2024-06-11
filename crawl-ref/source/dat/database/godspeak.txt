@@ -160,6 +160,8 @@ Xom feature translucent wall
 
 Dim shapes swim through @the_feature@.
 
+Faint @any_colour@ flames crawl over @the_feature@.
+
 @The_feature@ is briefly covered in @any_colour_pattern@.
 %%%%
 Xom feature metal wall
@@ -266,27 +268,43 @@ You briefly grow a large moustache and beard.
 %%%%
 Xom impromptu dance
 
-You do an impromptu @dance_name@.
+You perform an impromptu @dance_name@.
 
 You compulsively click your heels together three times.
 %%%%
 dance_name
 
+ballet
+
 cha-cha
+
+fandango
 
 jig
 
+line dance
+
+macarena
+
+tango
+
 tapdance
+
+waltz
 %%%%
 Xom unarmed one hand
 
 A fancy cane briefly appears in your @hand@.
+
+You compulsively punch the air.
 %%%%
 Xom unarmed two hands
 
 @Xom unarmed one hand@
 
 Two fancy canes briefly appear in your @hands@.
+
+You compulsively clap your @hands@ three times.
 %%%%
 Xom cloak slot
 
@@ -794,13 +812,9 @@ Cheibriados death
 
 Cheibriados appreciates the motionlessness of death.
 %%%%
-Dithmenos penance
-
-Dithmenos says: Return to the darkness!
-%%%%
 Dithmenos welcome
 
-Dithmenos says: Spread the eternal night.
+Dithmenos says: Walk in the dark places.
 %%%%
 Elyvilon penance
 
