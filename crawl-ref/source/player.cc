@@ -1870,7 +1870,7 @@ int player_prot_life(bool allow_random, bool temp, bool items)
     if (items)
     {
         // rings
-        pl += you.wearing(EQ_RINGS, RING_LIFE_PROTECTION);
+        pl += you.wearing(EQ_RINGS, RING_POSITIVE_ENERGY);
 
         // armour (checks body armour only)
         pl += you.wearing_ego(EQ_ALL_ARMOUR, SPARM_POSITIVE_ENERGY);
@@ -2332,10 +2332,6 @@ int player_shield_class(int scale, bool random, bool ignore_temporary)
     shield += qazlal_sh_boost() * 100;
     shield += you.wearing(EQ_AMULET, AMU_REFLECTION) * AMU_REFLECT_SH * 100;
     shield += you.scan_artefacts(ARTP_SHIELDING) * 200;
-
-    // divine shield
-    if (!ignore_temporary)
-        shield += tso_sh_boost() * 100;
 
     return random ? div_rand_round(shield * scale, 100) : ((shield * scale) / 100);
 }
@@ -3565,6 +3561,14 @@ bool player::clarity(bool items) const
 bool player::faith(bool items) const
 {
     return you.has_mutation(MUT_FAITH) || actor::faith(items);
+}
+
+bool player::reflection(bool items) const
+{
+    if (you.duration[DUR_DIVINE_SHIELD])
+        return true;
+
+    return actor::reflection(items);
 }
 
 /// Does the player have permastasis?
@@ -4915,6 +4919,52 @@ void barb_player(int turns, int pow)
     }
 }
 
+/**
+ * Players are rather more susceptible to dazzling: only vine stalkers
+ * and trees are immune.
+ */
+bool player::can_be_dazzled() const
+{
+    return !(you.holiness() & MH_PLANT);
+}
+
+/**
+ * Increase the player's blindness duration.
+ *
+ * @param amount   The number of turns to increase blindness duration by.
+ */
+void blind_player(int amount, colour_t flavour_colour)
+{
+    ASSERT(!crawl_state.game_is_arena());
+
+    if (amount <= 0)
+        return;
+
+    const int current = you.duration[DUR_BLIND];
+    you.increase_duration(DUR_BLIND, amount, 50);
+
+    if (you.duration[DUR_BLIND] > current)
+    {
+        you.props[BLIND_COLOUR_KEY] = flavour_colour;
+        if (current > 0)
+            mpr("You are blinded for an even longer time.");
+        else
+            mpr("You are blinded!");
+        learned_something_new(HINT_YOU_ENCHANTED);
+        xom_is_stimulated((you.duration[DUR_BLIND] - current) / BASELINE_DELAY);
+    }
+}
+
+// Returns the percentage chance any attack or dodgeable beam will miss at a
+// given distance. (ie: 30%, 45%, 60%, 75%, 90%)
+int player_blind_miss_chance(int distance)
+{
+    if (you.duration[DUR_BLIND])
+        return min(90, 15 + (distance * 15));
+    else
+        return 0;
+}
+
 void dec_berserk_recovery_player(int delay)
 {
     if (!you.duration[DUR_BERSERK_COOLDOWN])
@@ -6013,7 +6063,9 @@ void player::shield_block_succeeded(actor *attacker)
 {
     actor::shield_block_succeeded(attacker);
 
-    shield_blocks++;
+    if (!you.duration[DUR_DIVINE_SHIELD])
+        shield_blocks++;
+
     practise_shield_block();
     if (is_shield(shield()))
         count_action(CACT_BLOCK, shield()->sub_type);

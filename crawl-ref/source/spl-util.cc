@@ -1495,6 +1495,10 @@ string spell_uselessness_reason(spell_type spell, bool temp, bool prevent,
             return "you already have an active mortar!";
         break;
 
+    case SPELL_STARBURST:
+        if (temp && you.current_vision == 0)
+            return "you cannot see far enough to hit anything with this spell.";
+
     default:
         break;
     }
@@ -1605,7 +1609,7 @@ bool spell_no_hostile_in_range(spell_type spell)
         return cast_hailstorm(-1, false, true) == spret::abort;
 
     case SPELL_DAZZLING_FLASH:
-        return cast_dazzling_flash(pow, false, true) == spret::abort;
+        return cast_dazzling_flash(&you, pow, false, true) == spret::abort;
 
      case SPELL_MAXWELLS_COUPLING:
          return cast_maxwells_coupling(pow, false, true) == spret::abort;

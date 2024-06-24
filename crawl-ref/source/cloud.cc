@@ -35,6 +35,7 @@
 #include "religion.h"
 #include "shout.h"
 #include "spl-clouds.h" // explode_blastmotes_at
+#include "spl-damage.h" // dazzle_target
 #include "spl-util.h"
 #include "state.h"
 #include "stringutil.h"
@@ -2019,6 +2020,17 @@ static const vector<chaos_effect> chaos_effects = {
         "petrify", 3, [](const actor &victim) {
             return _is_chaos_slowable(victim) && !victim.res_petrify();
         }, BEAM_PETRIFY,
+    },
+    {
+        "blinding", 5, [](const actor &victim) {
+            return victim.is_player() || mons_can_be_dazzled(victim.as_monster()->type);
+        }, BEAM_NONE, [](actor* victim, actor* source) {
+            if (victim->is_player())
+                blind_player(random_range(7, 12), ETC_RANDOM);
+            else
+                dazzle_target(victim, source, 149);
+            return you.can_see(*victim);
+        },
     },
 };
 

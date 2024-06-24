@@ -698,6 +698,20 @@ static const map<spell_type, mons_spell_logic> spell_to_logic = {
         MSPELL_LOGIC_NONE,
         18, // 1.5x iceblast
     } },
+    { SPELL_DAZZLING_FLASH, {
+        [](const monster &caster)
+        {
+            // Run tracer version of spell. Power matters for range.
+            const int pow = mons_spellpower(caster, SPELL_DAZZLING_FLASH);
+            return ai_action::good_or_bad(
+                cast_dazzling_flash(&caster, pow, false, true) == spret::success
+            );
+        },
+        [](monster &caster, mon_spell_slot /*slot*/, bolt& /*pbolt*/) {
+            const int pow = mons_spellpower(caster, SPELL_DAZZLING_FLASH);
+            cast_dazzling_flash(&caster, pow, false);
+        },
+    } },
     { SPELL_SHADOW_BALL, _conjuration_logic(SPELL_SHADOW_BALL) },
     { SPELL_SHADOW_BEAM, _conjuration_logic(SPELL_SHADOW_BEAM) },
     { SPELL_SHADOW_SHARD, _conjuration_logic(SPELL_SHADOW_SHARD) },
@@ -2135,7 +2149,7 @@ bool setup_mons_cast(const monster* mons, bolt &pbolt, spell_type spell_cast,
     case SPELL_POLAR_VORTEX:
     case SPELL_DISCHARGE:
     case SPELL_IGNITE_POISON:
-    case SPELL_BLACK_MARK:
+    case SPELL_SIGN_OF_RUIN:
     case SPELL_BLINK_ALLIES_AWAY:
     case SPELL_PHANTOM_MIRROR:
     case SPELL_SUMMON_MANA_VIPER:
@@ -2185,6 +2199,7 @@ bool setup_mons_cast(const monster* mons, bolt &pbolt, spell_type spell_cast,
     case SPELL_BESTOW_ARMS:
     case SPELL_FULMINANT_PRISM:
     case SPELL_HELLFIRE_MORTAR:
+    case SPELL_DAZZLING_FLASH:
         pbolt.range = 0;
         pbolt.glyph = 0;
         return true;
@@ -3817,23 +3832,6 @@ static bool _mutation_vulnerable(const actor* victim)
     if (!victim)
         return false;
     return victim->can_mutate();
-}
-
-static void _cast_black_mark(monster* agent)
-{
-    for (actor_near_iterator ai(agent, LOS_NO_TRANS); ai; ++ai)
-    {
-        if (ai->is_player() || !mons_aligned(*ai, agent))
-            continue;
-        monster* mon = ai->as_monster();
-
-        if (!mon->has_ench(ENCH_BLACK_MARK)
-            && mons_has_attacks(*mon))
-        {
-            mon->add_ench(ENCH_BLACK_MARK);
-            simple_monster_message(*mon, " begins absorbing vital energies!");
-        }
-    }
 }
 
 static void _prayer_of_brilliance(monster* agent)
@@ -7231,8 +7229,8 @@ void mons_cast(monster* mons, bolt pbolt, spell_type spell_cast,
         cast_ignite_poison(mons, splpow, false);
         return;
 
-    case SPELL_BLACK_MARK:
-        _cast_black_mark(mons);
+    case SPELL_SIGN_OF_RUIN:
+        cast_sign_of_ruin(*mons, foe->pos(), random_range(25, 35) * BASELINE_DELAY);
         return;
 
     case SPELL_BLINK_ALLIES_AWAY:
@@ -8309,7 +8307,6 @@ ai_action::goodness monster_spell_goodness(monster* mon, spell_type spell)
     if (friendly && !foe && spell_typematch(spell, spschool::summoning))
         return ai_action::bad();
 
-
     // Don't use abilities while rolling.
     if (mon->has_ench(ENCH_ROLLING))
         return ai_action::impossible();
@@ -8531,8 +8528,10 @@ ai_action::goodness monster_spell_goodness(monster* mon, spell_type spell)
         return ai_action::good_or_bad(handle_throw(mon, beam, true, true));
     }
 
-    case SPELL_BLACK_MARK:
-        return ai_action::good_or_impossible(!mon->has_ench(ENCH_BLACK_MARK));
+    case SPELL_SIGN_OF_RUIN:
+        return ai_action::good_or_impossible(foe &&
+                                             cast_sign_of_ruin(*mon, foe->pos(), 1, true)
+                                                == spret::success);
 
     case SPELL_BLINK_ALLIES_AWAY:
         ASSERT(foe);
@@ -8813,7 +8812,6 @@ ai_action::goodness monster_spell_goodness(monster* mon, spell_type spell)
     case SPELL_ANIMATE_DEAD:
     case SPELL_SIMULACRUM:
     case SPELL_DEATHS_DOOR:
-    case SPELL_DAZZLING_FLASH:
     case SPELL_OZOCUBUS_ARMOUR:
     case SPELL_TELEPORT_SELF:
 #endif

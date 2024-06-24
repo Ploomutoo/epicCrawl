@@ -194,10 +194,14 @@ Cures all your mutations — but only once.
 # The Shining One
 Divine Shield ability
 
-Grants a temporary divine shield. Because it is held aloft by the Shining One's
-power, it does not interfere with your equipment, but it functions otherwise as
-a normal, physical shield. The strength and duration of the shield are increased
-by Invocations skill.
+Manifests a blindingly bright shield in front of the user. Held aloft by the
+Shining One's power, it will unerringly block the next several attacks which
+could be blocked by a mundane shield. Ranged attacks will be reflected and melee
+attackers have a chance of being briefly blinded by the resulting flash of
+light.
+
+This shield will block only a limited number of attacks before vanishing, with
+Invocations skill increasing how many.
 %%%%
 Cleansing Flame ability
 
@@ -223,11 +227,9 @@ Bring forth those near death from Kikubaaqudgha's necropolis, providing ample
 fodder for all kinds of necromancy. Their number and quality is dependent on
 Necromancy skill.
 %%%%
-Torment ability
+Sign of Ruin ability
 
-Call out to the dead, making all living creatures in sight experience all the
-pain some poor soul suffered in its entire life. This damage is never directly
-lethal. Kikubaaqudgha will always at least partially shield you from the effect.
+[[Sign of Ruin spell]]
 %%%%
 Brand Weapon With Pain ability
 
@@ -318,6 +320,11 @@ Duel ability
 Enters you into single combat with a worthy foe. On success, you and the
 challenged foe will be transported to Okawaru's Arena to fight to the death,
 with no escape until you either emerge victorious or are slain.
+
+Half of your missing health will be restored as the duel begins, and upon
+victory, Okawaru will return your health and magical power to whatever they
+were before you issued the challenge - letting you shake off any damage taken
+during it in the blink of an eye.
 %%%%
 Receive Weapon ability
 
@@ -630,7 +637,7 @@ slowly expand back to normal over the duration of the effect. Your stealth will
 also be increased.
 
 It cannot be invoked again until its effect has fully ended, as even the very
-first night of creation must eventually must give way to day.
+first night of creation must eventually give way to day.
 
 Invocations skill increases the duration of the effect.
 %%%%

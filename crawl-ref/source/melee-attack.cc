@@ -267,6 +267,18 @@ bool melee_attack::handle_phase_blocked()
     //such as darts don't trigger it
     maybe_trigger_jinxbite();
 
+    if (defender->is_player() && you.duration[DUR_DIVINE_SHIELD]
+        && coinflip())
+    {
+        if (!attacker->as_monster()->has_ench(ENCH_BLIND))
+        {
+            mprf("%s is struck blind by the light of your shield.",
+                    attacker->name(DESC_THE).c_str());
+        }
+        attacker->as_monster()->add_ench(mon_enchant(ENCH_BLIND, 1, &you,
+                                            random_range(3, 5) * BASELINE_DELAY));
+    }
+
     return attack::handle_phase_blocked();
 }
 
@@ -364,12 +376,9 @@ void melee_attack::apply_black_mark_effects()
         DRAINING,
     };
 
-    // Less reliable effects for players.
     if (attacker->is_player()
         && you.has_mutation(MUT_BLACK_MARK)
-        && one_chance_in(5)
-        || attacker->is_monster()
-           && attacker->as_monster()->has_ench(ENCH_BLACK_MARK))
+        && one_chance_in(5))
     {
         if (!defender->alive())
             return;
@@ -401,6 +410,62 @@ void melee_attack::apply_black_mark_effects()
                 break;
             case DRAINING:
                 defender->drain(attacker, false, damage_done);
+                break;
+        }
+    }
+}
+
+void melee_attack::apply_sign_of_ruin_effects()
+{
+    enum ruin_effect
+    {
+        SLOW,
+        WEAKNESS,
+        BLIND,
+    };
+
+    if (defender->is_monster() && defender->as_monster()->has_ench(ENCH_SIGN_OF_RUIN)
+        || defender->is_player() && you.duration[DUR_SIGN_OF_RUIN])
+    {
+        if (!defender->alive())
+            return;
+
+        // Always drain heavily, then apply one other random effect
+        defender->drain(attacker, false, random_range(30, 50));
+
+        vector<ruin_effect> effects;
+
+        if (defender->is_player()
+            || mons_has_attacks(*defender->as_monster()))
+        {
+            effects.push_back(WEAKNESS);
+        }
+        if (defender->is_player() || mons_can_be_dazzled(defender->type))
+            effects.push_back(BLIND);
+        if (!defender->stasis())
+            effects.push_back(SLOW);
+
+        if (effects.empty())
+            return;
+
+        ruin_effect choice = effects[random2(effects.size())];
+
+        switch (choice)
+        {
+            case SLOW:
+                defender->slow_down(attacker, random_range(5, 8));
+                break;
+            case WEAKNESS:
+                defender->weaken(attacker, 6);
+                break;
+            case BLIND:
+                if (defender->is_monster())
+                {
+                    defender->as_monster()->add_ench(mon_enchant(ENCH_BLIND, 1, attacker,
+                                                    random_range(5, 8) * BASELINE_DELAY));
+                }
+                else
+                    blind_player(random_range(5, 8));
                 break;
         }
     }
@@ -624,6 +689,7 @@ bool melee_attack::handle_phase_hit()
         apply_black_mark_effects();
         do_ooze_engulf();
         try_parry_disarm();
+        apply_sign_of_ruin_effects();
     }
 
     if (attacker->is_player())
@@ -662,7 +728,7 @@ static void _inflict_deathly_blight(monster &m)
 
     const int dur = random_range(3, 6) * BASELINE_DELAY;
     bool worked = false;
-    if (!m.stasis() && !m.is_stationary())
+    if (!m.stasis())
         worked = m.add_ench(mon_enchant(ENCH_SLOW, 0, &you, dur)) || worked;
     if (mons_has_attacks(m))
         worked = m.add_ench(mon_enchant(ENCH_WEAK, 1, &you, dur)) || worked;
@@ -3765,7 +3831,8 @@ void melee_attack::do_starlight()
         "@The_monster@'s vision is obscured by starry radiance!",
     };
 
-    if (one_chance_in(5) && dazzle_monster(attacker->as_monster(), 100))
+    if (attacker->is_monster() && one_chance_in(5)
+        && dazzle_target(attacker, defender, 100))
     {
         string msg = *random_iterator(dazzle_msgs);
         msg = do_mon_str_replacements(msg, *attacker->as_monster(), S_SILENT);

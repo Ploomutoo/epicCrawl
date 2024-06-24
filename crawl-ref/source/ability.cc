@@ -73,6 +73,7 @@
 #include "spl-clouds.h"
 #include "spl-damage.h"
 #include "spl-goditem.h"
+#include "spl-monench.h"
 #include "spl-miscast.h"
 #include "spl-other.h"
 #include "spl-selfench.h"
@@ -426,7 +427,7 @@ static vector<ability_def> &_get_ability_list()
 
         // The Shining One
         { ABIL_TSO_DIVINE_SHIELD, "Divine Shield",
-            3, 0, 2, -1, {fail_basis::invo, 40, 5, 20}, abflag::none },
+            3, 0, 3, -1, {fail_basis::invo, 35, 5, 20}, abflag::none },
         { ABIL_TSO_CLEANSING_FLAME, "Cleansing Flame",
             5, 0, 2, -1, {fail_basis::invo, 70, 4, 25}, abflag::none },
         { ABIL_TSO_SUMMON_DIVINE_WARRIOR, "Summon Divine Warrior",
@@ -437,8 +438,8 @@ static vector<ability_def> &_get_ability_list()
         // Kikubaaqudgha
         { ABIL_KIKU_UNEARTH_WRETCHES, "Unearth Wretches",
             3, 0, 5, -1, {fail_basis::invo, 40, 5, 20}, abflag::none },
-        { ABIL_KIKU_TORMENT, "Torment",
-            4, 0, 6, -1, {fail_basis::invo, 60, 5, 20}, abflag::none },
+        { ABIL_KIKU_SIGN_OF_RUIN, "Sign of Ruin",
+            5, 0, 4, -1, {fail_basis::invo, 60, 5, 20}, abflag::target },
         { ABIL_KIKU_GIFT_CAPSTONE_SPELLS, "Receive Forbidden Knowledge",
             0, 0, 0, -1, {fail_basis::invo}, abflag::none },
         { ABIL_KIKU_BLESS_WEAPON, "Brand Weapon With Pain",
@@ -463,7 +464,7 @@ static vector<ability_def> &_get_ability_list()
         { ABIL_OKAWARU_FINESSE, "Finesse",
             5, 0, 5, -1, {fail_basis::invo, 60, 4, 25}, abflag::none },
         { ABIL_OKAWARU_DUEL, "Duel",
-            7, 0, 10, LOS_MAX_RANGE, {fail_basis::invo, 80, 4, 20},
+            7, 0, 5, LOS_MAX_RANGE, {fail_basis::invo, 80, 4, 20},
             abflag::target | abflag::not_self },
         { ABIL_OKAWARU_GIFT_WEAPON, "Receive Weapon",
             0, 0, 0, -1, {fail_basis::invo}, abflag::none },
@@ -2548,7 +2549,6 @@ unique_ptr<targeter> find_ability_targeter(ability_type ability)
         return make_unique<targeter_multiposition>(&you, _find_shadowslip_affected(), AFF_YES);
 
     // Full LOS:
-    case ABIL_KIKU_TORMENT:
     case ABIL_QAZLAL_DISASTER_AREA: // Doesn't account for explosions hitting
                                     // areas behind glass.
     case ABIL_RU_APOCALYPSE:
@@ -2625,6 +2625,9 @@ unique_ptr<targeter> find_ability_targeter(ability_type ability)
 
     case ABIL_DITHMENOS_APHOTIC_MARIONETTE:
         return make_unique<targeter_marionette>();
+
+    case ABIL_KIKU_SIGN_OF_RUIN:
+        return make_unique<targeter_smite>(&you, LOS_RADIUS, 2, 2);
 
     default:
         break;
@@ -3225,10 +3228,11 @@ static spret _do_ability(const ability_def& abil, bool fail, dist *target,
         kiku_unearth_wretches();
         break;
 
-    case ABIL_KIKU_TORMENT:
+    case ABIL_KIKU_SIGN_OF_RUIN:
         fail_check();
-        simple_god_message(" torments the living!");
-        torment(&you, TORMENT_KIKUBAAQUDGHA, you.pos());
+        mpr("You invoke the name of Kikubaaqudgha!");
+        cast_sign_of_ruin(you, beam.target,
+                          (4 + you.skill_rdiv(SK_NECROMANCY, 4, 7)) * BASELINE_DELAY);
         break;
 
     case ABIL_KIKU_BLESS_WEAPON:

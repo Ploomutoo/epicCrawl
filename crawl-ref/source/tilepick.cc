@@ -2273,7 +2273,7 @@ static const map<monster_info_flags, tileidx_t> status_icons = {
     { MB_CONTAM_LIGHT, TILEI_GLOW_LIGHT },
     { MB_CONTAM_HEAVY, TILEI_GLOW_HEAVY },
     { MB_PAIN_BOND, TILEI_PAIN_BOND },
-    { MB_BOUND, TILEI_CONSTRICTED},     // XXX: Terrible placeholder, since this doesn't do damage. Replace as soon as possible.
+    { MB_BOUND, TILEI_BIND },
     { MB_BULLSEYE_TARGET, TILEI_BULLSEYE},
     { MB_VITRIFIED, TILEI_VITRIFIED},
     { MB_CURSE_OF_AGONY, TILEI_CURSE_OF_AGONY},
@@ -2286,6 +2286,7 @@ static const map<monster_info_flags, tileidx_t> status_icons = {
     { MB_RIMEBLIGHT, TILEI_RIMEBLIGHT },
     { MB_ARMED, TILEI_UNDYING_ARMS },
     { MB_SHADOWLESS, TILEI_SHADOWLESS },
+    { MB_SIGN_OF_RUIN, TILEI_SIGN_OF_RUIN },
 };
 
 set<tileidx_t> status_icons_for(const monster_info &mons)
@@ -3840,8 +3841,8 @@ tileidx_t tileidx_ability(const ability_type ability)
     // Kiku
     case ABIL_KIKU_UNEARTH_WRETCHES:
         return TILEG_ABILITY_KIKU_UNEARTH_WRETCHES;
-    case ABIL_KIKU_TORMENT:
-        return TILEG_ABILITY_KIKU_TORMENT;
+    case ABIL_KIKU_SIGN_OF_RUIN:
+        return TILEG_ABILITY_KIKU_SIGN_OF_RUIN;
     case ABIL_KIKU_BLESS_WEAPON:
         return TILEG_ABILITY_KIKU_BLESS_WEAPON;
     case ABIL_KIKU_GIFT_CAPSTONE_SPELLS:

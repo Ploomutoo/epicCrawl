@@ -55,6 +55,7 @@
 #define DESCENT_POIS_BRANCH_KEY "descent_poison_branch"
 #define RAMPAGE_HEAL_KEY "rampage_heal_strength"
 #define RAMPAGE_HEAL_MAX 7
+#define BLIND_COLOUR_KEY "blind_colour"
 
 // display/messaging breakpoints for penalties from Ru's MUT_HORROR
 #define HORROR_LVL_EXTREME  3
@@ -800,6 +801,7 @@ public:
     bool res_corr(bool allow_random = true, bool temp = true) const override;
     bool clarity(bool items = true) const override;
     bool faith(bool items = true) const override;
+    bool reflection(bool items = true) const override;
     bool stasis() const override;
     bool cloud_immune(bool items = true) const override;
 
@@ -841,6 +843,7 @@ public:
     bool can_throw_large_rocks() const override;
     bool can_smell() const;
     bool can_sleep(bool holi_only = false) const override;
+    bool can_be_dazzled() const;
 
     int racial_ac(bool temp) const;
     int base_ac(int scale) const;
@@ -1184,6 +1187,8 @@ bool spell_slow_player(int pow);
 bool slow_player(int turns);
 void dec_slow_player(int delay);
 void barb_player(int turns, int pow);
+void blind_player(int turns, colour_t flavour_colour = WHITE);
+int player_blind_miss_chance(int distance);
 void dec_berserk_recovery_player(int delay);
 
 bool haste_player(int turns, bool rageext = false);

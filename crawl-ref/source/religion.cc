@@ -131,7 +131,7 @@ const vector<vector<god_power>> & get_all_god_powers()
             { 4, "Kikubaaqudgha is now protecting you from unholy torment.",
                  "Kikubaaqudgha will no longer protect you from unholy torment.",
                  "Kikubaaqudgha protects you from unholy torment." },
-            { 5, ABIL_KIKU_TORMENT, "invoke torment" },
+            { 5, ABIL_KIKU_SIGN_OF_RUIN, "invoke the sign of ruin" },
             { 7, ABIL_KIKU_BLESS_WEAPON,
                  "Kikubaaqudgha will grant you forbidden knowledge or bloody your weapon with pain... once.",
                  "Kikubaaqudgha is no longer ready to enhance your necromancy." },
@@ -1111,13 +1111,11 @@ bool yred_reap_chance()
         return true;
 
     // Minimum chance scales from 15% at 0 piety to 40% at 6 stars
-    int ratio = min(piety_breakpoint(6), (int)you.piety) * 100 / piety_breakpoint(6);
+    int ratio = min(piety_breakpoint(5), (int)you.piety) * 100 / piety_breakpoint(5);
     int min_chance = 15 + (25 * ratio / 100);
 
     ratio = min(100, (hd * 100 / you.piety * 4));
     int chance = (ratio * min_chance / 100) + ((100 - ratio));
-
-    //mprf("Min chance: %d, Ratio: %d, Chance: %d", min_chance, ratio, chance);
 
     return x_chance_in_y(chance, 100);
 }
@@ -3165,7 +3163,7 @@ void excommunication(bool voluntary, god_type new_god)
         if (you.duration[DUR_FINESSE])
             okawaru_remove_finesse();
         if (player_in_branch(BRANCH_ARENA))
-            okawaru_end_duel();
+            okawaru_end_duel(true);
         break;
 
     case GOD_IGNIS:

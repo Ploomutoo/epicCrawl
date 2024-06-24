@@ -1315,34 +1315,19 @@ void zin_sanctuary()
     create_sanctuary(you.pos(), 7 + you.skill_rdiv(SK_INVOCATIONS) / 2);
 }
 
-// shield bonus = attribute for duration turns, then decreasing by 1
-//                every two out of three turns
-// overall shield duration = duration + attribute
-// recasting simply resets those two values (to better values, presumably)
 void tso_divine_shield()
 {
     if (!you.duration[DUR_DIVINE_SHIELD])
-    {
-        if (is_shield(you.shield()))
-        {
-            mprf("Your shield is strengthened by %s divine power.",
-                 apostrophise(god_name(GOD_SHINING_ONE)).c_str());
-        }
-        else
-            mpr("A divine shield forms around you!");
-    }
+        mpr("A divine shield manifests in front of you!");
     else
         mpr("Your divine shield is renewed.");
 
-    // Duration from 35-80 turns.
-    you.set_duration(DUR_DIVINE_SHIELD,
-                     35 + you.skill_rdiv(SK_INVOCATIONS, 5, 3));
+    you.set_duration(DUR_DIVINE_SHIELD, max(you.duration[DUR_DIVINE_SHIELD],
+                                            random_range(20, 35)));
 
     // Size of SH bonus.
     you.attribute[ATTR_DIVINE_SHIELD] =
-        12 + you.skill_rdiv(SK_INVOCATIONS, 4, 5);
-
-    you.redraw_armour_class = true;
+        3 + you.skill_rdiv(SK_INVOCATIONS, 2, 5);
 }
 
 void tso_remove_divine_shield()
@@ -2651,7 +2636,7 @@ void beogh_ally_healing()
 {
     if (!you.props.exists(BEOGH_DAMAGE_DONE_KEY)
         || x_chance_in_y(2, 5)
-        || you.piety < piety_breakpoint(3))
+        || you.piety < piety_breakpoint(2))
     {
         you.props.erase(BEOGH_DAMAGE_DONE_KEY);
         return;
@@ -6593,10 +6578,19 @@ spret okawaru_duel(const coord_def& target, bool fail)
         elven_twin_died(mons, false, KILL_YOU, MID_PLAYER);
     monster_cleanup(mons);
 
+    you.props[OKAWARU_DUEL_ORIG_HP_KEY] = you.hp;
+    you.props[OKAWARU_DUEL_ORIG_MP_KEY] = you.magic_points;
+
     stop_delay(true);
     down_stairs(DNGN_ENTER_ARENA);
 
     return spret::success;
+}
+
+void okawaru_duel_healing()
+{
+    if (you.heal((you.hp_max - you.hp) / 2))
+        mpr("You feel invigorated by the roar of the crowd!");
 }
 
 void okawaru_remove_heroism()
@@ -6613,9 +6607,23 @@ void okawaru_remove_finesse()
     you.duration[DUR_FINESSE] = 0;
 }
 
+// Gathers all items on the arena floor and saves them in a prop, to deposit
+// at the player's feet once the duel is over.
+static void _owakwaru_gather_arena_items()
+{
+    CrawlVector& vec = you.props[OKAWARU_DUEL_ITEMS_KEY].get_vector();
+    for (int i = 0; i < MAX_ITEMS; ++i)
+    {
+        if (!env.item[i].defined() || env.item[i].held_by_monster())
+            continue;
+
+        vec.push_back(env.item[i]);
+    }
+}
+
 // End a duel, and send the duel target back with the player if it's still
 // alive.
-void okawaru_end_duel()
+void okawaru_end_duel(bool kicked_out)
 {
     ASSERT(player_in_branch(BRANCH_ARENA));
     if (okawaru_duel_active())
@@ -6634,7 +6642,19 @@ void okawaru_end_duel()
         }
     }
 
-    mpr("You are returned from the Arena.");
+    _owakwaru_gather_arena_items();
+
+    if (you.props.exists(OKAWARU_DUEL_ORIG_HP_KEY))
+        set_hp(you.props[OKAWARU_DUEL_ORIG_HP_KEY].get_int());
+
+    if (you.props.exists(OKAWARU_DUEL_ORIG_MP_KEY))
+        set_mp(you.props[OKAWARU_DUEL_ORIG_MP_KEY].get_int());
+
+    if (kicked_out)
+        simple_god_message(" casts you out from the arena!", GOD_OKAWARU);
+    else
+        simple_god_message(" crowns you victorious!", GOD_OKAWARU);
+
     stop_delay(true);
     down_stairs(DNGN_EXIT_ARENA);
 }
