@@ -764,7 +764,7 @@ static const weapon_def Weapon_prop[] =
     { WPN_LONGBOW,           "longbow",            14,  0, 17,
         SK_RANGED_WEAPONS,   SIZE_MEDIUM, NUM_SIZE_LEVELS, MI_ARROW,
         DAMV_NON_MELEE, 2, 10, 65, RANGED_BRANDS },
-    { WPN_TRIPLE_CROSSBOW,   "triple crossbow",    23, -2, 12,
+    { WPN_TRIPLE_CROSSBOW,   "triple crossbow",    12, -2, 12,
         SK_RANGED_WEAPONS,   SIZE_SMALL, NUM_SIZE_LEVELS, MI_TRIPLE_BOLT,   
         DAMV_NON_MELEE, 0, 2, 100, RANGED_BRANDS },
 
@@ -2386,7 +2386,7 @@ reach_type weapon_reach(const item_def &item)
         return REACH_THREE;
     if (item_attack_skill(item) == SK_POLEARMS
         || is_unrandom_artefact(item, UNRAND_LOCHABER_AXE)
-        || is_unrandom_artefact(item, UNRAND_EXTENDO))
+        || is_unrandom_artefact(item, UNRAND_EXTENDOBLADE))
     {
         return REACH_TWO;
     }
