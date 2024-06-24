@@ -111,12 +111,6 @@ Bind Souls spell
 Bestows an enchantment on other nearby living creatures that causes them to
 rise as simulacra after being slain.
 %%%%
-Black Mark spell
-
-Empowers the caster and any nearby allies to debilitate their foes on a
-successful melee attack, allowing them to inflict draining, cause weakness, or
-deplete magical power.
-%%%%
 Blink Allies Away spell
 
 Blinks allies in sight of the caster away from a nearby enemy.
@@ -628,7 +622,8 @@ once more.
 Force Lance spell
 
 Fires a shaft of concussive force. If the impact deals damage, it may knock the
-target back.
+target back. If this knockback causes the target to hit a wall or another
+creature, both will take additional damage.
 %%%%
 Forceful Invitation spell
 
@@ -1509,6 +1504,13 @@ from any source grants immunity to binding.
 Only one set of sigils can be maintained at a time, and they will expire
 prematurely if they leave your sight.
 %%%%
+Sign of Ruin spell
+
+Inflicts the sign of ruin upon a group of enemies, condemning their bodies to
+inexorable decay and collapse. Whenever anything bearing this sign receives
+damage from a melee attack, they will suffer heavy draining and may additionally
+become either slow, weak, or blind.
+%%%%
 Silence spell
 
 Eliminates all sound near the caster. This makes reading scrolls, casting
@@ -1866,8 +1868,8 @@ Throw Klown Pie spell
 
 Throws a harmful yet strangely delicious pie that can inflict its victim with a
 number of irresistible and debilitating temporary effects. These include
-inducing vertigo, silence, fire vulnerability, stat drain, fragility, or an
-aversion to drinking potions.
+inducing vertigo, silence, fire vulnerability, stat drain, fragility, blindness,
+or an aversion to drinking potions.
 %%%%
 Thunderbolt spell
 
@@ -1996,7 +1998,8 @@ requiring line of sight but not line of fire.
 %%%%
 Wind Blast spell
 
-Causes a strong gust of wind, pushing away creatures and clouds in a cone.
+Causes a strong gust of wind, pushing away creatures and clouds in a cone. If
+this causes a creature to collide with something, it will take damage.
 %%%%
 Woodweal spell
 

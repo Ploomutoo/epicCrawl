@@ -16,6 +16,7 @@
 #include "artefact.h"
 #include "attitude-change.h"
 #include "cleansing-flame-source-type.h"
+#include "colour.h"
 #include "coordit.h"
 #include "corpse.h"
 #include "database.h"
@@ -290,7 +291,7 @@ static bool _zin_retribution()
     case 3:
     case 4: // recital
         simple_god_message(" recites the Axioms of Law to you!", god);
-        switch (random2(3))
+        switch (random2(4))
         {
         case 0:
             confuse_player(5 + random2(3));
@@ -300,6 +301,9 @@ static bool _zin_retribution()
             break;
         case 2:
             paralyse_player(_god_wrath_name(god));
+            return false;
+        case 3:
+            blind_player(20 + random2(15), ETC_SILVER);
             return false;
         }
         break;
@@ -497,6 +501,7 @@ static monster* _get_wrath_avatar(god_type god)
     avatar->attitude   = ATT_HOSTILE;
     avatar->flags      = MF_NO_REWARD | MF_JUST_SUMMONED | MF_SEEN
                          | MF_WAS_IN_VIEW | MF_HARD_RESET | MF_NAME_REPLACE;
+    avatar->god        = god;
     avatar->set_position(you.pos());
     avatar->set_new_monster_id();
     env.mgrid(you.pos()) = avatar->mindex();

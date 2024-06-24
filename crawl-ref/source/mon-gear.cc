@@ -912,7 +912,7 @@ int make_mons_weapon(monster_type type, int level, bool melee_only)
             }, { 1, 2, 5 },
         } },
         { MONS_DEMONSPAWN_CORRUPTER,   { DS_WEAPONS } },
-        { MONS_DEMONSPAWN_BLACK_SUN,   { DS_WEAPONS } },
+        { MONS_DEMONSPAWN_SOUL_SCHOLAR,   { DS_WEAPONS } },
         { MONS_DEMONSPAWN_BLOOD_SAINT, {
             { { WPN_DAGGER,             4 },
               { WPN_QUARTERSTAFF,       1 } },
@@ -1778,7 +1778,7 @@ static void _give_shield(monster* mon, int level)
         break;
 
     case MONS_DEMONSPAWN_CORRUPTER:
-    case MONS_DEMONSPAWN_BLACK_SUN:
+    case MONS_DEMONSPAWN_SOUL_SCHOLAR:
         if (one_chance_in(3))
         {
             armour_type shield_type = random_choose(ARM_BUCKLER, ARM_KITE_SHIELD);
@@ -2174,7 +2174,7 @@ int make_mons_armour(monster_type type, int level)
         break;
 
     case MONS_DEMONSPAWN_CORRUPTER:
-    case MONS_DEMONSPAWN_BLACK_SUN:
+    case MONS_DEMONSPAWN_SOUL_SCHOLAR:
         item.base_type = OBJ_ARMOUR;
         item.sub_type  = random_choose_weighted(2, ARM_LEATHER_ARMOUR,
                                                 3, ARM_RING_MAIL,
@@ -2450,7 +2450,7 @@ void give_apostle_equipment(monster* apostle)
                                                      RING_POISON_RESISTANCE,
                                                      RING_PROTECTION_FROM_COLD,
                                                      RING_EVASION,
-                                                     RING_LIFE_PROTECTION,
+                                                     RING_POSITIVE_ENERGY,
                                                      RING_PROTECTION);
 
                 make_item_for_monster(apostle, OBJ_JEWELLERY, rtype, 0,

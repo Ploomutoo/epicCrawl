@@ -1619,7 +1619,7 @@ static const struct spell_desc spelldata[] =
     0,
     5, 5,
     2,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_CHAOS_BREATH,
 },
 
 {
@@ -1925,7 +1925,7 @@ static const struct spell_desc spelldata[] =
     200,
     LOS_RADIUS, LOS_RADIUS,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_HOLY_FLAMES,
 },
 
 {
@@ -2112,7 +2112,7 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_DAZZLING_FLASH, "Dazzling Flash",
     spschool::conjuration | spschool::hexes,
-    spflag::area | spflag::no_ghost,
+    spflag::area,
     3,
     50,
     2, 3,
@@ -2444,7 +2444,7 @@ static const struct spell_desc spelldata[] =
     200,
     -1, -1,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_CHAIN_OF_CHAOS,
 },
 
 {
@@ -2459,14 +2459,14 @@ static const struct spell_desc spelldata[] =
 },
 
 {
-    SPELL_BLACK_MARK, "Black Mark",
+    SPELL_SIGN_OF_RUIN, "Sign of Ruin",
     spschool::necromancy,
     spflag::monster,
     7,
     200,
     -1, -1,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_ABILITY_KIKU_SIGN_OF_RUIN,
 },
 
 {
@@ -2727,7 +2727,7 @@ static const struct spell_desc spelldata[] =
     0,
     5, 5,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_SPIT_LAVA,
 },
 
 {
@@ -2751,7 +2751,7 @@ static const struct spell_desc spelldata[] =
     0,
     5, 5,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_FLAMING_CLOUD,
 },
 
 {
@@ -2807,7 +2807,7 @@ static const struct spell_desc spelldata[] =
     200,
     -1, -1,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_FUNERAL_DIRGE,
 },
 
 {
@@ -2829,7 +2829,7 @@ static const struct spell_desc spelldata[] =
     200,
     LOS_RADIUS, LOS_RADIUS,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_FLAY,
 },
 
 {
@@ -3039,7 +3039,7 @@ static const struct spell_desc spelldata[] =
     200,
     LOS_RADIUS, LOS_RADIUS,
     15,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_DOOM_HOWL,
 },
 
 {
@@ -3249,7 +3249,7 @@ static const struct spell_desc spelldata[] =
     200,
     6, 6,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_HARPOON_SHOT,
 },
 
 {
@@ -3526,7 +3526,7 @@ static const struct spell_desc spelldata[] =
     200,
     -1, -1,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_CONJURE_LIVING_SPELLS,
 },
 
 {
@@ -4068,7 +4068,7 @@ static const struct spell_desc spelldata[] =
 },
 
 {
-    SPELL_SHADOW_BIND, "Shadowbind",
+    SPELL_SHADOW_BIND, "Shadow Bind",
     spschool::translocation,
     spflag::target | spflag::monster | spflag::silent,
     5,

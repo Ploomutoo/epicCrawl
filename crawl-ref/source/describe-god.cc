@@ -143,11 +143,11 @@ static const char *divine_title[][8] =
     {"Honourless",         "Acolyte",               "Righteous",                "Unflinching",
         "Holy Warrior",       "Exorcist",              "Demon Slayer",             "Bringer of Light"},
 
-    // Kikubaaqudgha -- scholarly death.
-    {"Tormented",          "Purveyor of Pain",      "Scholar of Death",         "Merchant of Misery",
-        "Artisan of Death",   "Dealer of Despair",     "Black Sun",                "Lord of Darkness"},
+    // Kikubaaqudgha -- death scholar theme.
+    {"Tormented",          "Purveyor of Pain",       "Pupil of Sorrows",        "Merchant of Misery",
+     "Scholar of Souls",   "Artisan of Death",       "Demagogue of Despair",    "Lord of Darkness"},
 
-    // Yredelemnul
+    // Yredelemnul -- ferverent death knight theme.
     {"Traitor",            "Torchbearer",            "Despoiler",               "Black Crusader",
      "Fallen @Genus@",     "Harbinger of Doom",      "Inexorable Tide",         "Bringer of Blasphemy"},
 
@@ -167,7 +167,7 @@ static const char *divine_title[][8] =
     {"Orderly",            "Spawn of Chaos",        "Disciple of Destruction",  "Fanfare of Bloodshed",
         "Fiendish",           "Demolition @Genus@",    "Pandemonic",               "Champion of Chaos"},
 
-    // Sif Muna -- scholarly theme.
+    // Sif Muna -- generalist scholarly theme.
     {"Ignorant",           "Disciple",              "Student",                  "Adept",
         "Scribe",             "Scholar",               "Sage",                     "Genius of the Arcane"},
 
@@ -812,7 +812,7 @@ static formatted_string _describe_god_powers(god_type which_god)
             desc.textcolour(DARKGREY);
         else
             desc.textcolour(god_colour(which_god));
-        desc.cprintf("You radiate a%s righteous aura, and others within it are "
+        desc.cprintf("You radiate a%s righteous aura, and foes within it are "
                 "easier to hit.\n",
                 halo_size > 5 ? " large" :
                 halo_size > 3 ? "" :

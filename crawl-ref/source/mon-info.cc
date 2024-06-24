@@ -97,7 +97,7 @@ static map<enchant_type, monster_info_flags> trivial_ench_mb_mappings = {
     { ENCH_POISON_VULN,     MB_POISON_VULN },
     { ENCH_AGILE,           MB_AGILE },
     { ENCH_FROZEN,          MB_FROZEN },
-    { ENCH_BLACK_MARK,      MB_BLACK_MARK },
+    { ENCH_SIGN_OF_RUIN,    MB_SIGN_OF_RUIN },
     { ENCH_SAP_MAGIC,       MB_SAP_MAGIC },
     { ENCH_CORROSION,       MB_CORROSION },
     { ENCH_REPEL_MISSILES,  MB_REPEL_MSL },
@@ -556,6 +556,7 @@ monster_info::monster_info(const monster* m, int milev)
     sleepwalking = m->sleepwalking();
     backlit = m->backlit(false);
     umbraed = m->umbra();
+    shield_bonus = m->shield_bonus();
 
     // Not an MB_ because it's rare.
     if (m->cloud_immune())
@@ -890,13 +891,13 @@ int monster_info::regen_rate(int scale) const
  */
 int monster_info::lighting_modifiers() const
 {
+    int mod = 0;
     if (backlit)
-        return BACKLIGHT_TO_HIT_BONUS;
+        mod += BACKLIGHT_TO_HIT_BONUS;
     if (umbraed && !you.nightvision())
-        return UMBRA_TO_HIT_MALUS;
-    return 0;
+        mod += UMBRA_TO_HIT_MALUS;
+    return mod;
 }
-
 
 /**
  * Name the given mutant beast tier.

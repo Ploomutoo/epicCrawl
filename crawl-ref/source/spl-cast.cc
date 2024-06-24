@@ -1504,10 +1504,14 @@ static int _to_hit_pct(const monster_info& mi, int acc)
         }
     }
 
+    int base_chance = 0;
     if (iters <= 0) // probably low monster ev?
-        return 100;
+        base_chance = 100;
+    else
+        base_chance = hits * 100 / iters;
 
-    return hits * 100 / iters;
+    base_chance = base_chance * (100 - player_blind_miss_chance(you.pos().distance_from(mi.pos))) / 100;
+    return base_chance;
 }
 
 static vector<string> _desc_hit_chance(const monster_info& mi, int acc)
@@ -1517,7 +1521,11 @@ static vector<string> _desc_hit_chance(const monster_info& mi, int acc)
     const int hit_pct = _to_hit_pct(mi, acc);
     if (hit_pct == -1)
         return vector<string>{};
-    return vector<string>{make_stringf("%d%% to hit", hit_pct)};
+
+    ostringstream result;
+    describe_hit_chance(hit_pct, result, nullptr, false,
+                        you.pos().distance_from(mi.pos));
+    return vector<string>{result.str()};
 }
 
 vector<string> desc_beam_hit_chance(const monster_info& mi, targeter* hitfunc)
@@ -1535,7 +1543,11 @@ static vector<string> _desc_plasma_hit_chance(const monster_info& mi, int powc)
     const int hit_pct = _to_hit_pct(mi, beam.hit);
     if (hit_pct == -1)
         return vector<string>{};
-    return vector<string>{make_stringf("2x%d%% to hit", hit_pct)};
+
+    ostringstream result;
+    describe_hit_chance(hit_pct, result, nullptr, false,
+                        you.pos().distance_from(mi.pos));
+    return vector<string>{make_stringf("2x%s", result.str().c_str())};
 }
 
 static vector<string> _desc_intoxicate_chance(const monster_info& mi,
@@ -1641,8 +1653,14 @@ static vector<string> _desc_electric_charge_hit_chance(const monster_info& mi)
 {
     melee_attack attk(&you, nullptr);
     attk.charge_pow = 1; // to give the accuracy bonus
-    const int acc_pct = to_hit_pct(mi, attk, true);
-    return vector<string>{make_stringf("%d%% to hit", acc_pct)};
+
+    vector<string> desc;
+    ostringstream result;
+    // Pass in our own attack and specify distance 1 so we get correct to-hit
+    // for where the attack *will* be from
+    describe_to_hit(mi, result, nullptr, false, &attk, 1);
+    desc.emplace_back(result.str());
+    return desc;
 }
 
 static vector<string> _desc_insubstantial(const monster_info& mi, string desc)
@@ -2316,7 +2334,7 @@ static spret _do_cast(spell_type spell, int powc, const dist& spd,
         return cast_thunderbolt(&you, powc, target, fail);
 
     case SPELL_DAZZLING_FLASH:
-        return cast_dazzling_flash(powc, fail);
+        return cast_dazzling_flash(&you, powc, fail);
 
     case SPELL_CHAIN_OF_CHAOS:
         return cast_chain_spell(SPELL_CHAIN_OF_CHAOS, powc, &you, fail);
@@ -2916,13 +2934,10 @@ string spell_damage_string(spell_type spell, bool evoked, int pow, bool terse)
         case SPELL_AIRSTRIKE:
             return describe_airstrike_dam(base_airstrike_damage(pow));
         case SPELL_PILEDRIVER:
-            return make_stringf("2d(%d-%d)",
-                        collision_damage(piledriver_collision_power(pow, 1), false).size,
-                        collision_damage(piledriver_collision_power(pow, 4), false).size);
+            return make_stringf("(3-9)d%d", piledriver_collision_damage(pow, 1, false).size);
         case SPELL_GELLS_GAVOTTE:
-            return make_stringf("2d(%d-%d)",
-                        collision_damage(gavotte_impact_power(pow, 1), false).size,
-                        collision_damage(gavotte_impact_power(pow, 4), false).size);
+            return make_stringf("2d(%d-%d)", gavotte_impact_damage(pow, 1, false).size,
+                                             gavotte_impact_damage(pow, 4, false).size);
 
         case SPELL_FULSOME_FUSILLADE:
             return make_stringf("(3-5)d%d", _spell_damage(spell, pow).size);
@@ -2960,7 +2975,7 @@ string spell_damage_string(spell_type spell, bool evoked, int pow, bool terse)
         else
             return make_stringf("%s (+%s)",
                 dam_str.c_str(),
-                describe_collision_dam(collision_damage(pow, false)).c_str());
+                describe_collision_dam(default_collision_damage(pow, false)).c_str());
     }
 
     if (spell == SPELL_LRD
