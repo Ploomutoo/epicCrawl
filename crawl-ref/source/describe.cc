@@ -71,6 +71,7 @@
 #include "skills.h"
 #include "species.h"
 #include "spl-cast.h"
+#include "spl-damage.h"
 #include "spl-book.h"
 #include "spl-goditem.h"
 #include "spl-miscast.h"
@@ -1078,7 +1079,7 @@ static string _describe_demon(const string& name, bool flying, colour_t colour)
         " It moves in a series of hideous convulsions.",
         " It moves with an unearthly grace.",
         " It leaves a glistening oily trail.",
-        " It shimmers before your eyes.",
+        " It shimmers before you.",
         " It is surrounded by a brilliant glow.",
         " It radiates an aura of extreme power.",
         " It seems utterly heartbroken.",
@@ -1852,7 +1853,7 @@ static string _equip_type_name(const item_def &item)
 
 static string _equipment_switchto_string(const item_def &item)
 {
-    if (item.base_type == OBJ_WEAPONS)
+    if (item.base_type == OBJ_WEAPONS || item.base_type == OBJ_STAVES)
         return "wielding";
     // Not always the same verb used elsewhere, but "switch putting on" sounds weird
     else
@@ -2938,6 +2939,9 @@ string get_item_description(const item_def &item,
             string art_desc = _artefact_descrip(item);
             if (!art_desc.empty())
                 description << "\n\n" + art_desc;
+
+            if (verbose && crawl_state.need_save && you.could_wield(item, true, true))
+                description << _equipment_ac_ev_sh_change(item);
         }
         description << "\n\nIt falls into the 'Staves' category. ";
         description << _handedness_string(item);
@@ -4514,6 +4518,14 @@ static string _player_spell_desc(spell_type spell)
                     << "\n";
     }
 
+    if (spell == SPELL_GRAVE_CLAW && you.has_spell(SPELL_GRAVE_CLAW))
+    {
+        description << "\nYou have harvested enough death to cast this spell "
+                    << you.props[GRAVE_CLAW_CHARGES_KEY].get_int() << " time"
+                    << (you.props[GRAVE_CLAW_CHARGES_KEY].get_int() == 1 ? "" : "s")
+                    << ". (Maximum of " << GRAVE_CLAW_MAX_CHARGES << ".)";
+    }
+
     return description.str();
 }
 
@@ -4586,7 +4598,7 @@ static void _get_spell_description(const spell_type spell,
         }
 
         const int hd = mon_owner->spell_hd();
-        const int range = mons_spell_range_for_hd(spell, hd);
+        const int range = mons_spell_range_for_hd(spell, hd, mon_owner->is(MB_PLAYER_SERVITOR));
         description += "\nRange : ";
         if (spell == SPELL_CALL_DOWN_LIGHTNING)
             description += stringize_glyph(mons_char(mon_owner->type)) + "..---->";
@@ -5513,9 +5525,8 @@ static string _monster_attacks_description(const monster_info& mi)
     for (int i = 0; i < MAX_NUM_ATTACKS; ++i)
     {
         const mon_attack_info info = _atk_info(mi, i);
-
-        if (!di.attack_counts[info]) // we're done
-            break;
+        if (!di.attack_counts[info])
+            continue;
 
         _attacks_table_row(mi, di, info, info.weapon);
 

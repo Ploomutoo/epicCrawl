@@ -1276,7 +1276,6 @@ targeter_thunderbolt::targeter_thunderbolt(const actor *act, int r,
     prev = _prev;
     ASSERT(prev != origin);
     aim = prev.origin() ? origin : prev;
-    ASSERT_RANGE(r, 1 + 1, you.current_vision + 1);
     range = r;
 }
 
@@ -2077,8 +2076,10 @@ bool targeter_bind_soul::valid_aim(coord_def a)
 }
 
 targeter_explosive_beam::targeter_explosive_beam(const actor *act, int pow, int r,
+                                                 bool _explode_on_monsters,
                                                  bool _always_explode) :
                           targeter_beam(act, r, ZAP_COMBUSTION_BREATH, pow, 0, 0),
+                          explode_on_monsters(_explode_on_monsters),
                           always_explode(_always_explode)
 {
 }
@@ -2096,7 +2097,7 @@ bool targeter_explosive_beam::set_aim(coord_def a)
             break;
 
         tempbeam.target = c;
-        if (always_explode || anyone_there(c))
+        if (always_explode || (explode_on_monsters && anyone_there(c)))
         {
             tempbeam.use_target_as_pos = true;
             exp_map.init(INT_MAX);
@@ -2123,7 +2124,7 @@ aff_type targeter_explosive_beam::is_affected(coord_def loc)
     for (auto c : path_taken)
     {
         if ((always_explode
-             || (anyone_there(c)
+             || (explode_on_monsters && anyone_there(c)
                  && !beam.ignores_monster(monster_at(c))))
             && (loc - c).rdist() <= 9)
         {
@@ -2399,11 +2400,34 @@ bool targeter_marionette::valid_aim(coord_def a)
     if (mons->is_summoned())
         return notify_fail("A summoned shadow is too ephemeral to take hold of.");
 
-    for (const mon_spell_slot slot : mons->spells)
-    {
-        if (valid_marionette_spell(slot.spell))
-            return true;
-    }
+    if (mons->props[DITHMENOS_MARIONETTE_SPELLS_KEY].get_int() <= 0)
+        return notify_fail("They have no useful spells to cast right now.");
 
-    return false;
+    return true;
+}
+
+targeter_putrefaction::targeter_putrefaction(int r) :
+    targeter_smite(&you, r, 0, 0, false, nullptr)
+{
+}
+
+bool targeter_putrefaction::valid_aim(coord_def a)
+{
+    if (!targeter_smite::valid_aim(a))
+        return false;
+
+    const monster* mon = monster_at(a);
+    if (!mon || !you.can_see(*mon))
+        return false;
+
+    if (mons_aligned(&you, mon))
+        return notify_fail("You cannot putrefy a friendly monster.");
+
+    if (!(mon->holiness() & MH_NATURAL))
+        return notify_fail("You can only putrefy natural creatures.");
+
+    if (mons_get_damage_level(*mon) < MDAM_HEAVILY_DAMAGED)
+        return notify_fail("This isn't wounded badly enough.");
+
+    return true;
 }

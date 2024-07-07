@@ -274,12 +274,6 @@ struct ability_def
         if (!piety_cost)
             return 0;
 
-        // Report a more accurate average cost to the UI, since actual payment
-        // is special-cased and most of it happens after confirming that the
-        // marionette acted.
-        if (ability == ABIL_DITHMENOS_APHOTIC_MARIONETTE)
-            return 4;
-
         return piety_cost.base + piety_cost.add/2;
     }
 
@@ -588,7 +582,7 @@ static vector<ability_def> &_get_ability_list()
         { ABIL_CHEIBRIADOS_SLOUCH, "Slouch",
             5, 0, 8, -1, {fail_basis::invo, 60, 4, 25}, abflag::none },
         { ABIL_CHEIBRIADOS_TIME_STEP, "Step From Time",
-            10, 0, 10, -1, {fail_basis::invo, 80, 4, 25}, abflag::none },
+            10, 0, 12, -1, {fail_basis::invo, 80, 4, 25}, abflag::none },
 
         // Ashenzari
         { ABIL_ASHENZARI_CURSE, "Curse Item",
@@ -600,7 +594,7 @@ static vector<ability_def> &_get_ability_list()
         { ABIL_DITHMENOS_SHADOWSLIP, "Shadowslip",
             4, 60, 2, -1, {fail_basis::invo, 50, 6, 30}, abflag::instant },
         { ABIL_DITHMENOS_APHOTIC_MARIONETTE, "Aphotic Marionette",
-            5, 0, generic_cost::fixed(1), -1, {fail_basis::invo, 60, 4, 25}, abflag::target },
+            5, 0, 4, -1, {fail_basis::invo, 60, 4, 25}, abflag::target },
         { ABIL_DITHMENOS_PRIMORDIAL_NIGHTFALL, "Primordial Nightfall",
             8, 0, 12, -1, {fail_basis::invo, 80, 4, 25}, abflag::none },
 
@@ -2089,7 +2083,7 @@ static bool _check_ability_possible(const ability_def& abil, bool quiet = false)
         if (draconian_breath_uses_available() <= 0)
         {
             if (!quiet)
-                mpr("You have exhausted your breath weapon. Dive deeper!");
+                mpr("You have exhausted your breath weapon. Slay more foes!");
             return false;
         }
         return true;
@@ -2483,12 +2477,7 @@ static vector<string> _desc_marionette_spells(const monster_info& mi)
 
     vector<mon_spell_slot> spells = get_unique_spells(mi);
     int num_spells = spells.size();
-    int num_usable_spells = 0;
-    for (mon_spell_slot spell : spells)
-    {
-        if (valid_marionette_spell(spell.spell))
-            ++num_usable_spells;
-    }
+    int num_usable_spells = monster_at(mi.pos)->props[DITHMENOS_MARIONETTE_SPELLS_KEY].get_int();
 
     return vector<string>{make_stringf("%d/%d spells usable", num_usable_spells, num_spells)};
 }
@@ -2695,7 +2684,13 @@ bool activate_talent(const talent& tal, dist *target)
         else if (abil.ability == ABIL_CHEIBRIADOS_SLOUCH)
             args.get_desc_func = bind(_desc_slouch_damage, placeholders::_1);
         else if (abil.ability == ABIL_DITHMENOS_APHOTIC_MARIONETTE)
+        {
             args.get_desc_func = bind(_desc_marionette_spells, placeholders::_1);
+            // Calculate and cache what spells are usable by each target in
+            // screen so that this doesn't get recalculated numerous times as
+            // the player interacts with the targeter.
+            dithmenos_cache_marionette_viability();
+        }
 
         if (abil.failure.base_chance)
         {
@@ -3454,6 +3449,7 @@ static spret _do_ability(const ability_def& abil, bool fail, dist *target,
 
     case ABIL_SIF_MUNA_CHANNEL_ENERGY:
         fail_check();
+        mpr("You channel some magical energy.");
         you.increase_duration(DUR_CHANNEL_ENERGY,
             4 + random2avg(you.skill_rdiv(SK_INVOCATIONS, 2, 3), 2), 100);
         break;
@@ -3650,8 +3646,7 @@ static spret _do_ability(const ability_def& abil, bool fail, dist *target,
 
     case ABIL_CHEIBRIADOS_TIME_STEP:
         fail_check();
-        cheibriados_time_step(max(1, you.skill(SK_INVOCATIONS, 10)
-                                     * you.piety / 100));
+        cheibriados_time_step(you.skill(SK_INVOCATIONS, 10));
         break;
 
     case ABIL_CHEIBRIADOS_TIME_BEND:

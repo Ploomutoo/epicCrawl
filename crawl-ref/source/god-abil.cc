@@ -1168,9 +1168,10 @@ bool zin_recite_to_single_monster(const coord_def& where)
                 if (mon->alive())
                 {
                     simple_monster_message(*mon,
-                      (damage < 25) ? "'s chaotic flesh sizzles and spatters!" :
-                      (damage < 50) ? "'s chaotic flesh bubbles and boils."
-                                    : "'s chaotic flesh runs like molten wax.");
+                      (damage < 25) ? " chaotic flesh sizzles and spatters!" :
+                      (damage < 50) ? " chaotic flesh bubbles and boils."
+                                    : " chaotic flesh runs like molten wax.",
+                      true);
 
                     print_wounds(*mon);
                     behaviour_event(mon, ME_WHACK, &you);
@@ -1322,20 +1323,17 @@ void tso_divine_shield()
     else
         mpr("Your divine shield is renewed.");
 
-    you.set_duration(DUR_DIVINE_SHIELD, max(you.duration[DUR_DIVINE_SHIELD],
-                                            random_range(20, 35)));
-
-    // Size of SH bonus.
-    you.attribute[ATTR_DIVINE_SHIELD] =
-        3 + you.skill_rdiv(SK_INVOCATIONS, 2, 5);
+    const int charges = 3 + you.skill_rdiv(SK_INVOCATIONS, 2, 5);
+    you.duration[DUR_DIVINE_SHIELD] = max(you.duration[DUR_DIVINE_SHIELD], charges);
 }
 
-void tso_remove_divine_shield()
+void tso_expend_divine_shield_charge()
 {
-    mprf(MSGCH_DURATION, "Your divine shield fades away.");
-    you.duration[DUR_DIVINE_SHIELD] = 0;
-    you.attribute[ATTR_DIVINE_SHIELD] = 0;
-    you.redraw_armour_class = true;
+    if (you.duration[DUR_DIVINE_SHIELD] && --you.duration[DUR_DIVINE_SHIELD] <= 0)
+    {
+        mprf(MSGCH_DURATION, "Your divine shield fades away.");
+        you.duration[DUR_DIVINE_SHIELD] = 0;
+    }
 }
 
 void elyvilon_purification()
@@ -1878,7 +1876,7 @@ void cheibriados_time_bend(int pow)
             simple_god_message(
                 make_stringf(" rebukes %s.",
                              mon->name(DESC_THE).c_str()).c_str(),
-                             GOD_CHEIBRIADOS);
+                             false, GOD_CHEIBRIADOS);
             do_slow_monster(*mon, &you);
         }
     }
@@ -1979,6 +1977,7 @@ static void _run_time_step()
         run_environment_effects();
         handle_monsters();
         manage_clouds();
+        clear_monster_flags();
     }
     while (--you.duration[DUR_TIME_STEP] > 0);
 }
@@ -2015,18 +2014,68 @@ void cheibriados_temporal_distortion()
     mpr("You warp the flow of time around you!");
 }
 
-void cheibriados_time_step(int pow) // pow is the number of turns to skip
+static coord_def _find_displace_space(const monster* mon, coord_def start_pos)
+{
+    coord_def pos = start_pos + coord_def(random_range(-30, 30), random_range(-30, 30));
+
+    int attempts = 0;
+    while ((!in_bounds(pos) || !monster_habitable_grid(mon, env.grid(pos))
+           || you.see_cell_no_trans(pos) || actor_at(pos)) && attempts < 100)
+    {
+        pos = start_pos + coord_def(random_range(-30, 30), random_range(-30, 30));
+        ++attempts;
+    }
+
+    if (attempts < 100)
+        return pos;
+    else
+        return coord_def();
+}
+
+// Move a monster to somewhere in the wider vacinity, not in the player's LoS.
+static void _cheibriados_displace_monster(monster* mon)
+{
+    int attempts = 0;
+    while (attempts < 10)
+    {
+        // Find a random near-ish spot the monster could be
+        coord_def pos = _find_displace_space(mon, mon->pos());
+
+        // If we've somehow failed to find a place to displace this to.
+        if (pos.origin())
+            return;
+
+        // Test that they could actually have walked there from where they are.
+        monster_pathfind mp;
+        mp.set_range(50);   // Don't search further than this
+        if (mp.init_pathfind(pos, mon->pos(), false))
+        {
+            coord_def old_pos = mon->pos();
+            mon->move_to_pos(pos, true);
+            mon->apply_location_effects(old_pos);
+            break;
+        }
+        else
+            ++attempts;
+    }
+}
+
+void cheibriados_time_step(int pow)
 {
     mpr("You step out of the flow of time.");
     flash_view(UA_PLAYER, LIGHTBLUE);
-    you.duration[DUR_TIME_STEP] = pow;
+
+    // Simulate 100 turns of 'real' time passing (so poison and other timed
+    // effects will work properly). This is more than adequate for most purposes
+    // and monster wandering behavior doesn't improve tremendously beyond this.
+    you.duration[DUR_TIME_STEP] = 100;
     {
         player_vanishes absent(true);
 
         you.time_taken = 10;
         _run_time_step();
         // Update corpses, etc.
-        update_level(pow * 10);
+        update_level(1000);
 
 #ifndef USE_TILE_LOCAL
         scaled_delay(1000);
@@ -2034,6 +2083,49 @@ void cheibriados_time_step(int pow) // pow is the number of turns to skip
 
     }
     _cleanup_time_steps();
+
+    // Now do some more forceful movement on things nearby to 'simulate' more
+    // time passing in a manner that is more useful than time simply passing
+    // (due to issues/quirks with Crawl wandering behavior getting stuck in lots
+    // of terrain)
+    //
+    // We check slightly beyond LoS range here so that we can catch things
+    // immediately around corners who might show up on our very next move anyway.
+    vector<monster*> mons;
+    for (distance_iterator di(you.pos(), false, false, 9); di; ++di)
+    {
+        monster* mon = monster_at(*di);
+        if (mon && !mon->asleep() && !mon->is_stationary() && !mon->wont_attack())
+            mons.push_back(mon);
+    }
+
+    // Move between 50-85% of valid nearby monsters elsewhere, but at least 1 (if possible)
+    int num_to_move = min((int)mons.size(), max(1, random_range(mons.size() * 5 / 10,
+                                                                mons.size() * 17 / 20)));
+    shuffle_array(mons);
+    for (int i = 0; i < num_to_move; ++i)
+        _cheibriados_displace_monster(mons[i]);
+
+    // Now have a power-based chance to put all awake monsters to sleep.
+    for (monster_iterator mi; mi; ++mi)
+    {
+        if (!mi->asleep() && !mi->is_stationary() && !mi->wont_attack()
+            && x_chance_in_y(pow, 450))
+        {
+            mi->put_to_sleep(nullptr);
+        }
+    }
+
+    // Finally, ensure we get first action against any enemies in sight.
+    for (monster_near_iterator mi(you.pos(), LOS_NO_TRANS); mi; ++mi)
+    {
+        mi->speed_increment = 60;
+        mi->foe_memory = 0;
+        mi->foe = MHITNOT;
+
+        if (!mi->asleep())
+            mi->behaviour = BEH_WANDER;
+    }
 
     flash_view(UA_PLAYER, 0);
     mpr("You return to the normal time flow.");
@@ -2925,60 +3017,118 @@ bool valid_marionette_spell(spell_type spell)
     }
 }
 
-static bool _marionette_spell_attempt(monster& caster, spell_type spell, vector<monster*>& targs)
+static bool _marionette_spell_attempt(monster& caster, spell_type spell,
+                                      vector<monster*>& targs,
+                                      bool check_only = false)
 {
     shuffle_array(targs);
 
     for (monster* targ : targs)
     {
-        if (targ == &caster || !targ->alive())
+        if (!targ->alive())
             continue;
 
         caster.foe = targ->mindex();
         caster.target = targ->pos();
-        if (try_mons_cast(caster, spell))
+        if (check_only && is_mons_cast_possible(caster, spell))
+            return true;
+        else if (!check_only && try_mons_cast(caster, spell))
             return true;
     }
 
     return false;
 }
 
-// Checks whether there is at least one valid target to use marionette on, and
-// one valid remaining monster for them to use as a foe, if you did so.
-string dithmenos_cannot_marionette_reason()
+static vector<monster*> _get_marionette_targets()
 {
-    bool found_marionette = false;
-    int audience_size = 0;
+    vector<monster*> valid_targs;
+    for (monster_near_iterator mi(you.pos(), LOS_NO_TRANS); mi; ++mi)
+    {
+        if (you.can_see(**mi) && !mi->wont_attack() && !mons_is_firewood(**mi))
+            valid_targs.push_back(*mi);
+    }
+
+    return valid_targs;
+}
+
+// Returns how many different spells it is currently possible for a given monster
+// to cast, if Marionette was used on them now.
+//
+// (This is a fairly heavy-weight function, so it is called only once when the
+// player starts to aim the ability, and then cached for each possible target.)
+static int _dithmenos_marionette_spells_possible(monster& target)
+{
+    vector<spell_type> mon_spells;
+    for (const mon_spell_slot slot : target.spells)
+    {
+        if (valid_marionette_spell(slot.spell))
+            mon_spells.push_back(slot.spell);
+    }
+
+    if (mon_spells.empty())
+        return 0;
+
+    vector<monster*> valid_targs = _get_marionette_targets();
+
+    // Save target state, so we can restore after we test.
+    const int old_foe = target.foe;
+    const coord_def old_target = target.target;
+    const mon_attitude_type old_attitude = target.attitude;
+    target.attitude = ATT_MARIONETTE;
+
+    int valid_count = 0;
+    for (spell_type spell : mon_spells)
+        if (_marionette_spell_attempt(target, spell, valid_targs, true))
+            ++valid_count;
+
+    // Restore state, like nothing even happened
+    target.foe = old_foe;
+    target.target = old_target;
+    target.attitude = old_attitude;
+
+    return valid_count;
+}
+
+void dithmenos_cache_marionette_viability()
+{
     for (monster_near_iterator mi(you.pos(), LOS_NO_TRANS); mi; ++mi)
     {
         if (!you.can_see(**mi) || mi->wont_attack() || mons_is_firewood(**mi))
             continue;
 
-        if (!found_marionette && !mi->has_ench(ENCH_SHADOWLESS))
+        if (!mi->has_ench(ENCH_SHADOWLESS))
         {
-            for (mon_spell_slot spell : mi->spells)
+            mi->props[DITHMENOS_MARIONETTE_SPELLS_KEY].get_int() =
+                _dithmenos_marionette_spells_possible(**mi);
+        }
+    }
+}
+
+// Checks whether there is at least one valid target to use marionette on who
+// knows at least one spell that could be used that way.
+//
+// Note: this doesn't test whether any of those spells are viable at this
+// particular moment, since that can be a significantly more expensive operation
+// when lots of monsters are around (and this is called potentially multiple
+// times between every single player action).
+string dithmenos_cannot_marionette_reason()
+{
+    for (monster_near_iterator mi(you.pos(), LOS_NO_TRANS); mi; ++mi)
+    {
+        if (!you.can_see(**mi) || mi->wont_attack() || mons_is_firewood(**mi))
+            continue;
+
+        if (!mi->has_ench(ENCH_SHADOWLESS))
+        {
+            for (const mon_spell_slot slot : mi->spells)
             {
-                if (valid_marionette_spell(spell.spell))
-                {
-                    found_marionette = true;
-                    break;
-                }
+                if (valid_marionette_spell(slot.spell))
+                    return "";
             }
         }
-
-        ++audience_size;
-        if (audience_size >= 2 && found_marionette)
-            return "";
     }
 
-    if (!found_marionette)
-        return "There isn't a suitable marionette in sight.";
-
-    if (audience_size < 2)
-        return "A shadow play requires a proper audience as well as an actor.";
-
-    // Should be unreachable
-    return "A shadow play requires a strange bug not to happen!";
+    return "There isn't a suitable marionette in sight.";
 }
 
 spret dithmenos_marionette(monster& target, bool fail)
@@ -3001,15 +3151,7 @@ spret dithmenos_marionette(monster& target, bool fail)
 
     behaviour_event(&target, ME_WHACK, &you);
 
-    vector<monster*> valid_targs;
-    for (monster_near_iterator mi(you.pos(), LOS_NO_TRANS); mi; ++mi)
-    {
-        if (you.can_see(**mi) && !mi->wont_attack() && !mons_is_firewood(**mi)
-            && *mi != &target)
-        {
-            valid_targs.push_back(*mi);
-        }
-    }
+    vector<monster*> valid_targs = _get_marionette_targets();
 
     int num_casts = 3 + max(0, you.skill_rdiv(SK_INVOCATIONS, 1, 6) - 2);
     int num_successful_casts = 0;
@@ -3057,21 +3199,6 @@ spret dithmenos_marionette(monster& target, bool fail)
         target.speed_increment = old_energy;
         target.attitude = ATT_HOSTILE;
     }
-
-    // Charge piety based on how many spells were actually performed.
-    // No additional cost if nothing happened, reduced cost for 1, standard
-    // cost for anything greater than 1.
-    if (!num_successful_casts)
-    {
-        mpr("...but nothing seems to happen.");
-        return spret::success;
-    }
-
-    // 1 piety was paid up front, so imitates a standard 3 piety ability.
-    int piety_cost = random_range(2, 5);
-    if (num_successful_casts == 1)
-        piety_cost = div_rand_round(piety_cost, 2);
-    lose_piety(piety_cost);
 
     if (!target.alive())
     {
@@ -4019,8 +4146,9 @@ spret qazlal_elemental_force(bool fail)
     fail_check();
 
     shuffle_array(targets);
-    const int count = max(1, min((int)targets.size(),
-                                 random2avg(you.skill(SK_INVOCATIONS), 2)));
+    const int count = min((int)targets.size(),
+                          random_range(you.skill_rdiv(SK_INVOCATIONS, 1, 3),
+                                       1 + you.skill_rdiv(SK_INVOCATIONS, 1, 2)));
     mgen_data mg;
     mg.summon_type = MON_SUMM_AID;
     mg.abjuration_duration = 1;
@@ -4254,6 +4382,11 @@ static bool _sac_mut_maybe_valid(mutation_type mut)
 
     // No potion heal doesn't affect mummies since they can't quaff potions
     if (mut == MUT_NO_POTION_HEAL && you.has_mutation(MUT_NO_DRINK))
+        return false;
+
+    // Don't offer to sacrifice an eye for players with no eyes (not counting
+    // forms or mutations).
+    if (mut == MUT_MISSING_EYE && !player_has_eyes(false, false))
         return false;
 
     return true;
@@ -6650,10 +6783,9 @@ void okawaru_end_duel(bool kicked_out)
     if (you.props.exists(OKAWARU_DUEL_ORIG_MP_KEY))
         set_mp(you.props[OKAWARU_DUEL_ORIG_MP_KEY].get_int());
 
-    if (kicked_out)
-        simple_god_message(" casts you out from the arena!", GOD_OKAWARU);
-    else
-        simple_god_message(" crowns you victorious!", GOD_OKAWARU);
+    simple_god_message(kicked_out ? " casts you out from the arena!"
+                                  : " crowns you victorious!",
+                       false, GOD_OKAWARU);
 
     stop_delay(true);
     down_stairs(DNGN_EXIT_ARENA);

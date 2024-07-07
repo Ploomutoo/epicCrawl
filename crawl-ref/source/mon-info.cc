@@ -450,6 +450,8 @@ monster_info::monster_info(const monster* m, int milev)
         && (!m->has_ench(ENCH_PHANTOM_MIRROR) || m->friendly()))
     {
         mb.set(MB_SUMMONED);
+        if (m->type == MONS_SPELLFORGED_SERVITOR && m->summoner == MID_PLAYER)
+            mb.set(MB_PLAYER_SERVITOR);
     }
     else if (m->is_perm_summoned() && !mons_is_player_shadow(*m))
         mb.set(MB_PERM_SUMMON);
@@ -2057,4 +2059,17 @@ bool monster_info::pronoun_plurality() const
         return props[MON_GENDER_KEY].get_int() == GENDER_NEUTRAL;
 
     return mons_class_gender(type) == GENDER_NEUTRAL;
+}
+
+string description_for_ench(enchant_type type)
+{
+    const monster_info_flags *flag = map_find(trivial_ench_mb_mappings, type);
+    if (!flag)
+        return "";
+
+    for (auto& name : monster_info_flag_names)
+        if (name.flag == *flag)
+            return name.long_singular;
+
+    return "";
 }

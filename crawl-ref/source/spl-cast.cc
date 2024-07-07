@@ -1283,9 +1283,10 @@ unique_ptr<targeter> find_spell_targeter(spell_type spell, int pow, int range)
                                             silence_min_range(pow));
     case SPELL_MERCURY_VAPOURS:
         return make_unique<targeter_smite>(&you, range, 0, 1);
+    case SPELL_GRAVE_CLAW:
+        return make_unique<targeter_smite>(&you, range);
 
     // at player's position only but not a selfench
-    case SPELL_ROT:
     case SPELL_SUBLIMATION_OF_BLOOD:
     case SPELL_BORGNJORS_REVIVIFICATION:
     case SPELL_BLASTMOTE:
@@ -1388,7 +1389,7 @@ unique_ptr<targeter> find_spell_targeter(spell_type spell, int pow, int range)
         return make_unique<targeter_explosive_beam>(&you, pow, range);
     case SPELL_NOXIOUS_BREATH:
         // Note the threshold where it becomes possible to make clouds off the main beam
-        return make_unique<targeter_explosive_beam>(&you, pow, range, pow > 10);
+        return make_unique<targeter_explosive_beam>(&you, pow, range, false, pow > 10);
     case SPELL_GALVANIC_BREATH:
         return make_unique<targeter_galvanic>(&you, pow, range);
     case SPELL_NULLIFYING_BREATH:
@@ -1402,6 +1403,9 @@ unique_ptr<targeter> find_spell_targeter(spell_type spell, int pow, int range)
 
     case SPELL_HELLFIRE_MORTAR:
         return make_unique<targeter_mortar>(&you, range);
+
+    case SPELL_PUTREFACTION:
+        return make_unique<targeter_putrefaction>(range);
 
     default:
         break;
@@ -2037,6 +2041,13 @@ spret your_spells(spell_type spell, int powc, bool actual_spell,
                 _spell_failure_rate_description(spell).c_str());
         }
 
+        if (spell == SPELL_GRAVE_CLAW)
+        {
+            title += make_stringf("<lightgrey> (%d/%d uses available)</lightgrey>",
+                                  you.props[GRAVE_CLAW_CHARGES_KEY].get_int(),
+                                  GRAVE_CLAW_MAX_CHARGES);
+        }
+
         spell_targeting_behaviour beh(spell);
 
         direction_chooser_args args;
@@ -2125,7 +2136,7 @@ spret your_spells(spell_type spell, int powc, bool actual_spell,
         {
             // And you thought you'd Haunt your way out of penance...
             simple_god_message(" does not allow the disloyal to dabble in "
-                               "death!", GOD_KIKUBAAQUDGHA);
+                               "death!", false, GOD_KIKUBAAQUDGHA);
 
             // The spell still goes through, but you get a miscast anyway.
             miscast_effect(you, nullptr,
@@ -2142,7 +2153,7 @@ spret your_spells(spell_type spell, int powc, bool actual_spell,
         {
             // And you thought you'd Fire Storm your way out of penance...
             simple_god_message(" does not allow the disloyal to dabble in "
-                               "destruction!", GOD_VEHUMET);
+                               "destruction!", false, GOD_VEHUMET);
 
             // The spell still goes through, but you get a miscast anyway.
             miscast_effect(you, nullptr, {miscast_source::god, GOD_VEHUMET},
@@ -2454,8 +2465,8 @@ static spret _do_cast(spell_type spell, int powc, const dist& spd,
     case SPELL_BORGNJORS_VILE_CLUTCH:
         return cast_vile_clutch(powc, beam, fail);
 
-    case SPELL_ROT:
-        return cast_dreadful_rot(powc, fail);
+    case SPELL_PUTREFACTION:
+        return cast_putrefaction(monster_at(target), powc, fail);
 
     // Our few remaining self-enchantments.
     case SPELL_SWIFTNESS:
@@ -2525,6 +2536,9 @@ static spret _do_cast(spell_type spell, int powc, const dist& spd,
 
     case SPELL_MERCURY_VAPOURS:
         return cast_mercury_vapours(powc, spd.target, fail);
+
+    case SPELL_GRAVE_CLAW:
+        return cast_grave_claw(you, spd.target, powc, fail);
 
     case SPELL_BLINKBOLT:
         return blinkbolt(powc, beam, fail);

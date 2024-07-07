@@ -94,7 +94,8 @@ void monster_drop_things(monster* mons,
             && item != NON_ITEM
             && env.item[item].base_type == OBJ_GOLD
             && you.see_cell(mons->pos())
-            && x_chance_in_y(env.item[item].quantity, 100))
+            && x_chance_in_y(env.item[item].quantity, 100)
+            && you.can_be_dazzled())
         {
             string msg = make_stringf("%s dazzles you with the glint of coin.",
                                        god_name(GOD_GOZAG).c_str());
@@ -217,8 +218,8 @@ void change_monster_type(monster* mons, monster_type targetc, bool do_seen)
     // trj spills out jellies when polied, as if he'd been hit for mhp.
     if (mons->type == MONS_ROYAL_JELLY)
     {
-        simple_monster_message(*mons, "'s form twists and warps, and jellies "
-                               "spill out!");
+        simple_monster_message(*mons, " form twists and warps, and jellies "
+                               "spill out!", true);
         trj_spawn_fineff::schedule(nullptr, mons, mons->pos(),
                                    mons->hit_points);
     }
@@ -586,7 +587,7 @@ bool monster_polymorph(monster* mons, monster_type targetc,
     if (mons_demon_tier(mons->type) == -1)
     {
         return simple_monster_message(*mons,
-            "'s appearance momentarily alters.");
+            " appearance momentarily alters.", true);
     }
 
     targetc = _concretize_target(*mons, targetc, power);

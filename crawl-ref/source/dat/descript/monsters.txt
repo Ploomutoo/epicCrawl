@@ -527,9 +527,8 @@ daring leaps! But watch out for her knives!
 %%%%
 Terence
 
-A violent murderer who kills for both pleasure and profit, Terence has been
-forced into hiding after a botched job. There's a price on his head, and he
-can't afford to leave anyone who sees him alive!
+A veteran of a war against the armataurs' elephant-riders. He has recently
+retired to make a new home in the dungeon.
 %%%%
 Tiamat
 
@@ -2116,7 +2115,7 @@ gather for whatever worrying activities orcs enjoy.
 %%%%
 orc apostle
 
-A orcish wayfarer who has been touched by the hand of Beogh. Whether out of
+An orcish wayfarer who has been touched by the hand of Beogh. Whether out of
 religious devotion or personal jealousy, they have come to bar your path.
 
 Hold nothing back - for neither they nor their followers will do so.
@@ -2143,8 +2142,8 @@ bloodcurdling shouts.
 %%%%
 orc priest
 
-A servant of Beogh, the ancient and cruel god of the orcs. Beogh rewards its
-devoted prayers by striking down its enemies.
+A servant of Beogh, the ancient god of the orcs. Beogh rewards its devoted
+prayers by striking down its enemies.
 %%%%
 orc sorcerer
 
@@ -2611,6 +2610,13 @@ soul eater
 
 A demon that manifests as a malignantly shifting shadow gliding through the
 air. It radiates an intense aura of negative force.
+%%%%
+soul wisp
+
+A tiny fragment of a living soul, splintered from the body in which it belongs.
+Too mindless to be fully controlled, it seeks nothing but to reunite with its
+greater self once more - unfortunately, this process tends to be more violent
+than the magic which created it.
 %%%%
 spark wasp
 

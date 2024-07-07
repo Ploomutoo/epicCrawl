@@ -75,7 +75,7 @@ static void _swap_places(monster* mons, const coord_def &loc)
     // Friendly foxfire dissipates instead of damaging the player.
     if (mons->type == MONS_FOXFIRE)
     {
-        simple_monster_message(*mons, " dissipates!",
+        simple_monster_message(*mons, " dissipates!", false,
                                MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
         monster_die(*mons, KILL_DISMISSED, NON_MONSTER, true);
         return;
@@ -699,7 +699,7 @@ static spret _rampage_forward(coord_def move)
     // * dangerous terrain/trap/cloud/exclusion prompt
     // * weapon check prompts;
     // messaging for this is handled by check_moveto().
-    if (!check_moveto(rampage_destination, noun)
+    if (attacking && !check_moveto(rampage_destination, noun)
         || attacking && !wielded_weapon_check(you.weapon(), noun + " and attack")
         || !attacking && !check_moveto(rampage_target, noun))
     {

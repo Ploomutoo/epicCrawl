@@ -73,7 +73,8 @@ melee_attack::melee_attack(actor *attk, actor *defn,
     cleaving(false), is_multihit(false), is_riposte(false),
     is_projected(false), charge_pow(0), never_cleave(false),
     wu_jian_attack(WU_JIAN_ATTACK_NONE),
-    wu_jian_number_of_targets(1)
+    wu_jian_number_of_targets(1),
+    is_shadow_stab(false)
 {
     attack_occurred = false;
     attack_position = attacker->pos();
@@ -270,13 +271,16 @@ bool melee_attack::handle_phase_blocked()
     if (defender->is_player() && you.duration[DUR_DIVINE_SHIELD]
         && coinflip())
     {
-        if (!attacker->as_monster()->has_ench(ENCH_BLIND))
+        // If the monster is unblindable, making them blind will fail,
+        // so don't display a message.
+        const bool need_msg = !attacker->as_monster()->has_ench(ENCH_BLIND);
+        if (attacker->as_monster()->add_ench(mon_enchant(ENCH_BLIND, 1, &you,
+                                        random_range(3, 5) * BASELINE_DELAY))
+            && need_msg)
         {
             mprf("%s is struck blind by the light of your shield.",
                     attacker->name(DESC_THE).c_str());
         }
-        attacker->as_monster()->add_ench(mon_enchant(ENCH_BLIND, 1, &you,
-                                            random_range(3, 5) * BASELINE_DELAY));
     }
 
     return attack::handle_phase_blocked();
@@ -424,14 +428,18 @@ void melee_attack::apply_sign_of_ruin_effects()
         BLIND,
     };
 
+    if (!defender->alive())
+        return;
+
     if (defender->is_monster() && defender->as_monster()->has_ench(ENCH_SIGN_OF_RUIN)
         || defender->is_player() && you.duration[DUR_SIGN_OF_RUIN])
     {
-        if (!defender->alive())
-            return;
-
         // Always drain heavily, then apply one other random effect
         defender->drain(attacker, false, random_range(30, 50));
+
+        // The draining itself might kill the victim.
+        if (!defender->alive())
+            return;
 
         vector<ruin_effect> effects;
 
@@ -440,7 +448,7 @@ void melee_attack::apply_sign_of_ruin_effects()
         {
             effects.push_back(WEAKNESS);
         }
-        if (defender->is_player() || mons_can_be_dazzled(defender->type))
+        if (defender->can_be_dazzled())
             effects.push_back(BLIND);
         if (!defender->stasis())
             effects.push_back(SLOW);
@@ -463,6 +471,7 @@ void melee_attack::apply_sign_of_ruin_effects()
                 {
                     defender->as_monster()->add_ench(mon_enchant(ENCH_BLIND, 1, attacker,
                                                     random_range(5, 8) * BASELINE_DELAY));
+                    simple_monster_message(*defender->as_monster(), " is struck blind.");
                 }
                 else
                     blind_player(random_range(5, 8));
@@ -501,7 +510,7 @@ void melee_attack::try_parry_disarm()
         item_def *wpn = defender->as_monster()->disarm();
         if (wpn)
         {
-            mprf("You knock the %s out of %s grip!",
+            mprf("You knock %s out of %s grip!",
                 wpn->name(DESC_THE).c_str(),
                 defender->name(DESC_ITS).c_str());
         }
@@ -659,7 +668,7 @@ bool melee_attack::handle_phase_hit()
 
     // Fireworks when using Serpent's Lash to kill.
     if (!defender->alive()
-        && defender->as_monster()->can_bleed()
+        && defender->as_monster()->has_blood()
         && wu_jian_has_momentum(wu_jian_attack))
     {
         blood_spray(defender->pos(), defender->as_monster()->type,
@@ -684,12 +693,14 @@ bool melee_attack::handle_phase_hit()
     if (check_unrand_effects())
         return false;
 
+    if (damage_done > 0 || special_damage > 0)
+        apply_sign_of_ruin_effects();
+
     if (damage_done > 0)
     {
         apply_black_mark_effects();
         do_ooze_engulf();
         try_parry_disarm();
-        apply_sign_of_ruin_effects();
     }
 
     if (attacker->is_player())
@@ -1247,7 +1258,7 @@ bool melee_attack::attack()
             && ev_margin >= 0
             && one_chance_in(20))
         {
-            simple_god_message(" blocks your attack.", GOD_ELYVILON);
+            simple_god_message(" blocks your attack.", false, GOD_ELYVILON);
             handle_phase_end();
             return false;
         }
@@ -1407,13 +1418,13 @@ public:
 
     int get_damage(bool /*random*/) const override
     {
-        if (you.has_usable_hooves())
+        if (you.has_hooves())
         {
             // Max hoof damage: 10.
             return damage + you.get_mutation_level(MUT_HOOVES) * 5 / 3;
         }
 
-        if (you.has_usable_talons())
+        if (you.has_talons())
         {
             // Max talon damage: 9.
             return damage + 1 + you.get_mutation_level(MUT_TALONS);
@@ -1713,7 +1724,7 @@ bool melee_attack::player_aux_test_hit()
         && to_hit >= evasion
         && one_chance_in(20))
     {
-        simple_god_message(" blocks your attack.", GOD_ELYVILON);
+        simple_god_message(" blocks your attack.", false, GOD_ELYVILON);
         return false;
     }
 
@@ -2703,6 +2714,9 @@ string melee_attack::mons_attack_verb()
     if (attk_type == AT_TENTACLE_SLAP && mons_is_tentacle(attacker->type))
         return "slap";
 
+    if (is_shadow_stab)
+        return "eviscerate";
+
     return mon_attack_name(attk_type);
 }
 
@@ -3474,7 +3488,7 @@ void melee_attack::mons_apply_attack_flavour()
 
     case AF_BLOODZERK:
     {
-        if (!defender->can_bleed() || !attacker->can_go_berserk())
+        if (!defender->has_blood() || !attacker->can_go_berserk())
             break;
 
         monster* mon = attacker->as_monster();
@@ -3827,8 +3841,8 @@ void melee_attack::do_starlight()
     static const vector<string> dazzle_msgs = {
         "@The_monster@ is blinded by the light from your cloak!",
         "@The_monster@ is temporarily struck blind!",
-        "@The_monster@'s sight is seared by the starlight!",
-        "@The_monster@'s vision is obscured by starry radiance!",
+        "@The_monster_possessive@ sight is seared by the starlight!",
+        "@The_monster_possessive@ vision is obscured by starry radiance!",
     };
 
     if (attacker->is_monster() && one_chance_in(5)
@@ -4150,6 +4164,13 @@ int melee_attack::apply_damage_modifiers(int damage)
                      || (attk_flavour == AF_SHADOWSTAB
                          &&!defender->can_see(*attacker))))
     {
+        if (mons_is_player_shadow(*attacker->as_monster())
+            && player_good_stab())
+        {
+            is_shadow_stab = true;
+            damage += you.experience_level * 2 / 3;
+        }
+
         damage = damage * 5 / 2;
         dprf(DIAG_COMBAT, "Stab damage vs %s: %d",
              defender->name(DESC_PLAIN).c_str(),

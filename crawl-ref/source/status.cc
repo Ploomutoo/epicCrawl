@@ -245,7 +245,7 @@ bool fill_status_info(int status, status_info& inf)
     case DUR_DIVINE_SHIELD:
     {
         inf.light_text = make_stringf("Shield (%d)",
-                                        you.attribute[ATTR_DIVINE_SHIELD]);
+                                        you.duration[DUR_DIVINE_SHIELD]);
     }
     break;
 
@@ -852,6 +852,15 @@ bool fill_status_info(int status, status_info& inf)
     case DUR_FUSILLADE:
         if (!enough_mp(2, true))
             inf.light_colour = DARKGREY;
+        break;
+
+    case STATUS_GRAVE_CLAW_UNAVAILABLE:
+        if (you.has_spell(SPELL_GRAVE_CLAW)
+            && you.props[GRAVE_CLAW_CHARGES_KEY].get_int() == 0)
+        {
+            inf.light_colour = DARKGREY;
+            inf.light_text = "-GClaw";
+        }
         break;
 
     default:

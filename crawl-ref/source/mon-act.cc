@@ -184,7 +184,7 @@ static bool _handle_ru_melee_redirection(monster &mons, monster **new_target)
     if (interference == DO_BLOCK_ATTACK)
     {
         simple_monster_message(mons,
-            " is stunned by your conviction and fails to attack.",
+            " is stunned by your conviction and fails to attack.", false,
             MSGCH_GOD);
         return true;
     }
@@ -1158,7 +1158,7 @@ static void _check_blazeheart_golem_link(monster& mons)
         mons.blazeheart_heat -= 1;
         if (mons.blazeheart_heat <= 0 && !mons.has_ench(ENCH_PARALYSIS))
         {
-            simple_monster_message(mons, "'s core grows cold and it stops moving.");
+            simple_monster_message(mons, " core grows cold and it stops moving.", true);
             mons.add_ench(mon_enchant(ENCH_PARALYSIS, 1, &mons, INFINITE_DURATION));
         }
     }
@@ -1168,7 +1168,7 @@ static void _check_blazeheart_golem_link(monster& mons)
         if (mons.has_ench(ENCH_PARALYSIS))
         {
             mons.del_ench(ENCH_PARALYSIS, true);
-            simple_monster_message(mons, "'s core flares to life once more.");
+            simple_monster_message(mons, " core flares to life once more.", true);
 
             // Since we check this at the END of the golem's move, even if it
             // started its turn with the player next to them (due to player
@@ -1368,7 +1368,7 @@ bool handle_throw(monster* mons, bolt & beem, bool teleport, bool check_only)
         if (interference == DO_BLOCK_ATTACK)
         {
             simple_monster_message(*mons,
-                                " is stunned by your conviction and fails to attack.",
+                                " is stunned by your conviction and fails to attack.", false,
                                 MSGCH_GOD);
             return false;
         }
@@ -1782,7 +1782,7 @@ void handle_monster_move(monster* mons)
             {
                 if (you.can_see(*mons))
                 {
-                    simple_monster_message(*mons, " crackles loudly.",
+                    simple_monster_message(*mons, " crackles loudly.", false,
                                            MSGCH_WARN);
                 }
                 else
@@ -2340,12 +2340,11 @@ void queue_monster_for_action(monster* mons)
     monster_queue.emplace(mons, mons->speed_increment);
 }
 
-static void _clear_monster_flags()
+void clear_monster_flags()
 {
     // Clear any summoning flags so that lower indiced
     // monsters get their actions in the next round.
     // Also clear one-turn deep sleep flag.
-    // XXX: MF_JUST_SLEPT only really works for player-cast hibernation.
     for (auto &mons : menv_real)
         mons.flags &= ~MF_JUST_SUMMONED & ~MF_JUST_SLEPT;
 }
@@ -2469,8 +2468,6 @@ void handle_monsters(bool with_noise)
     // Process noises now (before clearing the sleep flag).
     if (with_noise)
         apply_noises();
-
-    _clear_monster_flags();
 }
 
 static bool _jelly_divide(monster& parent)

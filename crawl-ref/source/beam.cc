@@ -32,6 +32,7 @@
 #include "exercise.h"
 #include "fight.h"
 #include "fineff.h"
+#include "god-abil.h"
 #include "god-conduct.h"
 #include "god-item.h"
 #include "god-passive.h" // passive_t::convert_orcs
@@ -203,7 +204,7 @@ static void _ench_animation(int flavour, const monster* mon, bool force)
     case BEAM_CURSE_OF_AGONY:
     case BEAM_VILE_CLUTCH:
     case BEAM_VAMPIRIC_DRAINING:
-    case BEAM_NECROTISE:
+    case BEAM_SOUL_SPLINTER:
         elem = ETC_UNHOLY;
         break;
     case BEAM_DISPEL_UNDEAD:
@@ -2023,8 +2024,7 @@ bool poison_monster(monster* mons, const actor *who, int levels,
     return new_pois.duration > old_pois.duration;
 }
 
-// Actually poisons, drains, and/or slows a monster with miasma (with
-// message).
+// Actually poisons and/or slows a monster with miasma (with message).
 bool miasma_monster(monster* mons, const actor* who)
 {
     if (!mons->alive())
@@ -2033,16 +2033,20 @@ bool miasma_monster(monster* mons, const actor* who)
     if (mons->res_miasma())
         return false;
 
-    bool success = poison_monster(mons, who);
+    bool success = false;
+    if (poison_monster(mons, who))
+    {
+        // Do additional impact damage to monsters who fail an rPois check
+        mons->hurt(who, roll_dice(2, 4), BEAM_MMISSILE, KILLED_BY_CLOUD);
+        success = true;
+    }
 
     if (who && who->is_player() && is_good_god(you.religion))
         did_god_conduct(DID_EVIL, 5 + random2(3));
 
-    if (one_chance_in(3))
+    if (mons->alive() && one_chance_in(3))
     {
-        bolt beam;
-        beam.flavour = BEAM_SLOW;
-        beam.apply_enchantment_to_monster(mons);
+        do_slow_monster(*mons, who, random_range(8, 12) * BASELINE_DELAY);
         success = true;
     }
 
@@ -2759,6 +2763,18 @@ void bolt::affect_ground()
     if (is_explosion && !in_explosion_phase)
         return;
 
+    // XXX: This feels like an ugly place to put this, but it doesn't do any
+    //      damage and the cloud placement code is otherwise skipped entirely
+    //      for tracers.
+    if (is_tracer && origin_spell == SPELL_NOXIOUS_BREATH && ench_power > 10)
+    {
+        for (adjacent_iterator ai(pos()); ai; ++ai)
+        {
+            if (monster_at(*ai))
+                handle_stop_attack_prompt(monster_at(*ai));
+        }
+    }
+
     if (is_tracer)
         return;
 
@@ -3393,7 +3409,7 @@ bool bolt::misses_player()
         && you.shielded()
         && !you.shield_exhausted()
         && !aimed_at_feet
-        && SH > 0)
+        && (SH > 0 || you.duration[DUR_DIVINE_SHIELD]))
     {
         bool blocked = false;
         if (hit == AUTOMATIC_HIT)
@@ -3417,7 +3433,9 @@ bool bolt::misses_player()
             blocked = testhit < block;
         }
 
-        if (blocked)
+        // Divine shield only blocks conventionally blockable things, even if
+        // the player is using the Warlock's Mirror.
+        if (blocked || (you.duration[DUR_DIVINE_SHIELD] || is_blockable()))
         {
             const string refl_name = name.empty() &&
                                      origin_spell != SPELL_NO_SPELL ?
@@ -3446,6 +3464,10 @@ bool bolt::misses_player()
                 finish_beam();
             }
             you.shield_block_succeeded(agent());
+
+            // Use up a charge of Divine Shield, if active.
+            tso_expend_divine_shield_charge();
+
             return true;
         }
 
@@ -3724,7 +3746,7 @@ void bolt::affect_player_enchantment(bool resistible)
             int amt = damage.roll();
             internal_ouch(amt);
 
-            if (you.can_bleed())
+            if (you.has_blood())
                 blood_spray(you.pos(), MONS_PLAYER, amt / 5);
         }
 
@@ -4079,7 +4101,7 @@ static const vector<pie_effect> pie_effects = {
     {
         "glitter",
         [](const actor &defender) {
-            return defender.is_player() || mons_can_be_dazzled(defender.as_monster()->type);
+            return defender.can_be_dazzled();
         },
         [](actor &defender, const bolt &beam) {
             if (defender.is_player())
@@ -4258,7 +4280,7 @@ void bolt::affect_player()
 
     }
 
-    if (flavour == BEAM_LIGHT)
+    if (flavour == BEAM_LIGHT && you.can_be_dazzled())
         blind_player(random_range(7, 12), WHITE);
 
     if (flavour == BEAM_MIASMA && final_dam > 0)
@@ -4305,6 +4327,12 @@ void bolt::affect_player()
     // Manticore spikes
     if (origin_spell == SPELL_THROW_BARBS && final_dam > 0)
         barb_player(random_range(4, 8), 4);
+
+    if (origin_spell == SPELL_GRAVE_CLAW)
+    {
+        mpr("You are skewered in place!");
+        you.increase_duration(DUR_NO_MOMENTUM, random_range(2, 4));
+    }
 
     if (flavour == BEAM_ENSNARE)
         was_affected = ensnare(&you) || was_affected;
@@ -4709,7 +4737,7 @@ void bolt::tracer_nonenchantment_affect_monster(monster* mon)
                 friend_info.power = 100;
             // Marionettes will avoid harming other 'allies', but are
             // deliberately reckless about themselves.
-            else if (mon_source != mon || mon_source->attitude == ATT_MARIONETTE)
+            else if (!(mon_source == mon && mon_source->attitude == ATT_MARIONETTE))
             {
                 friend_info.power
                     += 2 * final * mon->get_experience_level() / preac;
@@ -4843,12 +4871,8 @@ void bolt::enchantment_affect_monster(monster* mon)
     // Nasty enchantments will annoy the monster, and are considered
     // naughty (even if a monster resisted).
     if (mon && mon->alive() && nasty_to(mon))
-    {
-        // Don't wake a target that just got slept by Hibernation
-        if (flavour != BEAM_SHADOW_TORPOR || !mon->asleep())
-            behaviour_event(mon, ME_ANNOY, agent());
-    }
-    else if (flavour != BEAM_HIBERNATION || !mon->asleep())
+        behaviour_event(mon, ME_ANNOY, agent());
+    else
         behaviour_event(mon, ME_ALERT, agent());
 }
 
@@ -5035,13 +5059,8 @@ void bolt::monster_post_hit(monster* mon, int dmg)
     // did no damage. Hostiles will still take umbrage.
     if (dmg > 0 || !mon->wont_attack() || !YOU_KILL(thrower))
     {
-        // XXX: Unfortunate hack to not immediately wake victims of Ensorcelled
-        // Hibernation by shadow mimic casting Creeping Shadow on them.
-        if (origin_spell != SPELL_CREEPING_SHADOW || mon->behaviour != BEH_SLEEP
-            || !mon->has_ench(ENCH_SLEEP_WARY))
-        {
-            behaviour_event(mon, ME_ANNOY, agent());
-        }
+        behaviour_event(mon, ME_ANNOY, agent());
+
         // behaviour_event can make a monster leave the level or vanish.
         if (!mon->alive())
             return;
@@ -5129,7 +5148,7 @@ void bolt::monster_post_hit(monster* mon, int dmg)
     }
 
     if (flavour == BEAM_LIGHT
-        && mons_can_be_dazzled(mon->type)
+        && mon->can_be_dazzled()
         && !mon->has_ench(ENCH_BLIND))
     {
         const int dur = max(1, div_rand_round(54, mon->get_hit_dice())) * BASELINE_DELAY;
@@ -5159,6 +5178,12 @@ void bolt::monster_post_hit(monster* mon, int dmg)
 
     if (origin_spell == SPELL_RIMEBLIGHT)
         maybe_spread_rimeblight(*mon, ench_power);
+
+    if (origin_spell == SPELL_GRAVE_CLAW && !mon->has_ench(ENCH_BOUND))
+    {
+        simple_monster_message(*mon, " is pinned in place!");
+        mon->add_ench(mon_enchant(ENCH_BOUND, 0, nullptr, random_range(2, 4) * BASELINE_DELAY));
+    }
 }
 
 static int _knockback_dist(spell_type origin, int pow)
@@ -5803,7 +5828,6 @@ bool ench_flavour_affects_monster(actor *agent, beam_type flavour,
         break;
 
     case BEAM_PAIN:
-    case BEAM_NECROTISE:
         rc = mon->res_negative_energy(intrinsic_only) < 3;
         break;
 
@@ -5889,6 +5913,10 @@ bool ench_flavour_affects_monster(actor *agent, beam_type flavour,
 
     case BEAM_RIMEBLIGHT:
         rc = !mon->has_ench(ENCH_RIMEBLIGHT);
+        break;
+
+    case BEAM_SOUL_SPLINTER:
+        rc = mons_can_be_spectralised(*mon, false, true);
         break;
 
     default:
@@ -6080,27 +6108,13 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         return MON_AFFECTED;
     }
 
-    case BEAM_NECROTISE:
-    {
-        const int dam = resist_adjust_damage(mon, flavour, damage.roll());
-        if (!dam)
-            return MON_UNAFFECTED;
+    case BEAM_SOUL_SPLINTER:
         if (you.see_cell(mon->pos()))
-        {
-            mprf("%s writhes in agony%s",
-                 mon->name(DESC_THE).c_str(),
-                 attack_strength_punctuation(dam).c_str());
             obvious_effect = true;
-        }
-        if (mons_can_be_zombified(*mon)
-            && !mons_class_flag(mon->type, M_NO_SKELETON)
-            && !you.allies_forbidden())
-        {
-            mon->add_ench(mon_enchant(ENCH_NECROTISE, 0, agent(), 1));
-        }
-        mon->hurt(agent(), dam, flavour);
-        return MON_AFFECTED;
-    }
+        if (make_soul_wisp(*agent(), *mon))
+            return MON_AFFECTED;
+        else
+            return MON_UNAFFECTED;
 
     case BEAM_AGONY:
         torment_cell(mon->pos(), agent(), TORMENT_AGONY);
@@ -6229,7 +6243,7 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         {
             if (mon->hit_points == mon->max_hit_points)
             {
-                if (simple_monster_message(*mon, "'s wounds heal themselves!"))
+                if (simple_monster_message(*mon, " wounds heal themselves!", true))
                     obvious_effect = true;
             }
             else if (simple_monster_message(*mon, " is healed somewhat."))
@@ -6569,7 +6583,7 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         if (!mon->has_ench(ENCH_CONCENTRATE_VENOM)
             && mon->add_ench(ENCH_CONCENTRATE_VENOM))
         {
-            if (simple_monster_message(*mon, "'s venom grows more potent."))
+            if (simple_monster_message(*mon, " venom grows more potent.", true))
                 obvious_effect = true;
         }
         return MON_AFFECTED;
@@ -7149,12 +7163,6 @@ bool bolt::nasty_to(const monster* mon) const
         case BEAM_INNER_FLAME:
             // Co-aligned inner flame is fine.
             return !mons_aligned(mon, agent());
-        case BEAM_NECROTISE:
-            // HACK: we want to warn when players accidentally aim necrotise
-            // through their skeletal allies. So mark it harmful to pals.
-            if (mons_aligned(mon, agent()))
-                return true;
-            // else fallthrough to generic enchantments
         case BEAM_TELEPORT:
         case BEAM_BECKONING:
         case BEAM_INFESTATION:
@@ -7445,7 +7453,7 @@ static string _beam_type_name(beam_type type)
     case BEAM_VAMPIRIC_DRAINING:     return "vampiric draining";
     case BEAM_CONCENTRATE_VENOM:     return "concentrate venom";
     case BEAM_ENFEEBLE:              return "enfeeble";
-    case BEAM_NECROTISE:             return "necrotise";
+    case BEAM_SOUL_SPLINTER:         return "soul splinter";
     case BEAM_ROOTS:                 return "roots";
     case BEAM_VITRIFY:               return "vitrification";
     case BEAM_VITRIFYING_GAZE:       return "vitrification";

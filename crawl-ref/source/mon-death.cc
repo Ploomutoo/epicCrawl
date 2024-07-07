@@ -653,7 +653,7 @@ static bool _ely_protect_ally(monster* mons, killer_type killer)
     mons->hit_points = 1;
 
     const string msg = " protects " + mons->name(DESC_THE) + " from harm!";
-    simple_god_message(msg.c_str());
+    simple_god_message(msg.c_str(), false);
 
     return true;
 }
@@ -995,7 +995,10 @@ static bool _monster_avoided_death(monster* mons, killer_type killer,
         if (mons->has_ench(ENCH_TOUCH_OF_BEOGH))
         {
             if (killer == KILL_BANISHED)
-                simple_god_message(" pulls their child back from the Abyss.", GOD_BEOGH);
+            {
+                simple_god_message(" pulls their child back from the Abyss.",
+                                   false, GOD_BEOGH);
+            }
 
             win_apostle_challenge(*mons);
             mons->heal(mons->max_hit_points);
@@ -1201,7 +1204,7 @@ static void _monster_die_cloud(const monster* mons, bool corpse, bool silent,
                                bool summoned)
 {
     // Don't bother placing a cloud for living spells.
-    if (mons->type == MONS_LIVING_SPELL)
+    if (mons->type == MONS_LIVING_SPELL || mons->type == MONS_SOUL_WISP)
         return;
 
     // Chaos spawn always leave behind a cloud of chaos.
@@ -1218,8 +1221,13 @@ static void _monster_die_cloud(const monster* mons, bool corpse, bool silent,
         return;
 
     string prefix = " ";
+    bool need_possessive = false;
+
     if (corpse && mons_class_can_leave_corpse(mons_species(mons->type)))
-        prefix = "'s corpse ";
+    {
+        prefix = " corpse ";
+        need_possessive = true;
+    }
 
     string msg = summoned_poof_msg(mons) + "!";
 
@@ -1251,7 +1259,7 @@ static void _monster_die_cloud(const monster* mons, bool corpse, bool silent,
     }
 
     if (!silent)
-        simple_monster_message(*mons, (prefix + msg).c_str());
+        simple_monster_message(*mons, (prefix + msg).c_str(), need_possessive);
 
     if (cloud != CLOUD_NONE)
         place_cloud(cloud, mons->pos(), 1 + random2(3), mons);
@@ -1471,7 +1479,7 @@ static void _orb_of_mayhem(actor& maniac, const monster& victim)
 {
     vector<monster *> witnesses;
     for (monster_near_iterator mi(&victim, LOS_NO_TRANS); mi; ++mi)
-        if (mi->can_see(maniac) && mi->can_go_frenzy())
+        if (*mi != &victim && mi->can_see(maniac) && mi->can_go_frenzy())
             witnesses.push_back(*mi);
 
     if (coinflip() && !witnesses.empty())
@@ -1759,14 +1767,6 @@ static bool _apply_necromancy(monster &mons, bool quiet, bool corpse_gone,
     if (in_los && (_animate_dead_reap(mons) || _reaping(mons)))
         return true;
 
-    if (mons.has_ench(ENCH_NECROTISE))
-    {
-        _make_derived_undead(&mons, quiet, MONS_SKELETON,
-                                 BEH_FRIENDLY,
-                                 SPELL_NECROTISE,
-                                 GOD_NO_GOD);
-        return true;
-    }
     return false;
 }
 
@@ -1888,10 +1888,10 @@ static void _special_corpse_messaging(monster &mons)
         // something else.
         if (!(mons.flags & MF_KNOWN_SHIFTER))
         {
-            const string message = "'s shape twists and changes as "
+            const string message = " shape twists and changes as "
                 + mons.pronoun(PRONOUN_SUBJECTIVE) + " "
                 + conjugate_verb("die", mons.pronoun_plurality()) + ".";
-            simple_monster_message(mons, message.c_str());
+            simple_monster_message(mons, message.c_str(), true);
         }
 
         return;
@@ -2168,6 +2168,16 @@ item_def* monster_die(monster& mons, killer_type killer,
     {
         _blorkula_bat_death(mons, killer, killer_index);
     }
+    else if (mons.type == MONS_SOUL_WISP)
+    {
+        actor* source = mons.get_ench(ENCH_HAUNTING).agent();
+        if (source && source->alive())
+        {
+            simple_monster_message(mons, " returns to where it belongs.");
+            source->as_monster()->del_ench(ENCH_WEAK);
+            silent = true;
+        }
+    }
     // Only transform if we 'died' to timeout. Something simply dealing damage
     // to us can still shatter us.
     else if (mons.type == MONS_BLOCK_OF_ICE
@@ -2230,7 +2240,7 @@ item_def* monster_die(monster& mons, killer_type killer,
         if (!silent && !hard_reset && !was_banished)
         {
             simple_monster_message(mons, " detonates feebly.",
-                                   MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
+                                   false, MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
             silent = true;
         }
     }
@@ -2243,7 +2253,7 @@ item_def* monster_die(monster& mons, killer_type killer,
         if (!silent && !mons_reset && !was_banished)
         {
             simple_monster_message(mons, " dissipates!",
-                                   MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
+                                   false, MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
             silent = true;
         }
 
@@ -2267,7 +2277,7 @@ item_def* monster_die(monster& mons, killer_type killer,
         if (!silent && !mons_reset && !was_banished)
         {
             simple_monster_message(mons, " vaporises!",
-                                   MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
+                                   false, MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
             silent = true;
             did_death_message = true;
         }
@@ -2317,14 +2327,14 @@ item_def* monster_die(monster& mons, killer_type killer,
                 {
                     simple_monster_message(mons,
                                        " turns to gold and falls from the air.",
-                                       MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
+                                       false, MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
                 }
                 else
                 {
                     // something(??) is suppressing goldify
                     simple_monster_message(mons,
                                        " briefly glints gold and then vanishes.",
-                                       MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
+                                       false, MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
                 }
                 drop_items = false;
                 silent = true;
@@ -2333,7 +2343,7 @@ item_def* monster_die(monster& mons, killer_type killer,
             else
             {
                 simple_monster_message(mons, " falls from the air.",
-                                       MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
+                                       false, MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
                 silent = true;
                 did_death_message = true;
             }
@@ -2518,9 +2528,11 @@ item_def* monster_die(monster& mons, killer_type killer,
             // killing born-friendly monsters.
             const bool valid_heal_source = gives_player_xp
                 && !mons_is_object(mons.type);
+            // Chance scales from 30% at 1* to 80% at 6*
             const bool can_divine_heal = valid_heal_source
                 && !player_under_penance()
-                && random2(you.piety) >= piety_breakpoint(0);
+                && x_chance_in_y(50 * ((min(piety_breakpoint(5), (int)you.piety) - 30)
+                                 / (piety_breakpoint(5) - piety_breakpoint(0))) + 30, 100);
 
             if (valid_heal_source
                 && you.has_mutation(MUT_DEVOUR_ON_KILL)
@@ -2593,7 +2605,7 @@ item_def* monster_die(monster& mons, killer_type killer,
                     exploded                   ? " is blown up!" :
                     wounded_damaged(targ_holy) ? " is destroyed!"
                                                : " dies!";
-                simple_monster_message(mons, msg, MSGCH_MONSTER_DAMAGE,
+                simple_monster_message(mons, msg, false, MSGCH_MONSTER_DAMAGE,
                                        MDAM_DEAD);
             }
 
@@ -2658,13 +2670,15 @@ item_def* monster_die(monster& mons, killer_type killer,
                         simple_monster_message(mons, msg.c_str());
                     }
                 }
+                else if (mons.type == MONS_SOUL_WISP)
+                    simple_monster_message(mons, " fades into mist!");
                 else
                 {
                     const char* msg =
                         exploded                     ? " is blown up!" :
                         wounded_damaged(targ_holy)   ? " is destroyed!"
                                                      : " dies!";
-                    simple_monster_message(mons, msg, MSGCH_MONSTER_DAMAGE,
+                    simple_monster_message(mons, msg, false, MSGCH_MONSTER_DAMAGE,
                                            MDAM_DEAD);
                 }
             }
@@ -2931,6 +2945,12 @@ item_def* monster_die(monster& mons, killer_type killer,
 
         corpse_consumed = _apply_necromancy(mons, !death_message, corpse_gone,
                                             in_los, corpseworthy);
+
+        if (in_los && corpseworthy && you.duration[DUR_GRAVE_CLAW_RECHARGE]
+            && (mons.holiness() & MH_NATURAL))
+        {
+            gain_grave_claw_soul();
+        }
     }
 
     if (!wizard && !was_banished)
@@ -3287,22 +3307,22 @@ void mons_check_pool(monster* mons, const coord_def &oldpos,
     // Even fire resistant monsters perish in lava.
     if (grid == DNGN_LAVA && mons->res_fire() < 2)
     {
-        simple_monster_message(*mons, " is incinerated.",
+        simple_monster_message(*mons, " is incinerated.", false,
                                MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
     }
     else if (mons->can_drown())
     {
-        simple_monster_message(*mons, " drowns.",
+        simple_monster_message(*mons, " drowns.", false,
                                MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
     }
     else if (mons->type == MONS_BOULDER)
     {
-        simple_monster_message(*mons, " sinks to the bottom.",
+        simple_monster_message(*mons, " sinks to the bottom.", false,
                                MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
     }
     else
     {
-        simple_monster_message(*mons, " falls apart.",
+        simple_monster_message(*mons, " falls apart.", false,
                                MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
     }
 

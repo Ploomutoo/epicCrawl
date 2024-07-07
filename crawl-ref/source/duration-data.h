@@ -526,8 +526,7 @@ static const duration_def duration_data[] =
     { DUR_DIVINE_SHIELD,
       LIGHTBLUE, "",
       "divinely shielded", "divine shield",
-      "You are shielded by the power of the Shining One.", D_NO_FLAGS,
-      {{ "", tso_remove_divine_shield }}},
+      "You are shielded by the power of the Shining One.", D_NO_FLAGS},
     { DUR_CLEAVE,
       LIGHTBLUE, "Cleave",
       "cleaving", "cleave",
@@ -722,6 +721,7 @@ static const duration_def duration_data[] =
     { DUR_BEOGH_SEEKING_VENGEANCE, LIGHTRED, "Vengeance", "", "vengeance",
       "You are seeking vengeance for the death of your brethren.", D_NO_FLAGS},
     { DUR_CONSTRICTION_IMMUNITY, 0, "", "", "constrict immune", "", D_NO_FLAGS, {{""}}},
+    { DUR_GRAVE_CLAW_RECHARGE, 0, "", "", "grave claw recharging", "", D_NO_FLAGS},
 
 #if TAG_MAJOR_VERSION == 34
     // And removed ones

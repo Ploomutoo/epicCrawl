@@ -669,7 +669,7 @@ void dec_penance(god_type god, int val)
         if (god == GOD_IGNIS)
         {
             simple_god_message(", with one final cry of rage, "
-                               "burns out of existence.", god);
+                               "burns out of existence.", false, god);
             add_daction(DACT_REMOVE_IGNIS_ALTARS);
         }
         else
@@ -678,7 +678,7 @@ void dec_penance(god_type god, int val)
             simple_god_message(
                 make_stringf(" seems mollified%s.",
                              dead_jiyva ? ", and vanishes" : "").c_str(),
-                god);
+                false, god);
 
             if (dead_jiyva)
                 add_daction(DACT_JIYVA_DEAD);
@@ -905,7 +905,7 @@ static void _inc_penance(god_type god, int val)
         else if (god == GOD_SHINING_ONE)
         {
             if (you.duration[DUR_DIVINE_SHIELD])
-                tso_remove_divine_shield();
+               you.duration[DUR_DIVINE_SHIELD] = 0;
             dismiss_divine_allies_fineff::schedule(GOD_SHINING_ONE);
         }
         else if (god == GOD_ELYVILON)
@@ -1230,8 +1230,8 @@ static set<spell_type> _vehumet_eligible_gift_spells(set<spell_type> excluded_sp
     if (gifts >= NUM_VEHUMET_GIFTS)
         return eligible_spells;
 
-    const int min_lev[] = {1,1,2,3,3,4,4,5,5,5,5,6,8};
-    const int max_lev[] = {1,2,3,4,5,7,7,7,7,7,7,8,9};
+    const int min_lev[] = {1,2,2,3,3,4,4,5,5,5,5,6,8};
+    const int max_lev[] = {1,3,3,4,5,7,7,7,7,7,7,8,9};
     COMPILE_CHECK(ARRAYSZ(min_lev) == NUM_VEHUMET_GIFTS);
     COMPILE_CHECK(ARRAYSZ(max_lev) == NUM_VEHUMET_GIFTS);
     int min_level = min_lev[gifts];
@@ -1495,10 +1495,10 @@ static bool _give_kiku_gift(bool forced)
         else
             chosen_spells.push_back(SPELL_FUGUE_OF_THE_FALLEN);
 
-        spell_options = {SPELL_NECROTISE,
+        spell_options = {SPELL_SOUL_SPLINTER,
                          SPELL_KISS_OF_DEATH,
                          SPELL_SUBLIMATION_OF_BLOOD,
-                         SPELL_ROT,
+                         SPELL_GRAVE_CLAW,
                          SPELL_VAMPIRIC_DRAINING};
     }
     else
@@ -1506,6 +1506,7 @@ static bool _give_kiku_gift(bool forced)
         spell_options = {SPELL_ANGUISH,
                          SPELL_MARTYRS_KNELL,
                          SPELL_DISPEL_UNDEAD,
+                         SPELL_PUTREFACTION,
                          SPELL_CURSE_OF_AGONY,
                          SPELL_BORGNJORS_VILE_CLUTCH,
                          SPELL_DEATH_CHANNEL,
@@ -2721,7 +2722,7 @@ bool god_protects(const actor *agent, const monster &target, bool quiet)
             simple_god_message(
                         make_stringf(" protects %s plant from harm.",
                             agent->is_player() ? "your" : "a").c_str(),
-                        GOD_FEDHAS);
+                        false, GOD_FEDHAS);
         }
         return true;
     }
@@ -2749,7 +2750,10 @@ bool god_protects(const actor *agent, const monster &target, bool quiet)
         && mons_is_slime(target))
     {
         if (!quiet && you.can_see(target))
-            simple_god_message(" protects your slime from harm.", GOD_JIYVA);
+        {
+            simple_god_message(" protects your slime from harm.", false,
+                               GOD_JIYVA);
+        }
         return true;
     }
     return false;
@@ -2936,13 +2940,13 @@ void excommunication(bool voluntary, god_type new_god)
     update_whereis();
 
     if (old_god == GOD_IGNIS)
-        simple_god_message(" blazes with a vengeful fury!", old_god);
+        simple_god_message(" blazes with a vengeful fury!", false, old_god);
     else if (god_hates_your_god(old_god, new_god))
     {
         simple_god_message(
             make_stringf(" does not appreciate desertion%s!",
                          _god_hates_your_god_reaction(old_god, new_god).c_str()).c_str(),
-            old_god);
+            false, old_god);
     }
 
     if (had_halo)
@@ -3000,7 +3004,7 @@ void excommunication(bool voluntary, god_type new_god)
         break;
 
     case GOD_BEOGH:
-        simple_god_message("'s voice booms out: Traitor to your kin!", old_god);
+        simple_god_message(" voice booms out: Traitor to your kin!", true, old_god);
         mprf(MSGCH_MONSTER_ENCHANT, "All of your followers decide to abandon you.");
 
         add_daction(DACT_ALLY_BEOGH);
@@ -3034,7 +3038,7 @@ void excommunication(bool voluntary, god_type new_god)
 
     case GOD_SHINING_ONE:
         if (you.duration[DUR_DIVINE_SHIELD])
-            tso_remove_divine_shield();
+            you.duration[DUR_DIVINE_SHIELD] = 0;
 
         dismiss_divine_allies_fineff::schedule(GOD_SHINING_ONE);
         break;
@@ -3140,7 +3144,8 @@ void excommunication(bool voluntary, god_type new_god)
 #endif
 
     case GOD_CHEIBRIADOS:
-        simple_god_message(" continues to slow your movements.", old_god);
+        simple_god_message(" continues to slow your movements.", false,
+                           old_god);
         break;
 
     case GOD_HEPLIAKLQANA:
@@ -3167,7 +3172,8 @@ void excommunication(bool voluntary, god_type new_god)
         break;
 
     case GOD_IGNIS:
-        simple_god_message(" burns away your resistance to fire.", old_god);
+        simple_god_message(" burns away your resistance to fire.", false,
+                           old_god);
         if (you.duration[DUR_FIERY_ARMOUR])
         {
             you.duration[DUR_FIERY_ARMOUR] = 0;
@@ -3492,7 +3498,7 @@ static void _transfer_good_god_piety()
                                                "become a bug"),
                                         god_name(you.religion).c_str()).c_str(),
 
-                           old_god);
+                           false, old_god);
     }
 
     // Give a piety bonus when switching between good gods, or back to the
@@ -3544,7 +3550,7 @@ static void _check_good_god_wrath(god_type old_god)
         const string wrath_message
             = make_stringf(" says: %s!",
                            _good_god_wrath_message(good_god).c_str());
-        simple_god_message(wrath_message.c_str(), good_god);
+        simple_god_message(wrath_message.c_str(), false, good_god);
         set_penance_xp_timeout();
     }
 }
@@ -3904,7 +3910,8 @@ void god_pitch(god_type which_god)
     if (which_god == GOD_LUGONU && you.penance[GOD_LUGONU])
     {
         you.turn_is_over = false;
-        simple_god_message(" refuses to forgive you so easily!", which_god);
+        simple_god_message(" refuses to forgive you so easily!", false,
+                           which_god);
         return;
     }
 
@@ -3924,7 +3931,7 @@ void print_god_rejection(god_type which_god)
     if (which_god == GOD_GOZAG)
     {
         simple_god_message(" does not accept service from beggars like you!",
-                           which_god);
+                           false, which_god);
         const int fee = gozag_service_fee();
         if (you.gold == 0)
         {
@@ -3941,18 +3948,18 @@ void print_god_rejection(god_type which_god)
     if (you.get_mutation_level(MUT_NO_LOVE) && _god_rejects_loveless(which_god))
     {
         simple_god_message(" does not accept worship from the loveless!",
-                           which_god);
+                           false, which_god);
         return;
     }
     if (!_transformed_player_can_join_god(which_god))
     {
         simple_god_message(" says: How dare you approach in such a loathsome "
-                           "form!", which_god);
+                           "form!", false, which_god);
         return;
     }
 
     simple_god_message(" does not accept worship from those such as you!",
-                       which_god);
+                       false, which_god);
 }
 
 /** Ask the user for a god by name.

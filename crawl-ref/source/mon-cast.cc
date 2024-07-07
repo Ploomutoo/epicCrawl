@@ -366,7 +366,7 @@ static const map<spell_type, mons_spell_logic> spell_to_logic = {
             const string god = apostrophise(god_name(caster.god));
             const string msg = make_stringf(" invokes %s protection!",
                                             god.c_str());
-            simple_monster_message(caster, msg.c_str(), MSGCH_MONSTER_SPELL);
+            simple_monster_message(caster, msg.c_str(), false, MSGCH_MONSTER_SPELL);
             // Not spell_hd(spell_cast); this is an invocation
             const int dur = BASELINE_DELAY
                 * min(4 + roll_dice(2, (caster.get_hit_dice() * 4) / 3 + 1),
@@ -1099,7 +1099,7 @@ static void _cast_injury_mirror(monster &mons, mon_spell_slot /*slot*/, bolt&)
         = make_stringf(" offers %s to %s, and fills with unholy energy.",
                        mons.pronoun(PRONOUN_REFLEXIVE).c_str(),
                        god_name(mons.god).c_str());
-    simple_monster_message(mons, msg.c_str(), MSGCH_MONSTER_SPELL);
+    simple_monster_message(mons, msg.c_str(), false, MSGCH_MONSTER_SPELL);
     mons.add_ench(mon_enchant(ENCH_MIRROR_DAMAGE, 0, &mons,
                               random_range(7, 9) * BASELINE_DELAY));
     mons.props[MIRROR_RECAST_KEY].get_int()
@@ -1148,10 +1148,10 @@ static void _cast_brain_bite(monster &caster, mon_spell_slot slot, bolt&)
         if (mon_foe->has_ench(ENCH_ANTIMAGIC))
         {
             dam_multiplier = 2;
-            simple_monster_message(*foe->as_monster(), "'s mind is heavily gnawed upon.");
+            simple_monster_message(*foe->as_monster(), " mind is heavily gnawed upon.", true);
         }
         else
-            simple_monster_message(*foe->as_monster(), "'s mind is gnawed upon.");
+            simple_monster_message(*foe->as_monster(), " mind is gnawed upon.", true);
     }
 
     foe->hurt(&caster, (4 + random2avg(5, 2)) * dam_multiplier,
@@ -1222,7 +1222,7 @@ static void _cast_regenerate_other(monster* caster)
     {
         const int pow = mons_spellpower(*caster, SPELL_REGENERATE_OTHER);
         int dur = (4 + roll_dice(2, pow / 20)) * BASELINE_DELAY;
-        simple_monster_message(*targ, "'s wounds begin to rapidly close.");
+        simple_monster_message(*targ, " wounds begin to rapidly close.", true);
         _regen_monster(targ, caster, dur);
     }
 }
@@ -1241,7 +1241,7 @@ static void _cast_mass_regeneration(monster* caster)
 
     const int pow = mons_spellpower(*caster, SPELL_MASS_REGENERATION);
     int dur = (3 + roll_dice(2, pow / 25)) * BASELINE_DELAY;
-    simple_monster_message(*caster, "'s allies begin to heal rapidly.");
+    simple_monster_message(*caster, " allies begin to heal rapidly.", true);
     for (monster* mon : targs)
         _regen_monster(mon, caster, dur);
 }
@@ -1639,21 +1639,24 @@ static int _ench_power(spell_type spell, const monster &mons)
 
 int mons_spell_range(const monster &mons, spell_type spell)
 {
-    return mons_spell_range_for_hd(spell, mons.spell_hd());
+    return mons_spell_range_for_hd(spell, mons.spell_hd(),
+                                   mons.type == MONS_SPELLFORGED_SERVITOR
+                                   && mons.summoner == MID_PLAYER);
 }
 
 /**
  * How much range does a monster of the given spell HD have with the given
  * spell?
  *
- * @param spell     The spell in question.
- * @param hd        The monster's effective HD for spellcasting purposes.
- * @return          -1 if the spell has an undefined range; else its range.
+ * @param spell         The spell in question.
+ * @param hd            The monster's effective HD for spellcasting purposes.
+ * @param use_veh_bonus Whether to use Vehumet's range bonus (for player Servitor)
+ * @return              -1 if the spell has an undefined range; else its range.
  */
-int mons_spell_range_for_hd(spell_type spell, int hd)
+int mons_spell_range_for_hd(spell_type spell, int hd, bool use_veh_bonus)
 {
     const int power = mons_power_for_hd(spell, hd);
-    return spell_range(spell, power, false);
+    return spell_range(spell, power, use_veh_bonus);
 }
 
 /**
@@ -4543,7 +4546,7 @@ bool handle_mon_spell(monster* mons)
             const string message
                 = make_stringf(" begins to %s, but is stunned by your conviction!",
                                _ru_spell_stop_desc(*mons).c_str());
-            simple_monster_message(*mons, message.c_str(), MSGCH_GOD);
+            simple_monster_message(*mons, message.c_str(), false, MSGCH_GOD);
             mons->lose_energy(EUT_SPELL);
             return true;
         }
@@ -4666,14 +4669,11 @@ bool handle_mon_spell(monster* mons)
     return false; // to let them do something else
 }
 
-// Attempts to have a given monster cast a given spell, while still performing
-// normal setup and target justification.
-//
-// Returns whether the spell was cast.
-bool try_mons_cast(monster& mons, spell_type spell)
+// Performs simple targeting and justification for a given spell, by a given
+// monster.
+static bool _setup_simple_mons_cast(monster& mons, spell_type spell,
+                                    bolt& beam, mon_spell_slot& slot)
 {
-    // Look up slot flags for the spell we're being asked to cast
-    mon_spell_slot slot;
     for (const mon_spell_slot& _slot : mons.spells)
     {
         if (_slot.spell == spell)
@@ -4688,12 +4688,36 @@ bool try_mons_cast(monster& mons, spell_type spell)
     // Check if the spell is viable and target it
     if (!ai_action::is_viable(_monster_spell_goodness(&mons, slot)))
         return false;
-    bolt beam;
     if (!_target_and_justify_spell(mons, beam, spell, false))
+        return false;
+
+    return true;
+}
+
+// Checks whether it would be possible for a given monster to cast a given
+// spell, using its current foe and other state.
+bool is_mons_cast_possible(monster& mons, spell_type spell)
+{
+    mon_spell_slot slot;
+    bolt beam;
+    return _setup_simple_mons_cast(mons, spell, beam, slot);
+}
+
+// Attempts to have a given monster cast a given spell, while still performing
+// normal setup and target justification.
+//
+// Returns whether the spell was cast.
+bool try_mons_cast(monster& mons, spell_type spell)
+{
+    // Perform setup (and return false if we fail)
+    mon_spell_slot slot;
+    bolt beam;
+    if (!_setup_simple_mons_cast(mons, spell, beam, slot))
         return false;
 
     // Actually cast the spell
     mons_cast(&mons, beam, spell, slot.flags);
+
     return true;
 }
 
@@ -5582,7 +5606,7 @@ static void _branch_summon_helper(monster* mons, spell_type spell_cast)
             continue;
 
         mgen_data mg(type, SAME_ATTITUDE(mons), mons->pos(), mons->foe);
-        mg.set_summoned(mons, 1, spell_cast);
+        mg.set_summoned(mons, spell_cast == SPELL_PLANEREND ? 2 : 1, spell_cast);
         if (type == MONS_SLIME_CREATURE)
             mg.props[MGEN_BLOB_SIZE] = 5;
         create_monster(mg);
@@ -6240,7 +6264,9 @@ static void _cast_bestow_arms(monster& caster)
 
         give_specific_item(mon, clone);
         mon->add_ench(mon_enchant(ENCH_ARMED, 1, &caster, dur));
-        flash_tile(mon->pos(), MAGENTA, 50);
+
+        if (you.see_cell(mon->pos()))
+            flash_tile(mon->pos(), MAGENTA, 50);
 
         if (--count == 0)
             break;
@@ -6635,7 +6661,7 @@ void mons_cast(monster* mons, bolt pbolt, spell_type spell_cast,
     case SPELL_SILENCE:
         mons->add_ench(ENCH_SILENCE);
         invalidate_agrid(true);
-        simple_monster_message(*mons, "'s surroundings become eerily quiet.");
+        simple_monster_message(*mons, " surroundings become eerily quiet.", true);
         return;
 
     case SPELL_CALL_TIDE:
@@ -8258,7 +8284,7 @@ static void _siren_sing(monster* mons, bool avatar)
         const char * const song_adj = already_mesmerised ? "its luring"
                                                          : "a haunting";
         const string song_desc = make_stringf(" chants %s song.", song_adj);
-        simple_monster_message(*mons, song_desc.c_str(), spl);
+        simple_monster_message(*mons, song_desc.c_str(), false, spl);
     }
     else
     {

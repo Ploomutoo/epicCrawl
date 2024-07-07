@@ -356,6 +356,10 @@ bool add_spell_to_memory(spell_type spell)
              "which spell your servitor casts)",
                 command_to_string(CMD_USE_ABILITY).c_str());
     }
+    // Give a free charge upon learning this spell for the first time, so the
+    // player can actually use it immediately.
+    else if (spell == SPELL_GRAVE_CLAW)
+        gain_grave_claw_soul(true);
 
     // Swapping with an existing spell.
     if (you.spell_letter_table[letter_j] != -1)
@@ -1031,7 +1035,6 @@ int spell_range(spell_type spell, int pow,
         && vehumet_supports_spell(spell)
         && have_passive(passive_t::spells_range)
         && maxrange > 1
-        && spell != SPELL_HAILSTORM // uses a special system
         && spell != SPELL_THUNDERBOLT) // lightning rod only
     {
         maxrange++;
@@ -1188,6 +1191,7 @@ string casting_uselessness_reason(spell_type spell, bool temp)
     case SPELL_INFESTATION:
     case SPELL_TUKIMAS_DANCE:
     case SPELL_HOARFROST_CANNONADE:
+    case SPELL_SOUL_SPLINTER:
         if (you.allies_forbidden())
             return "you cannot coerce anything to obey you.";
         break;
@@ -1320,7 +1324,7 @@ string spell_uselessness_reason(spell_type spell, bool temp, bool prevent,
         break;
 
     case SPELL_SUBLIMATION_OF_BLOOD:
-        if (!you.can_bleed(temp))
+        if (!you.has_blood(temp))
             return "you have no blood to sublime.";
         break;
 
@@ -1379,13 +1383,7 @@ string spell_uselessness_reason(spell_type spell, bool temp, bool prevent,
             return "you are already reaping souls!";
         break;
 
-    case SPELL_ROT:
-        {
-            const mon_holy_type holiness = you.holiness(temp, false);
-            if (holiness != MH_NATURAL && holiness != MH_UNDEAD)
-                return "you have no flesh to rot.";
-        }
-        // fallthrough to cloud spells
+    case SPELL_PUTREFACTION:
     case SPELL_BLASTMOTE:
     case SPELL_POISONOUS_CLOUD:
     case SPELL_FREEZING_CLOUD:
@@ -1498,6 +1496,12 @@ string spell_uselessness_reason(spell_type spell, bool temp, bool prevent,
     case SPELL_STARBURST:
         if (temp && you.current_vision == 0)
             return "you cannot see far enough to hit anything with this spell.";
+        break;
+
+    case SPELL_GRAVE_CLAW:
+        if (temp && you.props[GRAVE_CLAW_CHARGES_KEY].get_int() == 0)
+            return "you must harvest more living souls to recharge this spell.";
+        break;
 
     default:
         break;

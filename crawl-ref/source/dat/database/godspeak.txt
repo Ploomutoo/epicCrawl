@@ -60,7 +60,6 @@ Xom single summon
 
 Xom opens a gate.
 %%%%
-# several demons
 Xom multiple summons
 
 "Serve the mortal, my children!"
@@ -79,20 +78,81 @@ Xom grants you a minor favour.
 
 Xom smiles on you.
 %%%%
-# changing the scenery
-Xom scenery
+Xom flora ring
+
+Xom shows off a fistful of green thumbs.
+
+Xom spreads life in this Dungeon full of death.
+
+Xom incites some dramatic evolution in the adjacent floor mould.
+
+w:5
+Xom adds fresh vegetables to this Dungeon dish.
+
+w:5
+Xom plants some magic beans in the ground.
+%%%%
+# all scenery changing effects need to refer to the feature-data.h vaultnames
+Xom scenery generic
 
 Xom briefly touches your surroundings.
-
-Xom adds some personal touches to your environment.
 
 Xom complains about the scenery.
 
 Xom alters the dungeon around you.
+%%%%
+Xom scenery open_door
+
+@Xom scenery generic@
+%%%%
+Xom scenery closed_door
+
+@Xom scenery generic@
+%%%%
+Xom scenery altar_xom
+
+Xom adds some personal touches to your environment.
 
 "There, this looks better."
 
 "Just a minor improvement..."
+
+@Xom scenery generic@
+%%%%
+Xom scenery cache of fruit
+
+Xom accidentally drops some snacks.
+
+Xom prepares the finest cultivars of fruit found anywhere, then drops them.
+%%%%
+Xom scenery cache of meat
+
+Xom [offers|fetches] you some snacks.
+
+Xom prepares a banquet formed from your trail of carnage through the Dungeon.
+%%%%
+Xom scenery enter_abyss
+
+Xom suggests a refreshing change of pace.
+
+Xom tears open a few small holes in reality.
+%%%%
+Xom kind door ring
+
+A short distance around you seems to assume a strange safe solidity.
+
+Xom creates a safe adventurer enclosure.
+
+"Would you like some space to yourself, mortal?"
+%%%%
+Xom mean door ring
+
+Xom raises up and pulls in a makeshift [warmonger|duelist]'s arena.
+
+Xom locks you up as an exhibit to study.
+
+w:5
+Xom constructs another @player_genus@ Petting Zoo.
 %%%%
 ##################
 # Xom nastiness
@@ -122,6 +182,8 @@ Xom feature shallow water
 
 @The_feature@ briefly glows.
 
+@The_feature@ briefly glows @any_glowing_colour@.
+
 @The_feature@ briefly flashes @any_colour@.
 
 @The_feature@ briefly boils.
@@ -132,7 +194,7 @@ Xom feature deep water
 
 @Xom feature shallow water@
 
-From the corner of your eye, you spot something lurking in @the_feature@.
+Off to the side, you spot something lurking in @the_feature@.
 %%%%
 Xom feature blood
 
@@ -143,6 +205,8 @@ Xom feature blood
 Xom feature dry
 
 Water briefly sprays from @the_feature@.
+
+Sparkling water briefly sprays from @the_feature@.
 
 Blood briefly sprays from @the_feature@.
 
@@ -177,6 +241,8 @@ Xom feature stone arch
 @The_feature@ briefly shows a sunny meadow on the other side.
 
 @The_feature@ briefly shows a lifeless wasteland on the other side.
+
+@The_feature@ briefly shows strange @glowing_adj@ figures on the other side.
 %%%%
 Xom underfoot general
 
@@ -206,6 +272,8 @@ Xom inventory singular
 
 @Your_item@ briefly glows.
 
+@Your_item@ briefly glows @any_glowing_colour@.
+
 @Your_item@ briefly vibrates.
 
 @Your_item@ briefly flashes @any_colour@.
@@ -214,11 +282,15 @@ Xom inventory plural
 
 One of @your_item@ briefly glows.
 
+One of @your_item@ briefly glows @any_glowing_colour@.
+
 One of @your_item@ briefly vibrates.
 
 One of @your_item@ briefly flashes @any_colour@.
 
 @Your_item@ briefly glow.
+
+@Your_item@ briefly glow @any_glowing_colour@.
 
 @Your_item@ briefly vibrate.
 
@@ -256,15 +328,23 @@ An eyepatch briefly covers your eye.
 %%%%
 Xom two eyes
 
-A monocle briefly appears over your [right|left] eye.
+A monocle briefly appears over one of your eyes.
 
-An eyepatch briefly covers your [right|left] eye.
+An eyepatch briefly covers one of your eyes.
+%%%%
+Xom ears
+
+Your ears flap wildly.
+
+Your ears wiggle.
+
+Steam briefly shoots from your ears!
 %%%%
 Xom hair
 
-Your eyebrows briefly feel incredibly bushy.
+Your hair briefly feels incredibly bushy.
 
-Your eyebrows wriggle.
+Your hair wriggles.
 
 You briefly grow a large moustache and beard.
 %%%%
@@ -326,6 +406,22 @@ Xom offhand slot
 
 @Your_item@ briefly flashes a lurid @any_colour@!
 %%%%
+Xom gloves slot
+
+@Your_item@ briefly grows several extra fingers!
+%%%%
+Xom boots slot
+
+@Your_item@ grows to a huge size, then shrinks back down!
+%%%%
+Xom gizmo slot
+
+@Your_item@ jiggles!
+%%%%
+Xom ring slot
+
+@Your_item@ twitches!
+%%%%
 Xom dragon armour
 
 The scales on @your_item@ wiggle briefly.
@@ -374,7 +470,8 @@ Xom's power touches on your mind for a moment.
 
 Xom titters.
 %%%%
-# 50% stat loss, 25% draining, 25% torment
+# 50% stat loss, 25% draining,
+# 25% torment (only the player if Xom's feeling nasty)
 Xom draining or torment
 
 "You have displeased me, mortal."
@@ -389,7 +486,20 @@ You hear Xom's maniacal laughter.
 
 Xom's malign attention turns to you for a moment.
 %%%%
-# 25% chance dancing weapon, else summon hostile monster
+Xom torment all
+
+Xom torments the living!
+
+Xom spreads torment and darkness!
+
+Xom unleashes waves of agony!
+
+Xom's malign attention turns towards your situation for a moment.
+
+w:5
+The hand of Xom pokes all present souls.
+%%%%
+# summon hostile monster
 Xom hostile monster
 
 "Time to have some fun!"
@@ -400,13 +510,41 @@ Xom hostile monster
 
 You hear Xom's maniacal laughter.
 %%%%
+# drain your mp, produce magicspawn
+Xom brain drain
+
+w:20
+Xom displaces most of your magic for a moment.
+
+w:20
+Xom reveals to you one of the great and terrible secrets of magic.
+
+w:20
+Xom curiously channels energy out of your body.
+
+Xom picks up your mind and accidentally drops it.
+
+Xom gives you a terrible headache.
+
+"You don't need this, do you?"
+%%%%
+# prints only if summons successfully spawn
+Xom drained brain
+
+w:25
+Your magic slithers out of your reeling mind!
+
+Your power and thoughts are overwhelmed by magic-eaters manifest!
+
+Your magic rips itself out through your @random_body_part@!
+%%%%
 Xom banishment
 
 "You have grown too comfortable in your little world, mortal!"
 
 Xom casts you into the Abyss!
 
-The world seems to spin as Xom's maniacal laughter rings in your ears.
+The world seems to spin as Xom's maniacal laughter rings.
 %%%%
 Xom revert own banishment
 
@@ -446,6 +584,18 @@ w:1
 w:1
 Xom does a drum roll.
 %%%%
+Xom fake shatter
+
+w:30
+"Ka-crash!"
+
+"Let the forces of chaos tear it all down!"
+
+Xom reshapes the earth.
+
+w:1
+Xom reveals the great annihilating truth to the Dungeon's walls!
+%%%%
 Xom blink monsters
 
 "Over there now!"
@@ -453,6 +603,31 @@ Xom blink monsters
 "Get over here!"
 
 Xom decides to shift things around a little.
+%%%%
+Xom fast forward
+
+Xom speeds up the battle.
+
+Xom demands a faster pace.
+
+"Hurry it up!"
+%%%%
+Xom slow motion
+
+Xom feels like nobody present is taking it easy enough.
+
+Xom bends time into knots.
+
+"Don't be so hasty!"
+%%%%
+Xom pause
+
+Xom stops everything to savour the moment.
+
+Xom stomps on time for a few moments.
+
+w:1
+Xom prepares the audience for the floor's solo!
 %%%%
 #####################
 # other effects
@@ -503,7 +678,7 @@ Xom good monster polymorph
 
 "Hum-dee-hum-dee-hum..."
 
-Xom's power touches on a nearby monster.
+Xom's power touches your surroundings.
 
 You hear Xom's avuncular chuckle.
 %%%%
@@ -540,7 +715,7 @@ Xom divine lightning
 
 The area is suffused with divine lightning!
 
-Xom hurls a blast of lightning!
+Xom hurls blasts of lightning!
 
 "Ready, aim, fire!"
 %%%%
@@ -566,6 +741,9 @@ Xom calls forth mighty explosions.
 
 Xom rains down devastation!
 
+w:5
+Xom sneezes violently.
+
 @Xom fake destruction@
 %%%%
 Xom fake destruction
@@ -576,6 +754,20 @@ Xom gives a demonstration of destructive might.
 
 w:1
 "Let it end in hellfire!"
+%%%%
+Xom force lance fleet
+
+Xom drops down a force battalion!
+
+Xom calls in the force cavalry!
+
+Xom lights up the force fireworks!
+
+w:1
+Xom launches an entire fire-cart's barrage!
+
+w:1
+Xom manifests dramatic pipe organ chords!
 %%%%
 Xom accidental homicide
 
@@ -627,6 +819,20 @@ Xom good enchant monster
 Xom bad enchant monster
 
 @Xom good enchant monster@
+%%%%
+Xom mass charm
+
+Xom readies the chaos crusade!
+
+Xom seizes a variety of puppet strings.
+
+"Would you like more friends, my child?"
+
+w:5
+Xom bribes nearby enemies with the offer of @_trout_species_@ trout.
+
+w:5
+The hand of Xom pokes present minds.
 %%%%
 Xom stealth player
 
