@@ -2403,9 +2403,6 @@ static spret _do_cast(spell_type spell, int powc, const dist& spd,
 
     case SPELL_CALL_IMP_HORDE:
         return cast_call_imp_horde(powc, god, fail);
-
-    case SPELL_SUMMON_DEMON:
-        return cast_summon_demon(powc, god, fail);
         
     case SPELL_SUMMON_HORRIBLE_THINGS:
         return cast_summon_horrible_things(powc, god, fail);

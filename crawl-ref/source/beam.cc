@@ -4178,7 +4178,6 @@ void bolt::affect_player()
         ranged_attack attk(agent(true), &you, launcher,
                            item, use_target_as_pos,
                            agent(), item_mulches);
-        attk.set_path(*this);
         attk.attack();
         // fsim purposes - throw_it detects if an attack connected through
         // hit_verb
@@ -5491,7 +5490,6 @@ void bolt::affect_monster(monster* mon)
         ASSERT(ag);
         ranged_attack attk(ag, mon, launcher,
                            item, use_target_as_pos, agent(), item_mulches);
-        attk.set_path(*this);
         attk.attack();
         // fsim purposes - throw_it detects if an attack connected through
         // hit_verb
