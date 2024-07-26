@@ -85,6 +85,7 @@ static pair<spell_type, zap_type> _spl_zaps[] =
     { SPELL_GRAVITAS, ZAP_GRAVITAS },
     { SPELL_HOARFROST_BULLET, ZAP_HOARFROST_BULLET },
     { SPELL_GRAVE_CLAW, ZAP_GRAVE_CLAW },
+    { SPELL_UNLEASH_DESTRUCTION, ZAP_UNLEASH_DESTRUCTION },
 
     // monster-specific
     { SPELL_SLUG_DART, ZAP_SLUG_DART },
@@ -166,6 +167,8 @@ static pair<spell_type, zap_type> _spl_zaps[] =
     { SPELL_HURL_SLUDGE, ZAP_HURL_SLUDGE },
     { SPELL_POISONOUS_CLOUD, ZAP_BREATHE_POISON },
     { SPELL_PLASMA_BEAM, ZAP_PLASMA },
+    { SPELL_UNLEASH_DESTRUCTION, ZAP_UNLEASH_DESTRUCTION },
+    { SPELL_UNLEASH_DESTRUCTION, ZAP_UNLEASH_DESTRUCTION_PIERCING },
 };
 
 // Some player abilities are internally zaps but don't go through

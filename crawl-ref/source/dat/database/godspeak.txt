@@ -86,6 +86,8 @@ Xom spreads life in this Dungeon full of death.
 
 Xom incites some dramatic evolution in the adjacent floor mould.
 
+"It's alive! It's alive!"
+
 w:5
 Xom adds fresh vegetables to this Dungeon dish.
 
@@ -136,6 +138,12 @@ Xom scenery enter_abyss
 Xom suggests a refreshing change of pace.
 
 Xom tears open a few small holes in reality.
+
+Xom bends space into knots.
+%%%%
+Xom scenery trap_teleport
+
+@Xom scenery enter_abyss@
 %%%%
 Xom kind door ring
 
@@ -167,6 +175,19 @@ Xom's attention almost turns to you for a moment.
 Xom's power almost touches on you for a moment.
 
 You almost hear Xom's maniacal laughter.
+%%%%
+# Keep this greater than one, and small.
+Xom_number
+
+two
+
+three
+
+four
+
+five
+
+six
 %%%%
 Xom feature lava
 
@@ -212,7 +233,7 @@ Blood briefly sprays from @the_feature@.
 
 Dust puffs up from @the_feature@.
 %%%%
-Xom feature statue
+Xom feature statuelike
 
 @The_feature@ turns to glare at you.
 
@@ -221,6 +242,14 @@ Xom feature statue
 @The_feature@ turns away from you.
 
 @The_feature@ spins in place.
+%%%%
+Xom feature tree
+
+@The_feature@ bends towards you.
+
+@The_feature@ bends away from you.
+
+@The_feature@ sways in place.
 %%%%
 Xom feature translucent wall
 
@@ -326,7 +355,7 @@ A monocle briefly appears over your eye.
 
 An eyepatch briefly covers your eye.
 %%%%
-Xom two eyes
+Xom eyes
 
 A monocle briefly appears over one of your eyes.
 
@@ -352,7 +381,11 @@ Xom impromptu dance
 
 You perform an impromptu @dance_name@.
 
-You compulsively click your heels together three times.
+You do an impromptu @acrobatic_move_name@.
+
+You compulsively click your heels together @Xom_number@ times.
+
+You compulsively stomp your @feet@ @Xom_number@ times.
 %%%%
 dance_name
 
@@ -374,6 +407,32 @@ tapdance
 
 waltz
 %%%%
+acrobatic_move_name
+
+@hand@stand
+
+cartwheel
+
+pirouette
+
+somersault
+%%%%
+Xom tail
+
+Your tail briefly retracts into your body.
+
+Your tail briefly grows to an incredible length.
+
+You briefly grow another tail.
+%%%%
+Xom random body part singular
+
+Your @random_body_part_external_singular@ briefly jumps off your body, then reattaches itself!
+%%%%
+Xom random body part plural
+
+Your @random_body_part_external_plural@ briefly jump off your body, then reattach themselves!
+%%%%
 Xom unarmed one hand
 
 A fancy cane briefly appears in your @hand@.
@@ -386,7 +445,7 @@ Xom unarmed two hands
 
 Two fancy canes briefly appear in your @hands@.
 
-You compulsively clap your @hands@ three times.
+You compulsively clap your @hands@ @Xom_number@ times.
 %%%%
 Xom cloak slot
 
@@ -408,7 +467,7 @@ Xom offhand slot
 %%%%
 Xom gloves slot
 
-@Your_item@ briefly grows several extra fingers!
+@Your_item@ briefly grows @Xom_number@ extra fingers!
 %%%%
 Xom boots slot
 
@@ -510,6 +569,13 @@ Xom hostile monster
 
 You hear Xom's maniacal laughter.
 %%%%
+# one friendly player illusion + two hostile player illusions
+Xom send in the clones
+
+Xom feels like there should be more of you to share with the Dungeon.
+
+Xom gently smashes a mirror over your [@random_body_part_external_singular@|@random_body_part_external_plural@].
+%%%%
 # drain your mp, produce magicspawn
 Xom brain drain
 
@@ -531,12 +597,12 @@ Xom gives you a terrible headache.
 # prints only if summons successfully spawn
 Xom drained brain
 
-w:25
+w:20
 Your magic slithers out of your reeling mind!
 
 Your power and thoughts are overwhelmed by magic-eaters manifest!
 
-Your magic rips itself out through your @random_body_part@!
+Your magic rips itself out through your [@random_body_part_singular@|@random_body_part_plural@]!
 %%%%
 Xom banishment
 
@@ -686,6 +752,13 @@ You hear Xom's avuncular chuckle.
 Xom bad monster polymorph
 
 @Xom good monster polymorph@
+%%%%
+Xom wave of despair
+
+Xom recounts a horror story in an instant.
+
+w:2
+Xom joyfully recalls the collapse of multiple Dungeon civilisations.
 %%%%
 Xom good mutations
 
@@ -983,6 +1056,20 @@ w:5
 
 w:5
 "My hands, my teeth, my burning tears: these will never betray me!"
+%%%%
+Makhleb executioner chatter
+
+w:40
+"Kill. Kill. Kill!"
+
+"More. More. More!"
+
+"Another! And another! And another!"
+
+"Slaughter. Them. All!"
+
+w:5
+"Everything deserves to die!"
 %%%%
 ######################################
 # Welcome messages on game restoration

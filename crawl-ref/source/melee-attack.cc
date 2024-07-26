@@ -34,6 +34,7 @@
 #include "mon-death.h" // maybe_drop_monster_organ
 #include "mon-poly.h"
 #include "mon-tentacle.h"
+#include "nearby-danger.h"
 #include "religion.h"
 #include "shout.h"
 #include "spl-damage.h"
@@ -334,6 +335,13 @@ bool melee_attack::handle_phase_dodged()
                 == MONS_MINOTAUR)
             {
                 do_minotaur_retaliation();
+            }
+
+            if (defender->is_player() && you.duration[DUR_EXECUTION])
+            {
+                melee_attack retaliation(&you, attacker);
+                retaliation.player_aux_setup(UNAT_EXECUTIONER_BLADE);
+                retaliation.player_aux_apply(UNAT_EXECUTIONER_BLADE);
             }
 
             // Retaliations can kill!
@@ -780,7 +788,7 @@ bool melee_attack::handle_phase_aux()
         if (!defender->as_monster()->friendly()
             && adjacent(defender->pos(), attack_position))
         {
-            player_aux_unarmed();
+            player_do_aux_attacks();
         }
 
         // Don't print wounds after the first attack with quick blades.
@@ -920,7 +928,21 @@ bool melee_attack::handle_phase_killed()
                                     true, special_damage);
     }
 
-    return attack::handle_phase_killed();
+    bool killed = attack::handle_phase_killed();
+
+    if (killed && attacker->is_player() && defender->is_monster()
+        && you.has_mutation(MUT_MAKHLEB_MARK_EXECUTION)
+        && !you.duration[DUR_EXECUTION]
+        && mons_gives_xp(*defender->as_monster(), you)
+        && one_chance_in(8)
+        // It's unsatisfying to repeatedly trigger a transformation on the final
+        // monster of a group, so let's not cause the player that disappointment.
+        && there_are_monsters_nearby(true, true, false))
+    {
+        makhleb_execution_activate();
+    }
+
+    return killed;
 }
 
 void melee_attack::handle_spectral_brand()
@@ -1639,6 +1661,26 @@ public:
     bool xl_based_chance() const override { return false; }
 };
 
+class AuxBlades: public AuxAttackType
+{
+public:
+    AuxBlades()
+    : AuxAttackType(1, 100, "whirl of blades") { };
+
+    string get_verb() const override
+    {
+        return "shred";
+    }
+
+    int get_damage(bool random) const override
+    {
+        return 7 + (random ? div_rand_round(you.experience_level, 3)
+                           : you.experience_level / 3);
+    };
+
+    bool xl_based_chance() const override { return false; }
+};
+
 static const AuxConstrict   AUX_CONSTRICT = AuxConstrict();
 static const AuxKick        AUX_KICK = AuxKick();
 static const AuxPeck        AUX_PECK = AuxPeck();
@@ -1650,6 +1692,7 @@ static const AuxBite        AUX_BITE = AuxBite();
 static const AuxPseudopods  AUX_PSEUDOPODS = AuxPseudopods();
 static const AuxTentacles   AUX_TENTACLES = AuxTentacles();
 static const AuxMaw         AUX_MAW = AuxMaw();
+static const AuxBlades      AUX_EXECUTIONER_BLADE = AuxBlades();
 
 static const AuxAttackType* const aux_attack_types[] =
 {
@@ -1664,6 +1707,7 @@ static const AuxAttackType* const aux_attack_types[] =
     &AUX_PSEUDOPODS,
     &AUX_TENTACLES,
     &AUX_MAW,
+    &AUX_EXECUTIONER_BLADE,
 };
 
 
@@ -1747,7 +1791,7 @@ bool melee_attack::player_aux_test_hit()
  *
  * Returns (defender dead)
  */
-bool melee_attack::player_aux_unarmed()
+bool melee_attack::player_do_aux_attacks()
 {
     unwind_var<brand_type> save_brand(damage_brand);
 
@@ -1761,35 +1805,47 @@ bool melee_attack::player_aux_unarmed()
         if (!_extra_aux_attack(atk))
             continue;
 
-        // Determine and set damage and attack words.
-        player_aux_setup(atk);
+        if (player_do_aux_attack(atk))
+            return true;
+    }
 
-        if (atk == UNAT_CONSTRICT && !attacker->can_constrict(*defender, CONSTRICT_MELEE))
-            continue;
+    return false;
+}
 
-        to_hit = random2(aux_to_hit());
-        to_hit += post_roll_to_hit_modifiers(to_hit, false);
+/* Performs the specified auxiliary attack type against the defender.
+ *
+ * Returns if the defender was killed
+ */
+bool melee_attack::player_do_aux_attack(unarmed_attack_type atk)
+{
+    // Determine and set damage and attack words.
+    player_aux_setup(atk);
 
-        handle_noise(defender->pos());
-        alert_nearby_monsters();
+    if (atk == UNAT_CONSTRICT && !attacker->can_constrict(*defender, CONSTRICT_MELEE))
+        return false;
 
-        // Just about anything could've happened after all that racket.
-        // Let's be paranoid.
+    to_hit = random2(aux_to_hit());
+    to_hit += post_roll_to_hit_modifiers(to_hit, false);
+
+    handle_noise(defender->pos());
+    alert_nearby_monsters();
+
+    // Just about anything could've happened after all that racket.
+    // Let's be paranoid.
+    if (!defender->alive())
+        return true;
+
+    if (player_aux_test_hit())
+    {
+        // Upset the monster.
+        behaviour_event(defender->as_monster(), ME_WHACK, attacker);
         if (!defender->alive())
             return true;
 
-        if (player_aux_test_hit())
-        {
-            // Upset the monster.
-            behaviour_event(defender->as_monster(), ME_WHACK, attacker);
-            if (!defender->alive())
-                return true;
-
-            if (attack_shield_blocked(true))
-                continue;
-            if (player_aux_apply(atk))
-                return true;
-        }
+        if (attack_shield_blocked(true))
+            return false;
+        if (player_aux_apply(atk))
+            return true;
     }
 
     return false;
@@ -4088,6 +4144,8 @@ bool melee_attack::_extra_aux_attack(unarmed_attack_type atk)
     case UNAT_TAILSLAP:
         // includes MUT_STINGER, MUT_ARMOURED_TAIL, MUT_WEAKNESS_STINGER, fishtail
         return you.has_tail()
+               // felid tails don't slap
+               && you.species != SP_FELID
                // constricting tails are too slow to slap
                && !you.has_mutation(MUT_CONSTRICTING_TAIL);
 
@@ -4111,6 +4169,9 @@ bool melee_attack::_extra_aux_attack(unarmed_attack_type atk)
 
     case UNAT_MAW:
         return you.form == transformation::maw;
+
+    case UNAT_EXECUTIONER_BLADE:
+        return you.duration[DUR_EXECUTION];
 
     default:
         return false;
@@ -4287,6 +4348,8 @@ string mut_aux_attack_desc(mutation_type mut)
                               "Base damage:     %d\n\n",
                             _minotaur_headbutt_chance(),
                             AUX_HEADBUTT.get_damage(false));
+    case MUT_MAKHLEB_MARK_EXECUTION:
+        return AUX_EXECUTIONER_BLADE.describe();
     default:
         return "";
     }

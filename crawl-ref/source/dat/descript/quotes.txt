@@ -162,6 +162,18 @@ A portal to a secret trove of treasure
  generations thieves must have stored their gains and spoils in this place.”
     -_The Arabian Nights_. trans. Sir Richard F. Burton, 1885.
 %%%%
+A portal to somewhere
+
+“The hole now stood some three meters in diameter beginning from the dais -
+ though its outline shrank and dilated slightly like a pulsing, living thing.
+ Through it we could see shapes seething and changing constantly with the
+ colors and the light. Purple trees grew upside down from a pink sky, changing
+ into black flowers and the flowers into feathery tongues of giant yellow worms
+ lumbering over a shaking, exploding desert. It was as if the world couldn't
+ make up its mind what to be yet. Looking at the scene for even a moment gave
+ me a headache, and anyone looking at it for long would surely go mad.”
+    -Laurence Yep, _Dragon War_. 1992.
+%%%%
 A rock wall
 
 “I know not whether Laws be right,
@@ -541,6 +553,21 @@ Lee's Rapid Deconstruction spell
  were therein. So the dead which he slew at his death were more than they which
  he slew in his life.”
     -KJV Bible, Judges 16:27-30.
+%%%%
+Magic Dart spell
+
+“Wie die Mächtigen es schon seit jeher wissen,
+ Es gibt immer einen Kniff;
+ Denn als Guter bist du niemals so gerissen,
+ Ein Zauberpfeil der immer trifft!
+
+ [As the powerful have known all along,
+ There is always a trick;
+ Because as a good person, you'll never be so cunning,
+ A magic arrow that always hits!]”
+    -ASP, "Verwandlungen I-III". 2008
+
+# translation by me, nicolae
 %%%%
 Mass Confusion spell
 
@@ -2919,11 +2946,12 @@ fenstrider witch
 %%%%
 fire crab
 
-“The planet brought forth scintillating jewelled scuttling crabs, which [they]
- ate, smashing their shells with iron mallets; tall aspiring trees with
- breathtaking slenderness and colour which [they] cut down and burned the crab
- meat with.”
-    -Douglas Adams, The Hitch-hiker's Guide to the Galaxy
+“The planet brought forth scintillating jewelled scuttling crabs, which the
+ Vogons ate, smashing their shells with iron mallets; tall aspiring trees with
+ breathtaking slenderness and colour which the Vogons cut down and burned the
+ crab meat with; elegant gazellelike creatures with silken coats and dewy eyes
+ which the Vogons would catch and sit on.”
+    -Douglas Adams, _The Hitch-hiker's Guide to the Galaxy_. 1979.
 %%%%
 flayed ghost
 

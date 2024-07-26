@@ -1426,7 +1426,7 @@ static void _make_derived_undead(monster* mons, bool quiet,
     }
 
     const string message = quiet ? "" :
-                           god == GOD_KIKUBAAQUDGHA ? "Kikubaaqudha cackles." :
+                           god == GOD_KIKUBAAQUDGHA ? "Kikubaaqudgha cackles." :
                            _derived_undead_message(*mons, which_z, mist);
     make_derived_undead_fineff::schedule(mons->pos(), mg,
             mons->get_experience_level(), agent_name, message, spell);
@@ -2119,6 +2119,13 @@ item_def* monster_die(monster& mons, killer_type killer,
         }
     }
 
+    // Chance to cause monsters you kill yourself to explode with Mark of Haemoclasm
+    if (YOU_KILL(killer) && you.has_mutation(MUT_MAKHLEB_MARK_HAEMOCLASM)
+        && one_chance_in(10))
+    {
+        mons.props[MAKHLEB_HAEMOCLASM_KEY] = true;
+    }
+
     if (you.prev_targ == monster_killed)
     {
         you.prev_targ = MHITNOT;
@@ -2129,6 +2136,12 @@ item_def* monster_die(monster& mons, killer_type killer,
         crawl_state.cancel_cmd_repeat();
 
     const bool pet_kill = _is_pet_kill(killer, killer_index);
+
+    if (player_in_branch(BRANCH_CRUCIBLE) && !summoned
+        && (YOU_KILL(killer) || pet_kill))
+    {
+        makhleb_crucible_kill(mons);
+    }
 
     bool did_death_message = false;
 
@@ -2195,7 +2208,12 @@ item_def* monster_die(monster& mons, killer_type killer,
         if (!monster_habitable_grid(simu.base_type, env.grid(mons.pos())))
             find_habitable_spot_near(mons.pos(), simu.base_type, 3, true, simu.pos);
 
-        string msg = "Your " + mons_type_name(simu.base_type, DESC_PLAIN) +
+        monster_type real_simu_type = simu.base_type;
+        // Don't use uniques' names here; their simulacra won't use them either.
+        if (mons_is_unique(simu.base_type))
+            real_simu_type = mons_species(simu.base_type);
+
+        string msg = "Your " + mons_type_name(real_simu_type, DESC_PLAIN) +
                      " simulacrum begins to move.";
         make_derived_undead_fineff::schedule(simu.pos, simu,
                                              get_monster_data(simu.base_type)->HD,
@@ -2471,6 +2489,14 @@ item_def* monster_die(monster& mons, killer_type killer,
         }
     }
 
+    if (you.has_mutation(MUT_MAKHLEB_MARK_TYRANT)
+        && gives_player_xp
+        && (killer == KILL_YOU || killer == KILL_YOU_MISSILE)
+        && !one_chance_in(3))
+    {
+        makhleb_tyrant_buff();
+    }
+
     // Apply unrand effects.
     unrand_death_effects(&mons, killer);
 
@@ -2529,23 +2555,26 @@ item_def* monster_die(monster& mons, killer_type killer,
             const bool valid_heal_source = gives_player_xp
                 && !mons_is_object(mons.type);
             // Chance scales from 30% at 1* to 80% at 6*
-            const bool can_divine_heal = valid_heal_source
+            const bool can_divine_heal =
+                (valid_heal_source
+                    || you_worship(GOD_MAKHLEB)
+                        && player_in_branch(BRANCH_CRUCIBLE)
+                        && mons_class_gives_xp(mons.type)
+                        && !summoned
+                        && !fake_abjure
+                        && !mons.friendly())
                 && !player_under_penance()
-                && x_chance_in_y(50 * ((min(piety_breakpoint(5), (int)you.piety) - 30)
-                                 / (piety_breakpoint(5) - piety_breakpoint(0))) + 30, 100);
-
-            if (valid_heal_source
-                && you.has_mutation(MUT_DEVOUR_ON_KILL)
-                && mons.holiness() & (MH_NATURAL | MH_PLANT)
-                && coinflip())
-            {
-                hp_heal += 1 + random2avg(1 + you.experience_level, 3);
-            }
+                && (x_chance_in_y(50 * ((min(piety_breakpoint(5), (int)you.piety) - 30)
+                                 / (piety_breakpoint(5) - piety_breakpoint(0))) + 30, 100)
+                    || mons.props.exists(MAKHLEB_BLOODRITE_KILL_KEY));
 
             if (can_divine_heal && have_passive(passive_t::restore_hp))
             {
                 hp_heal += (1 + mons.get_experience_level()) / 2
                         + random2(mons.get_experience_level() / 2);
+
+                if (you.form == transformation::slaughter)
+                    hp_heal *= 2;
             }
             if (can_divine_heal
                 && have_passive(passive_t::restore_hp_mp_vs_evil)
@@ -2556,6 +2585,14 @@ item_def* monster_die(monster& mons, killer_type killer,
             }
             if (can_divine_heal && have_passive(passive_t::mp_on_kill))
                 mp_heal += 1 + random2(mons.get_experience_level() / 2);
+
+            if (valid_heal_source
+                && you.has_mutation(MUT_DEVOUR_ON_KILL)
+                && mons.holiness() & (MH_NATURAL | MH_PLANT)
+                && coinflip())
+            {
+                hp_heal += 1 + random2avg(1 + you.experience_level, 3);
+            }
 
             if (hp_heal && you.hp < you.hp_max
                 && !you.duration[DUR_DEATHS_DOOR])
