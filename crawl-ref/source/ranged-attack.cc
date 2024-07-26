@@ -183,35 +183,6 @@ void ranged_attack::set_path(bolt path)
 bool ranged_attack::handle_phase_end()
 {
     const int remaining_range = you.current_vision - grid_distance(attacker->pos(), defender->pos());
-
-    if (projectile->base_type == OBJ_MISSILES &&
-       (projectile->sub_type == MI_TRIPLE_BOLT || projectile->sub_type == MI_DOUBLE_BOLT) &&
-        !the_path.aimed_at_spot && !invalid_monster(defender->as_monster()) 
-        && (remaining_range >= 1))
-    {
-        bolt continuation = the_path;
-        continuation.range = remaining_range;
-        const int x0 = the_path.source.x;
-        const int x1 = the_path.target.x;
-        const int y0 = the_path.source.y;
-        const int y1 = the_path.target.y;
-        continuation.target = coord_def(x0 + (x1 - x0) * 5, y0 + (y1 - y0) * 5);
-        range_used = BEAM_STOP;
-        continuation.source = defender->pos();
-        int x = MI_BOLT;
-        if (attack_count > 1)
-            x = MI_DOUBLE_BOLT;
-        int i = items(false, OBJ_MISSILES, x, 1);
-        item_def item = env.item[i];
-        item.quantity = 1;
-        continuation.item = &item;
-        continuation.aux_source.clear();
-        continuation.name = item.name(DESC_PLAIN, false, false, false);
-
-        continuation.fire();
-        destroy_item(i);
-    }
-
     // XXX: this kind of hijacks the shield block check
     if (!is_penetrating_attack(*attacker, weapon, *projectile) && attack_count <= 1)
         range_used = BEAM_STOP;
