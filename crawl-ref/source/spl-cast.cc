@@ -1338,7 +1338,6 @@ unique_ptr<targeter> find_spell_targeter(spell_type spell, int pow, int range)
     case SPELL_SUMMON_BLAZEHEART_GOLEM:
     case SPELL_CALL_IMP:
     case SPELL_CALL_IMP_HORDE:
-    case SPELL_SUMMON_DEMON:
     case SPELL_SUMMON_HORRIBLE_THINGS:
     case SPELL_SPELLFORGED_SERVITOR:
     case SPELL_SUMMON_LIGHTNING_SPIRE:
