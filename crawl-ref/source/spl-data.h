@@ -619,7 +619,8 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_SOUL_SPLINTER, "Soul Splinter",
     spschool::necromancy,
-    spflag::dir_or_target | spflag::needs_tracer | spflag::WL_check,
+    spflag::dir_or_target | spflag::needs_tracer | spflag::WL_check
+        | spflag::not_self,
     1,
     25,
     5, 5,
@@ -3686,7 +3687,7 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_DIMENSIONAL_BULLSEYE, "Dimensional Bullseye",
     spschool::translocation | spschool::hexes,
-    spflag::target | spflag::not_self,
+    spflag::target | spflag::not_self | spflag::prefer_farthest,
     4,
     200,
     LOS_RADIUS, LOS_RADIUS,

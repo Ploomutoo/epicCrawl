@@ -1168,12 +1168,6 @@ ability_type fixup_ability(ability_type ability)
         else
             return ability;
 
-    case ABIL_OKAWARU_DUEL:
-        if (brdepth[BRANCH_ARENA] == -1)
-            return ABIL_NON_ABILITY;
-        else
-            return ability;
-
     case ABIL_OKAWARU_GIFT_ARMOUR:
         if (you.props.exists(OKAWARU_ARMOUR_GIFTED_KEY)
             || !player_can_use_armour())
@@ -2499,13 +2493,28 @@ static bool _check_ability_possible(const ability_def& abil, bool quiet = false)
     }
 
     case ABIL_DITHMENOS_PRIMORDIAL_NIGHTFALL:
-    if (you.duration[DUR_PRIMORDIAL_NIGHTFALL])
-    {
-        if (!quiet)
-            mpr("Night has already fallen.");
-        return false;
-    }
-    return true;
+        if (you.duration[DUR_PRIMORDIAL_NIGHTFALL])
+        {
+            if (!quiet)
+                mpr("Night has already fallen.");
+            return false;
+        }
+        return true;
+
+    case ABIL_MAKHLEB_VESSEL_OF_SLAUGHTER:
+        if (player_in_branch(BRANCH_CRUCIBLE))
+        {
+            if (!quiet)
+                mpr("Mahkleb denies you. Endure the Crucible first!");
+            return false;
+        }
+        else if (you.form == transformation::slaughter)
+        {
+            if (!quiet)
+                mpr("You are already a vessel of slaughter!");
+            return false;
+        }
+        return true;
 
     default:
         return true;
@@ -3493,11 +3502,6 @@ static spret _do_ability(const ability_def& abil, bool fail, dist *target,
         return makhleb_infernal_legion(fail);
 
     case ABIL_MAKHLEB_VESSEL_OF_SLAUGHTER:
-        if (player_in_branch(BRANCH_CRUCIBLE))
-        {
-            mpr("Mahkleb denies you. Endure the Crucible first!");
-            return spret::abort;
-        }
         fail_check();
         makhleb_vessel_of_slaughter();
         break;

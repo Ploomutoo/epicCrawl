@@ -7013,8 +7013,8 @@ int makhleb_get_atrocity_stacks()
 spret makhleb_unleash_destruction(int power, bolt& beam, bool fail)
 {
     // Since the actual beam is random, check with BEAM_MMISSILE.
-    if (!player_tracer(_has_upgraded_destruction() ? ZAP_UNLEASH_DESTRUCTION
-                                                   : ZAP_UNLEASH_DESTRUCTION_PIERCING,
+    if (!player_tracer(_has_upgraded_destruction() ? ZAP_UNLEASH_DESTRUCTION_PIERCING
+                                                   : ZAP_UNLEASH_DESTRUCTION,
                         100, beam, beam.range))
     {
         return spret::abort;
@@ -7123,7 +7123,7 @@ void makhleb_infernal_servant()
     int pow = you.skill(SK_INVOCATIONS);
     const bool hostile = one_chance_in(6);
     if (hostile)
-        pow += 3;
+        min(27, pow += 3);
 
     // Top-end demons are only accessed with this mark
     if (!tyrant)
@@ -7190,6 +7190,9 @@ void makhleb_infernal_servant()
 
         if (hostile)
         {
+            // Don't let Mark of the Tyrant produce fiends as hostiles
+            pow = min(pow, 18);
+
             mon_type = servant_picker.pick(_makhleb_servants, pow - 3, MONS_RED_DEVIL);
             mgen_data mg2(mon_type, BEH_HOSTILE, you.pos(), MHITYOU, MG_AUTOFOE);
             mg2.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET | MF_WAS_IN_VIEW);
@@ -7217,14 +7220,14 @@ void makhleb_infernal_servant()
 
 void makhleb_inscribe_mark(mutation_type mark)
 {
-    mprf("You utter a prayer to Makhleb, and carve the %s into yourself.",
+    mprf("You utter a prayer to Makhleb and carve the %s into yourself.",
          mutation_name(mark));
 
     const int hploss = min(you.hp - 1, you.hp * 2 / 3);
     blood_spray(you.pos(), MONS_PLAYER, 50);
     ouch(hploss, KILLED_BY_SELF_AIMED, MID_PLAYER);
 
-    perma_mutate(mark, 1, " inscribed by the player.");
+    perma_mutate(mark, 1, "inscribed by the player");
 
     you.one_time_ability_used.set(GOD_MAKHLEB);
 
@@ -7294,14 +7297,14 @@ void makhleb_vessel_of_slaughter()
     const int boost = div_rand_round((100 - (you.hp * 100 / you.hp_max)) * 2, 3);
     you.props[MAKHLEB_SLAUGHTER_BOOST_KEY] = boost;
 
-    mpr("You offer yourself as an instrument of Makhleb's will, and feel "
+    mpr("You offer yourself as an instrument of Makhleb's will and feel "
         "overwhelming power flowing through you!");
 
     transform(100, transformation::slaughter);
     you.transform_uncancellable = true;
 
     bolt damnation;
-    zappy(ZAP_CALL_DOWN_DAMNATION, 100, false, damnation);
+    zappy(ZAP_HURL_DAMNATION, 100, false, damnation);
     damnation.thrower = KILL_YOU;
     damnation.source_id = MID_PLAYER;
     damnation.is_explosion = true;
@@ -7499,8 +7502,8 @@ void makhleb_crucible_kill(monster& victim)
         }
 
         dungeon_terrain_changed(pos, DNGN_EXIT_CRUCIBLE);
-        simple_god_message(" acknowledges your contrition and permits you depart the Crucible.",
-                           false, GOD_MAKHLEB);
+        simple_god_message(" acknowledges your contrition and permits you to"
+                           " depart the Crucible.", false, GOD_MAKHLEB);
 
         env.map_knowledge(pos).set_feature(DNGN_EXIT_CRUCIBLE);
 #ifdef USE_TILE

@@ -3194,6 +3194,18 @@ bool make_soul_wisp(const actor& agent, monster& victim)
     if (!mons_can_be_spectralised(victim))
         return false;
 
+    // Don't try to create a wisp from a monster who's already had one made from
+    // them. (This causes wierd messaging and removes the Weak effect).
+    if (victim.props.exists(SOUL_SPLINTERED_KEY))
+    {
+        if (agent.is_player() && victim.observable())
+        {
+            mprf("A fragment of %s is already outside their body!",
+                    victim.name(DESC_THE).c_str());
+        }
+        return false;
+    }
+
     vector<coord_def> spots;
     for (adjacent_iterator ai(victim.pos()); ai; ++ai)
     {
@@ -3204,7 +3216,11 @@ bool make_soul_wisp(const actor& agent, monster& victim)
         }
     }
     if (spots.size() <= 0)
+    {
+        if (agent.is_player())
+            mpr("There's no room for the soul wisp to form!");
         return false;
+    }
 
     if (you.see_cell(victim.pos()))
     {
@@ -3219,13 +3235,14 @@ bool make_soul_wisp(const actor& agent, monster& victim)
     mg.flags |= MG_FORCE_PLACE;
 
     // Damage improves when extracted from stronger enemies, but they are always fragile.
-    mg.hd = 1 + victim.get_experience_level();
-    mg.hp = random_range(7, 11);
+    mg.hd = 2 + div_rand_round(victim.get_experience_level(), 2);
+    mg.hp = random_range(5, 8);
 
     monster* wisp = create_monster(mg);
 
     wisp->add_ench(mon_enchant(ENCH_HAUNTING, 1, &victim, INFINITE_DURATION));
     victim.weaken(&agent, wisp->get_ench(ENCH_ABJ).duration / 10);
+    victim.props[SOUL_SPLINTERED_KEY]= true;
 
     // Let wisp act immediately (so that if it appears behind the enemy, the
     // enemy won't simply move out of range first).

@@ -884,9 +884,6 @@ static formatted_string _describe_god_powers(god_type which_god)
                      "Foes that die within your umbra may be raised as undead servants.\n");
         break;
 
-    case GOD_DITHMENOS:
-        break;
-
     case GOD_HEPLIAKLQANA:
         // Frailty occurs even under penance post-abandonment, so we can't put
         // this in the usual god_powers block.
@@ -911,6 +908,13 @@ static formatted_string _describe_god_powers(god_type which_god)
         // wasn't already mentioned by the other description
         if (power.abil == ABIL_KIKU_GIFT_CAPSTONE_SPELLS
             && !you.has_mutation(MUT_NO_GRASPING))
+        {
+            continue;
+        }
+        // Skip over Makhleb's brand options after the first one, since
+        // only the first one has an associated god ability.
+        if (power.abil == ABIL_MAKHLEB_BRAND_SELF_2
+            || power.abil == ABIL_MAKHLEB_BRAND_SELF_3)
         {
             continue;
         }
