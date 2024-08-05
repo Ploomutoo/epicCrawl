@@ -152,7 +152,6 @@ private:
     // Player-attack specific stuff
     // Auxiliary unarmed attacks.
     bool player_do_aux_attacks();
-    bool player_gets_aux_punch();
     void player_aux_setup(unarmed_attack_type atk);
     bool player_aux_test_hit();
     bool player_aux_apply(unarmed_attack_type atk);
@@ -202,3 +201,4 @@ private:
 
 string aux_attack_desc(unarmed_attack_type unat, int force_damage = -1);
 string mut_aux_attack_desc(mutation_type mut);
+vector<string> get_player_aux_names();

@@ -2748,7 +2748,8 @@ void set_training_status(skill_type sk, training_status st)
 void set_magic_training(training_status st)
 {
     for (skill_type sk = SK_SPELLCASTING; sk <= SK_LAST_MAGIC; ++sk)
-        you.train[sk] = you.train_alt[sk] = st;
+        if (!is_removed_skill(sk))
+            you.train[sk] = you.train_alt[sk] = st;
 }
 
 void set_martial_training(training_status st)

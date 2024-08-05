@@ -2183,8 +2183,18 @@ item_def* monster_die(monster& mons, killer_type killer,
         {
             if (!silent)
                 simple_monster_message(mons, " returns to where it belongs.");
-            source->as_monster()->del_ench(ENCH_WEAK);
-            source->props.erase(SOUL_SPLINTERED_KEY);
+
+            if (source->is_monster())
+            {
+                source->as_monster()->del_ench(ENCH_WEAK);
+                source->props.erase(SOUL_SPLINTERED_KEY);
+            }
+            else if (source->is_player())
+            {
+                you.duration[DUR_WEAK] = 0;
+                mprf(MSGCH_RECOVERY, "You feel your strength returning.");
+            }
+
             silent = true;
         }
     }
@@ -2412,7 +2422,10 @@ item_def* monster_die(monster& mons, killer_type killer,
         {
             mprf(MSGCH_WARN, "%s falls apart, revealing its core!",
                  mons.name(DESC_YOUR).c_str());
+
+            int old_hd = mons.get_hit_dice();
             change_monster_type(&mons, MONS_BLAZEHEART_CORE);
+            mons.set_hit_dice(old_hd);
 
             // Cores should not count as summons and either expire or be removed
             // by recasting golem itself.
@@ -2870,7 +2883,7 @@ item_def* monster_die(monster& mons, killer_type killer,
             && !was_banished)
         {
             if (mons_base_type(mons) == MONS_KRAKEN)
-                mpr("The dead kraken's tentacles slide back into the water.");
+                mpr("The kraken's tentacles disappear.");
             else if (mons.type == MONS_TENTACLED_STARSPAWN)
                 mpr("The starspawn's tentacles wither and die.");
         }

@@ -203,6 +203,14 @@ spret cast_call_canine_familiar(int pow, god_type god, bool fail)
         old_dog->heal(random_range(5, 9) + div_rand_round(pow, 5));
         old_dog->lose_ench_levels(ENCH_POISON, 1);
         old_dog->add_ench(mon_enchant(ENCH_INSTANT_CLEAVE, 1, &you, 50));
+
+        // Give our familiar a small amount of extra duration, if its duration
+        // is currently low, to avoid imbuing it and then having it immediately
+        // poof before it can even do anything with the buff.
+        mon_enchant abj = old_dog->get_ench(ENCH_ABJ);
+        if (abj.duration < 110)
+            abj.duration += random_range(60, 90);
+        old_dog->update_ench(abj);
     }
 
     return spret::success;
@@ -931,7 +939,7 @@ spret cast_summon_blazeheart_golem(int pow, god_type god, bool fail)
     mgen_data golem = _pal_data(MONS_BLAZEHEART_GOLEM, 3, god,
                                 SPELL_SUMMON_BLAZEHEART_GOLEM);
     golem.flags &= ~MG_AUTOFOE; // !!!
-    golem.hd = 6 + div_rand_round(pow, 12);
+    golem.hd = 6 + div_rand_round(pow, 10);
 
     monster* mons = (create_monster(golem));
 
@@ -2980,6 +2988,21 @@ spret cast_simulacrum(coord_def target, int pow, bool fail)
     return spret::success;
 }
 
+static int _hoarfrost_cannon_hd(int pow, bool random = true)
+{
+    if (random)
+        return 4 + div_rand_round(pow, 20);
+    return 4 + pow / 20;
+}
+
+dice_def hoarfrost_cannonade_damage(int pow, bool finale)
+{
+    if (finale)
+        return zap_damage(ZAP_HOARFROST_BULLET_FINALE, _hoarfrost_cannon_hd(pow, false) * 12, true, false);
+    else
+        return zap_damage(ZAP_HOARFROST_BULLET, _hoarfrost_cannon_hd(pow, false) * 12, true, false);
+}
+
 spret cast_hoarfrost_cannonade(const actor& agent, int pow, bool fail)
 {
     fail_check();
@@ -2994,7 +3017,7 @@ spret cast_hoarfrost_cannonade(const actor& agent, int pow, bool fail)
     mgen_data cannon = _summon_data(agent, MONS_HOARFROST_CANNON, 0, GOD_NO_GOD,
                                     SPELL_HOARFROST_CANNONADE);
     cannon.flags |= MG_FORCE_PLACE;
-    cannon.hd = 4 + div_rand_round(pow, 20);
+    cannon.hd = _hoarfrost_cannon_hd(pow);
 
     // Make both cannons share the same duration
     const int dur = random_range(16, 22) * BASELINE_DELAY;
@@ -3189,14 +3212,14 @@ bool hellfire_mortar_active(const actor& agent)
     return false;
 }
 
-bool make_soul_wisp(const actor& agent, monster& victim)
+bool make_soul_wisp(const actor& agent, actor& victim)
 {
-    if (!mons_can_be_spectralised(victim))
+    if (victim.is_monster() && !mons_can_be_spectralised(*victim.as_monster()))
         return false;
 
     // Don't try to create a wisp from a monster who's already had one made from
-    // them. (This causes wierd messaging and removes the Weak effect).
-    if (victim.props.exists(SOUL_SPLINTERED_KEY))
+    // them. (This causes weird messaging and removes the Weak effect).
+    if (victim.is_monster() && victim.props.exists(SOUL_SPLINTERED_KEY))
     {
         if (agent.is_player() && victim.observable())
         {

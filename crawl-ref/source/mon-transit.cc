@@ -153,6 +153,9 @@ void place_followers()
 
 static void _place_oka_duel_target(monster* mons)
 {
+    // It's possible for kobolds to have shorter LoS than the default min
+    // placement distance, so place enemies closer to them.
+    const int min_dist = min((int)you.current_vision, 3);
     int seen = 0;
     coord_def targ;
     for (radius_iterator ri(you.pos(), LOS_NO_TRANS); ri; ++ri)
@@ -161,7 +164,7 @@ static void _place_oka_duel_target(monster* mons)
             continue;
 
         const int dist = grid_distance(you.pos(), *ri);
-        if (dist > 5 || dist < 3)
+        if (dist > 5 || dist < min_dist)
             continue;
 
         if (one_chance_in(++seen))
@@ -177,8 +180,11 @@ static monster* _place_lost_monster(follower &f)
     dprf("Placing lost one: %s", f.mons.name(DESC_PLAIN, true).c_str());
 
     // Duel targets that survive a duel (due to player excommunication) should
-    // be placed next to the player when they exit.
-    bool near_player = f.mons.props.exists(OKAWARU_DUEL_ABANDONED_KEY);
+    // be placed next to the player when they exit. Duel targets *entering* a
+    // duel will be moved again later, but near_player prevents a tiny chance
+    // of them failing to place at all.
+    bool near_player = f.mons.props.exists(OKAWARU_DUEL_ABANDONED_KEY)
+                       || f.mons.props.exists(OKAWARU_DUEL_CURRENT_KEY);
 
     if (monster* mons = f.place(near_player))
     {

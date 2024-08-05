@@ -4391,11 +4391,6 @@ static bool _sac_mut_maybe_valid(mutation_type mut)
     if (mut == MUT_NO_POTION_HEAL && you.has_mutation(MUT_NO_DRINK))
         return false;
 
-    // Don't offer to sacrifice an eye for players with no eyes (not counting
-    // forms or mutations).
-    if (mut == MUT_MISSING_EYE && !player_has_eyes(false, false))
-        return false;
-
     return true;
 }
 
@@ -4783,8 +4778,9 @@ int get_sacrifice_piety(ability_type sac, bool include_skill)
             break;
     }
 
-    // Award piety for any mutations removed by adding new innate muts
-    // These can only be removed positive mutations, so we'll always give piety.
+    // Award piety for any mutations removed by adding new innate muts.
+    // These can only be removed by positive mutations, so we'll always give
+    // piety.
     if (sacrifice == ABIL_RU_SACRIFICE_PURITY
         || sacrifice == ABIL_RU_SACRIFICE_HEALTH
         || sacrifice == ABIL_RU_SACRIFICE_ESSENCE)
@@ -7123,7 +7119,7 @@ void makhleb_infernal_servant()
     int pow = you.skill(SK_INVOCATIONS);
     const bool hostile = one_chance_in(6);
     if (hostile)
-        min(27, pow += 3);
+        pow = min(27, pow + 3);
 
     // Top-end demons are only accessed with this mark
     if (!tyrant)

@@ -274,7 +274,7 @@ static const zap_info zap_data[] =
 },
 
 {
-    ZAP_ICY_FLASH_FREEZE,
+    ZAP_FLASH_FREEZE,
     "icy flash freeze",
     200,
     nullptr,
@@ -283,14 +283,14 @@ static const zap_info zap_data[] =
     new tohit_calculator<5, 1, 3>,
     WHITE,
     false,
-    BEAM_ICE, // rC capped at 50%, use ZAP_FLASH_FREEZE if you don't want this
+    BEAM_ICE,
     DCHAR_FIRED_ZAP,
     false,
     false,
 },
 
 {
-    ZAP_FLASH_FREEZE,
+    ZAP_CREEPING_FROST,
     "flash freeze",
     200,
     nullptr,
@@ -299,7 +299,7 @@ static const zap_info zap_data[] =
     new tohit_calculator<5, 1, 3>,
     WHITE,
     false,
-    BEAM_COLD, // normal rC (e.g. fully resisted at rC+++)
+    BEAM_COLD,
     DCHAR_FIRED_ZAP,
     false,
     false,
@@ -310,9 +310,9 @@ static const zap_info zap_data[] =
     "piercing cold",
     200,
     new calcdice_calculator<4, 7, 2, 5>,
-    new tohit_calculator<40>,
+    new tohit_calculator<AUTOMATIC_HIT>,
     new dicedef_calculator<3, 7, 1, 20>,
-    new tohit_calculator<40>,
+    new tohit_calculator<AUTOMATIC_HIT>,
     WHITE,
     false,
     BEAM_COLD,
@@ -326,9 +326,9 @@ static const zap_info zap_data[] =
     "mass of rock",
     200,
     new calcdice_calculator<4, 7, 2, 5>,
-    new tohit_calculator<40>,
+    new tohit_calculator<AUTOMATIC_HIT>,
     new dicedef_calculator<3, 7, 1, 20>,
-    new tohit_calculator<40>,
+    new tohit_calculator<AUTOMATIC_HIT>,
     LIGHTGREY,
     false,
     BEAM_MMISSILE,

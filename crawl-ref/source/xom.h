@@ -14,6 +14,7 @@
 using std::string;
 
 #define XOM_CLOUD_TRAIL_TYPE_KEY "xom_cloud_trail_type"
+#define XOM_BAZAAR_TRIP_COUNT "xom_bazaar_trip_count"
 
 struct item_def;
 
@@ -37,6 +38,7 @@ enum xom_event_type
     XOM_GOOD_ANIMATE_MON_WPN,
     XOM_GOOD_RANDOM_ITEM,
     XOM_GOOD_ACQUIREMENT,
+    XOM_GOOD_BAZAAR_TRIP,
     XOM_GOOD_ALLIES,
     XOM_GOOD_POLYMORPH,
     XOM_GOOD_TELEPORT,
@@ -66,6 +68,7 @@ enum xom_event_type
     XOM_BAD_POLYMORPH,
     XOM_BAD_MOVING_STAIRS,
     XOM_BAD_CLIMB_STAIRS,
+    XOM_BAD_FIDDLE_WITH_DOORS,
     XOM_BAD_DOOR_RING,
     XOM_BAD_FAKE_SHATTER,
     XOM_BAD_CONFUSION,
@@ -74,6 +77,7 @@ enum xom_event_type
     XOM_BAD_BRAIN_DRAIN,
     XOM_BAD_SUMMON_HOSTILES,
     XOM_BAD_SEND_IN_THE_CLONES,
+    XOM_BAD_GRANT_WORD_OF_RECALL,
     XOM_BAD_PSEUDO_BANISHMENT,
     XOM_BAD_BANISHMENT,
     XOM_BAD_NOISE,

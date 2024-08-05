@@ -731,7 +731,6 @@ void bolt::initialise_fire()
     {
         range             = 0;
         aimed_at_feet     = true;
-        auto_hit          = true;
         aimed_at_spot     = true;
         use_target_as_pos = true;
     }
@@ -1143,7 +1142,6 @@ static void _undo_tracer(bolt &orig, bolt &copy)
     orig.aimed_at_spot    = copy.aimed_at_spot;
     orig.aimed_at_feet    = copy.aimed_at_feet;
     orig.extra_range_used = copy.extra_range_used;
-    orig.auto_hit         = copy.auto_hit;
     orig.ray              = copy.ray;
     orig.colour           = copy.colour;
     orig.flavour          = copy.flavour;
@@ -3392,7 +3390,7 @@ bool bolt::misses_player()
     if (flavour == BEAM_VISUAL)
         return true;
 
-    if ((is_explosion || auto_hit || aimed_at_feet)
+    if ((is_explosion || aimed_at_feet)
         && origin_spell != SPELL_CALL_DOWN_LIGHTNING
         && origin_spell != SPELL_MOMENTUM_STRIKE)
     {
@@ -3912,6 +3910,14 @@ void bolt::affect_player_enchantment(bool resistible)
         debuff_player();
         _unravelling_explode(*this);
         obvious_effect = true;
+        break;
+
+    case BEAM_SOUL_SPLINTER:
+        obvious_effect = true;
+        if (you.holiness() & (MH_NATURAL | MH_DEMONIC | MH_HOLY))
+            make_soul_wisp(*agent(), you);
+        else
+            canned_msg(MSG_YOU_UNAFFECTED);
         break;
 
     default:
@@ -5962,7 +5968,8 @@ bool ench_flavour_affects_monster(actor *agent, beam_type flavour,
         break;
 
     case BEAM_SOUL_SPLINTER:
-        rc = mons_can_be_spectralised(*mon, false, true);
+        rc = mons_can_be_spectralised(*mon, false, true)
+             && !mon->props.exists(SOUL_SPLINTERED_KEY);
         break;
 
     default:
