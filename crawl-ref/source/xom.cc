@@ -1013,7 +1013,7 @@ static monster_type _xom_random_pal(int roll, bool isFriendly)
     else if (you.penance[GOD_XOM])
         variance += random_range(4, 6);
 
-    variance = max(33, variance);
+    variance = min(33, variance);
 
 #ifdef DEBUG_DIAGNOSTICS
     mprf(MSGCH_DIAGNOSTICS, "_xom_random_pal(); xl variance roll: %d", roll);
@@ -3729,7 +3729,7 @@ static void _xom_summon_hostiles(int sever)
 // the player can make something of it anyway.
 static void _xom_send_in_clones(int /*sever*/)
 {
-    const int friendly_count = 1;
+    const int friendly_count = you.allies_forbidden() ? 0 : 1;
     const int hostile_count = 2;
     int hostiles_summon_count = 0;
     int friendly_summon_count = 0;
@@ -3756,7 +3756,7 @@ static void _xom_send_in_clones(int /*sever*/)
             mon->attitude = ATT_HOSTILE;
             power = -1;
         }
-        else if (!you.allies_forbidden())
+        else
         {
             mon->attitude = ATT_FRIENDLY;
             power = 0;
