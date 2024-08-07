@@ -493,8 +493,44 @@ static void _setup_missile_beam(const actor *agent, bolt &beam,
         entry->launch(&beam);
         return;
     }
+    if (item.sub_type == MI_BOMB)
+    {
+        bolt *expl = new bolt(beam);
 
-    if (item.base_type == OBJ_MISSILES
+        expl->is_explosion = true;
+        expl->damage       = dice_def(2, 5);
+        expl->ex_size      = 1;
+
+        if (beam.flavour == BEAM_MISSILE)
+        {   
+            switch(get_ammo_brand(item))
+            {
+                case SPMSL_STICKY_FLAME: 
+                expl->flavour = BEAM_STICKY_FLAME;
+                break;
+                case SPMSL_INFESTATION: 
+                expl->flavour = BEAM_INFESTATION;
+                break;
+                case SPMSL_CONFUSION: 
+                expl->flavour = BEAM_IRRESISTIBLE_CONFUSION;
+                break;
+                default: 
+                expl->flavour = BEAM_FRAG;
+                expl->name   += " fragments";
+            }
+            
+            const string short_name =
+                item.name(DESC_BASENAME, true, false, false, false,
+                          ISFLAG_IDENT_MASK | ISFLAG_COSMETIC_MASK);
+
+            expl->name = replace_all(expl->name, item.name(DESC_PLAIN),
+                                     short_name);
+        }
+        expl->name = "explosion of " + expl->name;
+
+        beam.special_explosion = expl;
+    }
+    else if (item.base_type == OBJ_MISSILES
         && get_ammo_brand(item) == SPMSL_EXPLODING)
     {
         bolt *expl = new bolt(beam);

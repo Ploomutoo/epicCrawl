@@ -838,6 +838,7 @@ static const missile_def Missile_prop[] =
     { MI_JAVELIN,       "javelin",      10, 20, 30 },
     { MI_THROWING_NET,  "throwing net",  0, 0,  30 },
     { MI_BOOMERANG,     "boomerang",     6, 20, 20 },
+    { MI_BOMB,          "bomb",         20,100, 30 },
 };
 
 #if TAG_MAJOR_VERSION == 34
@@ -2302,6 +2303,7 @@ bool ammo_always_destroyed(const item_def &missile)
 {
     const int brand = get_ammo_brand(missile);
     return missile.sub_type == MI_STONE
+           || missile.sub_type == MI_BOMB
            || brand == SPMSL_CHAOS
            || brand == SPMSL_DISPERSAL
            || brand == SPMSL_EXPLODING;

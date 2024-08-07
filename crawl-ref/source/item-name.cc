@@ -383,9 +383,9 @@ const char* missile_brand_name(const item_def &item, mbn_type t)
         return t == MBN_NAME ? "poisoned" : "poison";
     case SPMSL_CURARE:
         return t == MBN_NAME ? "curare-tipped" : "curare";
-#if TAG_MAJOR_VERSION == 34
     case SPMSL_EXPLODING:
         return t == MBN_TERSE ? "explode" : "exploding";
+#if TAG_MAJOR_VERSION == 34
     case SPMSL_STEEL:
         return "steel";
     case SPMSL_RETURNING:
@@ -415,6 +415,10 @@ const char* missile_brand_name(const item_def &item, mbn_type t)
         return t == MBN_TERSE ? "disperse" : "dispersal";
     case SPMSL_BLINDING:
         return t == MBN_NAME ? "atropa-tipped" : "atropa";
+    case SPMSL_STICKY_FLAME:
+        return "sticky flame";
+    case SPMSL_INFESTATION:
+        return "infestation";
     case SPMSL_NORMAL:
         return "";
     default:

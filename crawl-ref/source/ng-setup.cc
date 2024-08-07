@@ -201,6 +201,8 @@ void give_throwing_ammo(int n)
         newgame_make_item(OBJ_MISSILES, MI_BOOMERANG, 2*n);
     else
         newgame_make_item(OBJ_MISSILES, MI_JAVELIN, n);
+    
+    newgame_make_item(OBJ_MISSILES, MI_BOMB, n);
 }
 
 static void _give_job_spells(job_type job)

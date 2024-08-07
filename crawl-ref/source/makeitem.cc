@@ -570,6 +570,12 @@ static special_missile_type _determine_missile_brand(const item_def& item,
         rc = random_choose_weighted(90, SPMSL_SILVER,
                                     nw, SPMSL_NORMAL);
         break;
+    case MI_BOMB:
+        rc = random_choose_weighted(40, SPMSL_STICKY_FLAME,
+                                    40, SPMSL_CONFUSION,
+                                    20, SPMSL_INFESTATION,
+                                    pw, SPMSL_NORMAL);
+        break;
     }
 
     ASSERT(is_missile_brand_ok(item.sub_type, rc, true));
@@ -585,6 +591,20 @@ bool is_missile_brand_ok(int type, int brand, bool strict)
         && strict)
     {
         return false;
+    }
+
+    if ((type == MI_BOMB))
+    {   
+        switch(brand)
+        {
+            case SPMSL_NORMAL: 
+            case SPMSL_STICKY_FLAME:
+            case SPMSL_CONFUSION: 
+            case SPMSL_INFESTATION: 
+                return true;
+                break;
+            default: return false;
+        }
     }
 
     // Never generates, only used for chaos-branded missiles.
@@ -663,6 +683,7 @@ static void _generate_missile_item(item_def& item, int force_type,
                                    10, MI_DART,
                                    3,  MI_BOOMERANG,
                                    2,  MI_JAVELIN,
+                                   2,  MI_BOMB,
                                    1,  MI_THROWING_NET,
                                    1,  MI_LARGE_ROCK);
     }
@@ -688,6 +709,13 @@ static void _generate_missile_item(item_def& item, int force_type,
     {
         set_item_ego_type(item, OBJ_MISSILES,
                            _determine_missile_brand(item, item_level));
+    }
+
+    if (item.sub_type == MI_BOMB)
+    {
+        item.quantity = roll_dice(1,3);
+        item.brand = SPMSL_EXPLODING;
+        return;
     }
 
     item.quantity = random_range(2, 6);

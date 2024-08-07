@@ -5421,6 +5421,33 @@ static void _attacks_table_row_throwing(const monster_info &mi,
             break;
         }
     }
+    else if (quiv->sub_type == MI_BOMB)
+    {
+        const mon_attack_info info = _atk_info(mi, 0);
+        const mon_attack_def &attack = info.definition;
+        int dam = attack.damage;
+        dam += property(*quiv, PWPN_DAMAGE) - 1;
+        dam += max(_monster_slaying(mi), 0);
+        if (mons_class_flag(mi.type, M_ARCHER))
+            dam += archer_bonus_damage(mi.hd);
+        dam_desc = make_stringf("%d", dam);
+
+        switch (quiv->brand)
+        {
+        case SPMSL_NORMAL:
+            bonus_desc = "Explodes in an area";
+            break;
+        case SPMSL_CONFUSION:
+            bonus_desc = "Irresistably confuses defenders in an area";
+            break;
+        case SPMSL_INFESTATION:
+            bonus_desc = "Infests defenders in an area with latent death scarabs";
+            break;
+        case SPMSL_STICKY_FLAME:
+            bonus_desc = "Coats defenders in an area in sticky flame";
+            break;
+        }
+    }
     else // ordinary missiles
     {
         // Missile attacks use the damage number of a monster's first attack

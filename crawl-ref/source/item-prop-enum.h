@@ -371,6 +371,7 @@ enum missile_type
     MI_SLING_BULLET,
     MI_THROWING_NET,
     MI_BOOMERANG,
+    MI_BOMB,
 
     MI_SLUG,
 
@@ -547,11 +548,14 @@ enum special_missile_type // to separate from weapons in general {dlb}
     SPMSL_PARALYSIS,                   // dart only from here on
     SPMSL_SLOW,
     SPMSL_SLEEP,
-    SPMSL_CONFUSION,
     SPMSL_SICKNESS,
 #endif
     SPMSL_FRENZY,                      // Datura
     SPMSL_BLINDING,                    // Atropa
+    SPMSL_CONFUSION,                   // Bombs
+    SPMSL_STICKY_FLAME,
+    SPMSL_INFESTATION,
+
     NUM_REAL_SPECIAL_MISSILES,
     NUM_SPECIAL_MISSILES = NUM_REAL_SPECIAL_MISSILES,
 };
