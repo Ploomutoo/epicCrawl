@@ -5031,6 +5031,8 @@ int str_to_ego(object_class_type item_type, string ego_str)
 #endif
         "datura",
         "atropa",
+        "sticky flame",
+        "infestation",
         nullptr
     };
     COMPILE_CHECK(ARRAYSZ(missile_brands) == NUM_REAL_SPECIAL_MISSILES);
