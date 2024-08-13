@@ -574,7 +574,7 @@ static special_missile_type _determine_missile_brand(const item_def& item,
         rc = random_choose_weighted(40, SPMSL_STICKY_FLAME,
                                     40, SPMSL_CONFUSION,
                                     20, SPMSL_INFESTATION,
-                                    pw, SPMSL_NORMAL);
+                                    40, SPMSL_NORMAL);
         break;
     }
 
@@ -714,7 +714,7 @@ static void _generate_missile_item(item_def& item, int force_type,
     if (item.sub_type == MI_BOMB)
     {
         item.quantity = roll_dice(1,3);
-        item.brand = SPMSL_EXPLODING;
+        set_item_ego_type(item, OBJ_MISSILES, _determine_missile_brand(item, item_level));
         return;
     }
 

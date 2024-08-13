@@ -838,7 +838,7 @@ static const missile_def Missile_prop[] =
     { MI_JAVELIN,       "javelin",      10, 20, 30 },
     { MI_THROWING_NET,  "throwing net",  0, 0,  30 },
     { MI_BOOMERANG,     "boomerang",     6, 20, 20 },
-    { MI_BOMB,          "bomb",         20,100, 30 },
+    { MI_BOMB,          "bomb",          4,100, 30 },
 };
 
 #if TAG_MAJOR_VERSION == 34

@@ -2899,6 +2899,7 @@ spret cast_broms_barrelling_boulder(actor& agent, coord_def targ, int pow, bool 
                                 : SAME_ATTITUDE(agent.as_monster()),
                              pos, MHITNOT, MG_FORCE_PLACE);
     mg.set_summoned(&agent, 0, SPELL_BOULDER);
+    mg.hd = mons_class_hit_dice(MONS_BOULDER) + div_rand_round(pow * 10, 200);
     monster *boulder = create_monster(mg);
 
     // If some other reason prevents this from working (I'm not sure what?)

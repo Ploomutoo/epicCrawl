@@ -498,7 +498,6 @@ static void _setup_missile_beam(const actor *agent, bolt &beam,
         bolt *expl = new bolt(beam);
 
         expl->is_explosion = true;
-        expl->damage       = dice_def(2, 5);
         expl->ex_size      = 1;
 
         if (beam.flavour == BEAM_MISSILE)
@@ -507,15 +506,26 @@ static void _setup_missile_beam(const actor *agent, bolt &beam,
             {
                 case SPMSL_STICKY_FLAME: 
                 expl->flavour = BEAM_STICKY_FLAME;
+                if (agent->is_player()) expl->damage = dice_def(2,15 + you.skill_rdiv(SK_THROWING));
+                else                    expl->damage = dice_def(2,10);
+                expl->ench_power   = 100;
                 break;
                 case SPMSL_INFESTATION: 
                 expl->flavour = BEAM_INFESTATION;
+                if (agent->is_player()) expl->damage = dice_def(2,15 + you.skill_rdiv(SK_THROWING));
+                else                    expl->damage = dice_def(2,10);
+                expl->ench_power   = 200;
                 break;
                 case SPMSL_CONFUSION: 
-                expl->flavour = BEAM_IRRESISTIBLE_CONFUSION;
+                expl->flavour = BEAM_CONFUSION;
+                if (agent->is_player()) expl->damage = dice_def(2,15 + you.skill_rdiv(SK_THROWING));
+                else                    expl->damage = dice_def(2,5);
+                expl->ench_power   = 200;
                 break;
                 default: 
                 expl->flavour = BEAM_FRAG;
+                if (agent->is_player()) expl->damage = dice_def(3,15 + you.skill_rdiv(SK_THROWING));
+                else                    expl->damage = dice_def(3,10);
                 expl->name   += " fragments";
             }
             

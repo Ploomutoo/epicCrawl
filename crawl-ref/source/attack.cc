@@ -542,10 +542,17 @@ void attack::pain_affects_defender()
 {
     actor &user = stat_source();
     if (!one_chance_in(user.skill_rdiv(SK_NECROMANCY) + 1))
-    {
-        special_damage += resist_adjust_damage(defender, BEAM_NEG,
+    {   
+        if(user.is_player() && is_unrandom_artefact(*weapon, UNRAND_MORG))
+        {
+            special_damage += random2(1 + user.skill_rdiv(SK_NECROMANCY));
+        }
+        else
+        {
+            special_damage += resist_adjust_damage(defender, BEAM_NEG,
                               random2(1 + user.skill_rdiv(SK_NECROMANCY)));
-
+        }
+        
         if (special_damage && defender_visible)
         {
             special_damage_message =

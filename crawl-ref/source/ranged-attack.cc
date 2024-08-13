@@ -455,6 +455,18 @@ bool ranged_attack::ignores_shield(bool verbose)
         }
         return true;
     }
+    else if (projectile->sub_type == MI_BOMB) 
+    {
+        if (verbose)
+        {
+            mprf("%s explodes upon %s %s!",
+                 projectile->name(DESC_THE).c_str(),
+                 apostrophise(defender_name(false)).c_str(),
+                 is_shield(defender_shield) ? defender_shield->name(DESC_PLAIN).c_str()
+                                            : "shielding");
+        }
+        return true;
+    }
     return false;
 }
 
