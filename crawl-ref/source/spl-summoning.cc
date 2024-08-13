@@ -2874,6 +2874,11 @@ spret summon_spiders(actor &agent, int pow, god_type god, bool fail)
     return spret::success;
 }
 
+int barrelling_boulder_hp(int pow)
+{
+    return 15 + pow / 3;
+}
+
 spret cast_broms_barrelling_boulder(actor& agent, coord_def targ, int pow, bool fail)
 {
     fail_check();
@@ -2899,7 +2904,11 @@ spret cast_broms_barrelling_boulder(actor& agent, coord_def targ, int pow, bool 
                                 : SAME_ATTITUDE(agent.as_monster()),
                              pos, MHITNOT, MG_FORCE_PLACE);
     mg.set_summoned(&agent, 0, SPELL_BOULDER);
+<<<<<<< HEAD
     mg.hd = mons_class_hit_dice(MONS_BOULDER) + div_rand_round(pow * 10, 200);
+=======
+    mg.hp = barrelling_boulder_hp(pow);
+>>>>>>> b66085278199a6294c351f50dd8d2ea62fbae37a
     monster *boulder = create_monster(mg);
 
     // If some other reason prevents this from working (I'm not sure what?)
@@ -2915,6 +2924,10 @@ spret cast_broms_barrelling_boulder(actor& agent, coord_def targ, int pow, bool 
     boulder->props[BOULDER_DIRECTION_KEY] = pos - agent.pos();
 
     mpr("You send a boulder barrelling forward!");
+
+    // Let the boulder roll one space immediately.
+    boulder->speed_increment = 80;
+
     return spret::success;
 }
 
@@ -3072,8 +3085,8 @@ spret cast_hoarfrost_cannonade(const actor& agent, int pow, bool fail)
 static int _hellfire_mortar_hd(int pow, bool random = true)
 {
     if (random)
-        return 6 + div_rand_round(pow, 30);
-    return 6 + pow / 30;
+        return 3 + div_rand_round(pow, 28);
+    return 3 + pow / 28;
 }
 
 dice_def hellfire_mortar_damage(int pow)

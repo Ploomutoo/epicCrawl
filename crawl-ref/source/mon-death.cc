@@ -837,6 +837,7 @@ static bool _blorkula_bat_split(monster& blorkula, killer_type ktype)
         msg::suppress msg;
         blorkula.heal(blorkula.max_hit_points);
         blorkula.del_ench(ENCH_CONFUSION, true);    // Don't blink at random
+        blorkula.stop_being_constricted(true);
         blorkula.timeout_enchantments(1000);
     }
     blorkula.add_ench(mon_enchant(ENCH_BREATH_WEAPON, 1, &blorkula,
@@ -2116,7 +2117,7 @@ item_def* monster_die(monster& mons, killer_type killer,
 
     // Chance to cause monsters you kill yourself to explode with Mark of Haemoclasm
     if (YOU_KILL(killer) && you.has_mutation(MUT_MAKHLEB_MARK_HAEMOCLASM)
-        && one_chance_in(10))
+        && makhleb_haemoclasm_trigger_check(mons))
     {
         mons.props[MAKHLEB_HAEMOCLASM_KEY] = true;
     }
@@ -2247,11 +2248,12 @@ item_def* monster_die(monster& mons, killer_type killer,
                                     mons.pos(),
                                     random_range(3, 11) * BASELINE_DELAY);
     }
-    else if (mons.has_ench(ENCH_MAGNETISED) && mons.type != MONS_ELECTROFERRIC_VORTEX)
+
+    if (mons.has_ench(ENCH_MAGNETISED))
     {
-        death_spawn_fineff::schedule(MONS_ELECTROFERRIC_VORTEX,
-                                     mons.pos(),
-                                     random_range(3, 5) * BASELINE_DELAY);
+        place_cloud(CLOUD_MAGNETIZED_DUST, mons.pos(),
+                        random_range(7, 11),
+                        mons.get_ench(ENCH_MAGNETISED).agent());
     }
 
     if (monster_explodes(mons))
@@ -2272,7 +2274,6 @@ item_def* monster_die(monster& mons, killer_type killer,
     else if (mons.type == MONS_FIRE_VORTEX
              || mons.type == MONS_SPATIAL_VORTEX
              || mons.type == MONS_TWISTER
-             || mons.type == MONS_ELECTROFERRIC_VORTEX
              || (mons.type == MONS_FOXFIRE && mons.steps_remaining == 0))
     {
         if (!silent && !mons_reset && !was_banished)

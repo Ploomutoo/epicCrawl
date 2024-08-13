@@ -4849,7 +4849,7 @@ vector<coord_def> find_bog_locations(const coord_def &center, int pow)
         if (!feat_has_solid_floor(env.grid(*ri)))
             continue;
 
-        // If a candidate cell is next to more than one solid feature, we can't
+        // If a candidate cell is next to more than two solid features, we can't
         // bog it. Cells we can't currently see are also considered solid,
         // regardless of what the cell contains. Don't want to leak information
         // about out-of-los cells.
@@ -4859,7 +4859,7 @@ vector<coord_def> find_bog_locations(const coord_def &center, int pow)
             if (!you.see_cell(*ai) || feat_is_solid(env.grid(*ai)))
                 walls++;
         }
-        if (walls <= 1)
+        if (walls <= 2)
             bog_locs.push_back(*ri);
     }
 
@@ -4905,14 +4905,21 @@ bool siphon_essence_affects(const monster &m)
 dice_def boulder_damage(int pow, bool random)
 {
     if (random)
-        return dice_def(2, 3 + div_rand_round(pow, 12));
-    return dice_def(2, 3 + pow / 12);
+        return dice_def(2, 4 + div_rand_round(pow, 10));
+    return dice_def(2, 4 + pow / 10);
 }
 
-void do_boulder_impact(monster& boulder, actor& victim)
+void do_boulder_impact(monster& boulder, actor& victim, bool quiet)
 {
     if (you.can_see(boulder))
-        mprf("The boulder barrels into %s!", victim.name(DESC_THE).c_str());
+    {
+        if (!quiet)
+        {
+            mprf("%s barrels into %s!",
+                    boulder.name(DESC_THE).c_str(),
+                    victim.name(DESC_THE).c_str());
+        }
+    }
 
     const int pow = boulder.props[BOULDER_POWER_KEY].get_int();
     int dam = boulder_damage(pow, true).roll();
@@ -4922,9 +4929,6 @@ void do_boulder_impact(monster& boulder, actor& victim)
         ouch(dam, KILLED_BY_ROLLING, boulder.mid);
     else
         _player_hurt_monster(*victim.as_monster(), dam, BEAM_MISSILE);
-
-    // Dealing damage causes the boulder to also take damage.
-    boulder.hurt(&boulder, roll_dice(2, 5), BEAM_NONE, KILLED_BY_COLLISION);
 }
 
 dice_def electrolunge_damage(int pow)
@@ -4950,10 +4954,16 @@ string describe_collision_dam(dice_def dice)
 vector<coord_def> get_magnavolt_targets()
 {
     vector<coord_def> targets;
-    for (monster_near_iterator mi(&you); mi; ++mi)
+    for (radius_iterator ri(you.pos(), LOS_RADIUS, C_SQUARE, LOS_NO_TRANS); ri; ++ri)
     {
-        if (mi->has_ench(ENCH_MAGNETISED))
-            targets.push_back(mi->pos());
+        if (monster* mon = monster_at(*ri))
+        {
+            if (mon->has_ench(ENCH_MAGNETISED))
+                targets.push_back(mon->pos());
+        }
+
+        if (cloud_type_at(*ri) == CLOUD_MAGNETIZED_DUST)
+            targets.push_back(*ri);
     }
 
     return targets;

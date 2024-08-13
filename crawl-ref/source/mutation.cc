@@ -350,7 +350,7 @@ mutation_activity_type mutation_activity_level(mutation_type mut)
             if (mut == MUT_SHOCK_RESISTANCE && drag == MONS_STORM_DRAGON)
                 return mutation_activity_type::FULL;
             if ((mut == MUT_ACIDIC_BITE || mut == MUT_ACID_RESISTANCE)
-                && drag == MONS_GOLDEN_DRAGON)
+                && drag == MONS_ACID_DRAGON)
             {
                 return mutation_activity_type::FULL;
             }
@@ -985,8 +985,7 @@ static vector<string> _get_fakemuts(bool terse)
         {
             // XX generalize this code somehow?
             const string scale_clause = string(species::scale_type(you.species))
-                  + " scales are "
-                  + (you.species == SP_GREY_DRACONIAN ? "very " : "") + "hard";
+                  + " scales are hard";
 
             result.push_back(_annotate_form_based(
                         make_stringf("Your %s. (AC +%d)", you.species == SP_NAGA
@@ -2035,7 +2034,7 @@ bool physiology_mutation_conflict(mutation_type mutat)
     }
 
     // No bones for thin skeletal structure or horns.
-    if (!you.has_bones()
+    if (!you.has_bones(false)
         && (mutat == MUT_THIN_SKELETAL_STRUCTURE || mutat == MUT_HORNS))
     {
         return true;

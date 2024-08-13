@@ -2943,8 +2943,11 @@ spret dithmenos_shadowslip(bool fail)
         }
     }
 
-    // Extend our shadow's life to last at least as long as the misdirection
+    // Extend our shadow's life to last at least as long as the misdirection,
+    // and give it some additional health.
     shadow->add_ench(mon_enchant(ENCH_FAKE_ABJURATION, 0, &you, dur));
+    shadow->max_hit_points += you.skill_rdiv(SK_INVOCATIONS, 9, 4);
+    shadow->hit_points = shadow->max_hit_points;
 
     dithmenos_change_shadow_appearance(*shadow, dur);
 
@@ -6986,6 +6989,7 @@ static void _makhleb_atrocity_trigger(int power)
             {
                 beam.target = targs[i]->pos();
                 makhleb_setup_destruction_beam(beam, power, false);
+                beam.hit = AUTOMATIC_HIT;
                 beam.fire();
                 --shots_remain;
                 found_alive = true;
@@ -7236,7 +7240,7 @@ void makhleb_inscribe_mark(mutation_type mark)
 
 static void _summon_legion_demon()
 {
-    const int pow = max(0, you.skill_rdiv(SK_INVOCATIONS, 1, 2) - 1);
+    const int pow = you.skill_rdiv(SK_INVOCATIONS, 1, 2);
     monster_picker servant_picker;
     monster_type mon_type = servant_picker.pick(_makhleb_servants, pow, MONS_RED_DEVIL);
 
@@ -7327,8 +7331,8 @@ static const vector<random_pick_entry<monster_type>> _makhleb_torturers =
   {  6,  15, 100, SEMI, MONS_SOUL_EATER },
   {  6,  17, 150, SEMI, MONS_YNOXINUL },
   {  6,  21, 180, SEMI, MONS_SMOKE_DEMON },
-  {  8,  18, 150, SEMI, MONS_SUN_DEMON },
-  {  8,  19, 160, SEMI, MONS_SIXFIRHY },
+  {  9,  18, 150, SEMI, MONS_SUN_DEMON },
+  {  9,  19, 160, SEMI, MONS_SIXFIRHY },
   { 11,  27,  155, SEMI, MONS_BLIZZARD_DEMON },
   { 15,  27,  150, SEMI, MONS_GREEN_DEATH },
   { 20,  27,  185, SEMI, MONS_BALRUG },
@@ -7428,7 +7432,10 @@ void makhleb_enter_crucible_of_flesh(int debt)
     stop_delay(true);
     down_stairs(DNGN_ENTER_CRUCIBLE);
 
-    const int num_enemies = random_range(3, 5);
+    int num_enemies = random_range(3, 5);
+    if (you.experience_level > 17)
+        num_enemies += (you.experience_level - 17) / 5 + 1;
+
     const int num_near_enemies = random_range(1, 2);
     const int num_victims = random_range(9, 13);
 
@@ -7464,7 +7471,7 @@ void makhleb_handle_crucible_of_flesh()
             ++num_hostiles;
     }
 
-    const int max_demons = 7;
+    const int max_demons = 6 + (you.experience_level / 8);
     if (num_hostiles < max_demons)
     {
         int gen = random_range(1, 2);
@@ -7504,6 +7511,17 @@ void makhleb_crucible_kill(monster& victim)
         env.map_knowledge(pos).set_feature(DNGN_EXIT_CRUCIBLE);
 #ifdef USE_TILE
         tile_env.bk_bg(pos) = TILE_DNGN_PORTAL;
+        tiles.update_minimap(pos);
+
+        for (adjacent_iterator ai(pos, false); ai; ++ai)
+        {
+            if (!cell_is_solid(*ai))
+            {
+                tile_env.flv(*ai).floor = TILE_FLOOR_CAGE;
+                tile_env.flv(*ai).floor_idx =
+                    store_tilename_get_index(tile_dngn_name(TILE_FLOOR_CAGE));
+            }
+        }
 #endif
 
         return;

@@ -1572,7 +1572,7 @@ static const struct spell_desc spelldata[] =
     spflag::dir_or_target | spflag::noisy | spflag::needs_tracer,
     5,
     0,
-    5, 5,
+    6, 6,
     0,
     TILEG_SPIT_ACID,
 },
@@ -3782,7 +3782,7 @@ static const struct spell_desc spelldata[] =
     0,
     6, 6,
     0,
-    TILEG_ERROR,
+    TILEG_NOXIOUS_CLOUD,
 },
 
 // Dummy spell for the Makhleb ability.
@@ -3849,7 +3849,7 @@ static const struct spell_desc spelldata[] =
     0,
     6, 6,
     10,
-    TILEG_ERROR,
+    TILEG_LEDAS_LIQUEFACTION,
 },
 
 {
@@ -3860,7 +3860,7 @@ static const struct spell_desc spelldata[] =
     0,
     LOS_RADIUS, LOS_RADIUS,
     10,
-    TILEG_ERROR,
+    TILEG_ARCJOLT,
 },
 
 {
@@ -3911,7 +3911,8 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_RIMEBLIGHT, "Rimeblight",
     spschool::necromancy | spschool::ice,
-    spflag::dir_or_target | spflag::unclean | spflag::destructive,
+    spflag::dir_or_target | spflag::unclean | spflag::destructive
+    | spflag::not_self,
     7,
     200,
     5, 5,
@@ -3982,7 +3983,7 @@ static const struct spell_desc spelldata[] =
     200,
     LOS_RADIUS, LOS_RADIUS,
     20,
-    TILEG_BOLT_OF_MAGMA,
+    TILEG_HELLFIRE_MORTAR,
 },
 
 // Dithmenos shadow mimic spells

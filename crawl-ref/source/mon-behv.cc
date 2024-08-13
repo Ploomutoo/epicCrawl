@@ -269,7 +269,6 @@ void handle_behaviour(monster* mon)
         proxPlayer = false;
 
     bool proxFoe;
-    bool isHealthy  = (mon->hit_points > mon->max_hit_points / 2);
     bool isSmart    = (mons_intel(*mon) >= I_HUMAN);
     bool isScared   = mon->has_ench(ENCH_FEAR);
     bool isPacified = mon->pacified();
@@ -393,12 +392,11 @@ void handle_behaviour(monster* mon)
     }
 
     // Unfriendly monsters fighting other monsters will usually
-    // target the player, if they're healthy.
+    // target the player.
     if (!isFriendly && !isNeutral
         && !mons_is_avatar(mon->type)
         && mon->foe != MHITYOU && mon->foe != MHITNOT
         && proxPlayer && !mon->berserk_or_frenzied()
-        && isHealthy
         && !one_chance_in(3))
     {
         mon->foe = MHITYOU;

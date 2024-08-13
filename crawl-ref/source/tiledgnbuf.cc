@@ -89,8 +89,8 @@ void DungeonCellBuffer::add(const packed_cell &cell, int x, int y)
         // applied to the character).
         if (fg_idx)
         {
-            m_buf_main_trans.add_masked(cloud_idx, x, y, 0, 0, 0, -1, 255, 255, 20);
-            m_buf_main_trans.add_masked(cloud_idx, x, y, 50, 0, 0, -1, 15, 255,20);
+            m_buf_main_trans.add_masked(cloud_idx, x, y, -10, 0, 0, -1, 255, 255, 20);
+            m_buf_main_trans.add_masked(cloud_idx, x, y, 50, 0, 0, -1, 15, 200, 20);
         }
         else
             // Otherwise render it normally with full transparency
@@ -138,13 +138,6 @@ void DungeonCellBuffer::add_monster(const monster_info &mon, int x, int y)
             m_buf_main.add(base_idx, x, y);
         m_buf_main.add(t0, x, y);
     }
-
-    // hijack pack_foreground() to draw status icons
-    packed_cell fake_cell;
-    fake_cell.fg = flag;
-    fake_cell.bg = 0;
-    fake_cell.icons = status_icons_for(mon);
-    pack_foreground(x, y, fake_cell);
 }
 
 void DungeonCellBuffer::add_dngn_tile(int tileidx, int x, int y,
@@ -547,7 +540,9 @@ void DungeonCellBuffer::pack_foreground(int x, int y, const packed_cell &cell)
     {
         const tileidx_t base_idx = tileidx_known_base_item(fg_idx);
 
-        if (in_water)
+        // If we're drawing an item that is inside a cloud, it also needs to be
+        // moved to a lower layer so that the cloud can be drawn on top of it.
+        if (in_water || cell.cloud)
         {
             if (base_idx)
                 m_buf_main_trans.add(base_idx, x, y, 0, true, false);
@@ -615,17 +610,17 @@ void DungeonCellBuffer::pack_foreground(int x, int y, const packed_cell &cell)
         if (poison_flag == TILE_FLAG_POISON)
         {
             m_buf_icons.add(TILEI_POISON, x, y, -status_shift, 0);
-            status_shift += 5;
+            status_shift += 6;
         }
         else if (poison_flag == TILE_FLAG_MORE_POISON)
         {
             m_buf_icons.add(TILEI_MORE_POISON, x, y, -status_shift, 0);
-            status_shift += 5;
+            status_shift += 6;
         }
         else if (poison_flag == TILE_FLAG_MAX_POISON)
         {
             m_buf_icons.add(TILEI_MAX_POISON, x, y, -status_shift, 0);
-            status_shift += 5;
+            status_shift += 7;
         }
     }
 

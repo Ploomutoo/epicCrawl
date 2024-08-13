@@ -851,6 +851,17 @@ no rings mutation
 Your hands are embedded into the controls for your grasping arms, leaving you
 with no place to wear magical rings without disastrous magical interference.
 %%%%
+iron-fused scales mutation
+
+Your scales are fused with a thick layer of iron, giving them resilience akin to
+a suit of armour (+5 AC).
+%%%%
+inviolate magic mutation
+
+Your magic is resistant to distruption by outside forces. Hostile effects which
+drain your MP drain only 1/3 as much and you are immune to having your magical
+effects be removed by anyone but yourself.
+%%%%
 # ------ Makhleb destruction flavours ------
 Gehenna destruction mutation
 
@@ -905,8 +916,12 @@ Destruction (which cannot hurt you or other allies).
 Mark of the Legion mutation
 
 Your Infernal Servant ability is replaced with Infernal Legion, allowing you to
-call in a continuous stream of weaker demons over time. You may also unleash
-Makhleb's Destruction through your summoned allies without harming them.
+call in a small army of demons over time. While individually short-lived, their
+numbers are inexhaustible for as long as the status lasts, and they will never
+be hostile to you.
+
+You may also unleash Makhleb's Destruction through your summoned allies without
+harming them.
 %%%%
 Mark of Annihilation mutation
 

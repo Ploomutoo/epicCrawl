@@ -2071,7 +2071,14 @@ mon_attack_def mons_attack_spec(const monster& m, int attk_number,
         if (mon.type == MONS_PLAYER_SHADOW)
         {
             if (mon.props.exists(DITH_SHADOW_ATTACK_KEY))
+            {
                 attk.damage = mon.props[DITH_SHADOW_ATTACK_KEY].get_int();
+                if (mon.mslot_item(MSLOT_WEAPON)
+                    && mon.mslot_item(MSLOT_WEAPON)->sub_type == WPN_QUICK_BLADE)
+                {
+                    attk.damage = attk.damage * 3 / 4;
+                }
+            }
         }
 
         // summoning miscast monster; hd scaled with miscast severity
@@ -2094,7 +2101,14 @@ mon_attack_def mons_attack_spec(const monster& m, int attk_number,
     {
         attk.type = AT_HIT;
         if (mon.props.exists(DITH_SHADOW_ATTACK_KEY))
+        {
             attk.damage = mon.props[DITH_SHADOW_ATTACK_KEY].get_int();
+            if (mon.mslot_item(MSLOT_ALT_WEAPON)
+                && mon.mslot_item(MSLOT_ALT_WEAPON)->sub_type == WPN_QUICK_BLADE)
+            {
+                attk.damage = attk.damage * 3 / 4;
+            }
+        }
     }
     else if (mons_species(mon.type) == MONS_DRACONIAN
              && mon.type != MONS_DRACONIAN
@@ -2125,9 +2139,9 @@ mon_attack_def mons_attack_spec(const monster& m, int attk_number,
     else if (mon.type == MONS_SHADOW_PUPPET)
     {
         if (attk_number == 2)
-            attk.damage = m.get_hit_dice() * 2 / 3;
+            attk.damage = 2 + m.get_hit_dice() * 1 / 3;
         else
-            attk.damage = 4 + (m.get_hit_dice() * 3 / 2);
+            attk.damage = 2 + (m.get_hit_dice() * 3 / 2);
     }
 
     if (!base_flavour)
@@ -3033,11 +3047,13 @@ void define_monster(monster& mons, bool friendly)
         ghost.init_orc_apostle(type, pow);
         mons.set_ghost(ghost);
         mons.ghost_demon_init();
-        mons.bind_melee_flags();
 
         mons.props[MON_GENDER_KEY] = random_choose(GENDER_MALE,
                                                    GENDER_FEMALE,
                                                    GENDER_NEUTRAL);
+
+        if (type == APOSTLE_WIZARD)
+            mons.flags |= MF_CAUTIOUS;
 
         // Choose tile based on apostle class
         if (type == APOSTLE_WIZARD)

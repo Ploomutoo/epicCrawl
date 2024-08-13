@@ -586,6 +586,8 @@ plating
 
 plug
 
+port
+
 processor
 
 pump
@@ -674,6 +676,9 @@ transponder
 
 # Friends
 transponster
+
+# FoxTrot
+trapovaloid
 
 trunnion
 

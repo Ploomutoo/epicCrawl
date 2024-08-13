@@ -1027,7 +1027,10 @@ monster* create_player_shadow(coord_def pos, bool friendly, spell_type spell_kno
 
     // This is for weapon accuracy only. Spell HD is calculated differently.
     mg.hd = 7 + (you.experience_level * 5 / 4);
-    mg.hp = you.experience_level + you.skill_rdiv(SK_INVOCATIONS, 3, 2);
+    mg.hp = 5 + you.experience_level * 3 / 2;
+    // Preserve the health boost from an active decoy
+    if (decoy_duration > 0)
+        mg.hp += you.skill_rdiv(SK_INVOCATIONS, 9, 4);
 
     if (!friendly)
         mg.hp = mg.hp * 2;
@@ -1059,7 +1062,7 @@ monster* create_player_shadow(coord_def pos, bool friendly, spell_type spell_kno
     if (friendly)
     {
         mon->add_ench(mon_enchant(ENCH_FAKE_ABJURATION, 0, &you,
-                                random_range(3, 5) * BASELINE_DELAY));
+                                random_range(4, 6) * BASELINE_DELAY));
     }
 
     // Set damage based on xl, with a bonus for UC characters (since they won't
@@ -1464,7 +1467,7 @@ void dithmenos_shadow_shoot(const dist &d, const item_def &item)
         mon->update_ench(me);
     }
 
-    mon->props[DITH_SHADOW_ATTACK_KEY] = you.experience_level * 2 / 3;
+    mon->props[DITH_SHADOW_ATTACK_KEY] = you.experience_level;
     mon->target     = aim;
     mon->foe        = monster_at(aim)->mindex();
 
@@ -1804,6 +1807,7 @@ void dithmenos_shadow_spell(spell_type spell)
 
         case SPELL_SHADOW_TEMPEST:
             pos = _find_shadow_aoe_position(you.current_vision);
+            break;
 
         default:
         case SPELL_SHADOW_PUPPET:
@@ -2452,4 +2456,26 @@ void makhleb_execution_activate()
             shred.player_do_aux_attack(UNAT_EXECUTIONER_BLADE);
         }
     }
+}
+
+bool makhleb_haemoclasm_trigger_check(const monster& victim)
+{
+    int count = 0;
+    for (adjacent_iterator ai(victim.pos()); ai; ++ai)
+    {
+        if (monster* mons = monster_at(*ai))
+        {
+            if (!mons->wont_attack() && !mons_is_firewood(*mons))
+                ++count;
+        }
+    }
+
+    // These explosions can never hit anything, and so are useless or actively
+    // negative, but it looks better if they can still *sometimes* happen.
+    if (count == 0)
+        return one_chance_in(20);
+    // A much higher chance if there's at least one thing the explosion could
+    // hit, scaling slightly with *how* many things could be hit.
+    else
+        return x_chance_in_y(6, 30 - count * 2);
 }

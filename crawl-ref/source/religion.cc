@@ -2896,8 +2896,9 @@ static void _ash_uncurse()
 
 int excom_xp_docked()
 {
-    return exp_needed(min<int>(you.max_level, 27) + 1)
-         - exp_needed(min<int>(you.max_level, 27));
+    const int max_xl = you.get_max_xl();
+    return exp_needed(min<int>(you.max_level, max_xl) + 1)
+         - exp_needed(min<int>(you.max_level, max_xl));
 }
 
 void excommunication(bool voluntary, god_type new_god)
@@ -4660,6 +4661,7 @@ int get_tension(god_type god)
     if (!nearby_monster)
         return 0;
 
+    // XXX: Maybe too low?
     const int scale = 1;
 
     int tension = total;

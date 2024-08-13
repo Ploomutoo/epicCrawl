@@ -670,9 +670,9 @@ static beam_type _chaos_beam_flavour(bolt* beam)
 dice_def combustion_breath_damage(int pow, bool allow_random)
 {
     if (allow_random)
-        return dice_def(3, 3 + div_rand_round(pow * 2, 3));
+        return dice_def(3, 4 + div_rand_round(pow * 10, 9));
     else
-        return dice_def(3, 3 + pow * 2 / 3);
+        return dice_def(3, 4 + pow * 10 / 9);
 }
 
 static void _combustion_breath_explode(bolt *parent, coord_def pos)
@@ -950,7 +950,17 @@ void bolt::digging_wall_effect()
     const dungeon_feature_type feat = env.grid(pos());
     if (feat_is_diggable(feat))
     {
-        destroy_wall(pos());
+        // If this is temporary terrain and the underlying terrain is *not*
+        // diggable, just revert it to whatever it was before. But if the
+        // original terrain was also diggable, simply destroy it.
+        if (is_temp_terrain(pos()))
+        {
+            revert_terrain_change(pos());
+            if (feat_is_diggable(env.grid(pos())))
+                destroy_wall(pos());
+        }
+        else
+            destroy_wall(pos());
         if (!msg_generated)
         {
             if (!you.see_cell(pos()))
@@ -1009,8 +1019,6 @@ void bolt::burn_wall_effect()
         return;
     }
 
-    // Destroy the wall.
-    destroy_wall(pos());
     if (you.see_cell(pos()))
     {
         if (feat == DNGN_TREE)
@@ -1023,14 +1031,42 @@ void bolt::burn_wall_effect()
     else if (you.can_smell())
         emit_message("You smell burning wood.");
 
-    if (feat == DNGN_TREE)
-        place_cloud(CLOUD_FOREST_FIRE, pos(), random2(30)+25, agent());
-    // Mangroves do not burn so readily.
-    else if (feat == DNGN_MANGROVE)
-        place_cloud(CLOUD_FIRE, pos(), random2(12)+5, agent());
-    // Demonic trees produce a chaos cloud instead of fire.
-    else if (feat == DNGN_DEMONIC_TREE)
-        place_cloud(CLOUD_CHAOS, pos(), random2(30)+25, agent());
+    // If the tree we're destroying is temporary, immediately revert
+    // terrain changes on this tile rather than permanently changing it.
+    if (is_temp_terrain(pos()))
+        revert_terrain_change(pos());
+    else
+        destroy_wall(pos());
+
+    // But burning a temporary tree that was created on open ground can still
+    // start a fire.
+    if (!cell_is_solid(pos()))
+    {
+        if (feat == DNGN_TREE)
+            place_cloud(CLOUD_FOREST_FIRE, pos(), random2(30)+25, agent());
+        // Mangroves do not burn so readily.
+        else if (feat == DNGN_MANGROVE)
+            place_cloud(CLOUD_FIRE, pos(), random2(12)+5, agent());
+        // Demonic trees produce a chaos cloud instead of fire.
+        else if (feat == DNGN_DEMONIC_TREE)
+            place_cloud(CLOUD_CHAOS, pos(), random2(30)+25, agent());
+    }
+    // If a tree turned back into a wall, place some fire around it to simulate
+    // the normal burning effect without removing the wall.
+    else if (feat == DNGN_TREE)
+    {
+        for (adjacent_iterator ai(pos()); ai; ++ai)
+        {
+            if (!in_bounds(*ai) || cloud_at(*ai) || is_sanctuary(*ai)
+                || cell_is_solid(*ai) || !cell_see_cell(*ai, source, LOS_NO_TRANS))
+            {
+                continue;
+            }
+
+            if (one_chance_in(3))
+                place_cloud(CLOUD_FIRE, *ai, random_range(11, 25), agent());
+        }
+    }
 
     obvious_effect = true;
 
@@ -2821,10 +2857,6 @@ bool bolt::can_affect_wall(const coord_def& p, bool map_knowledge) const
         return true;
     }
 
-    // Temporary trees and slime walls can't be burned/dug.
-    if ((feat_is_tree(wall) || wall == DNGN_SLIMY_WALL) && is_temp_terrain(p))
-        return false;
-
     // digging
     if (flavour == BEAM_DIGGING && feat_is_diggable(wall))
         return true;
@@ -3906,7 +3938,8 @@ void bolt::affect_player_enchantment(bool resistible)
         if (!player_is_debuffable())
             break;
 
-        debuff_player();
+        // If the player is unravelling themselves voluntarily, allow it to work.
+        debuff_player(agent() && agent()->is_player());
         _unravelling_explode(*this);
         obvious_effect = true;
         break;
@@ -5205,10 +5238,6 @@ void bolt::monster_post_hit(monster* mon, int dmg)
         mon->speed_increment += 10;
         simple_monster_message(*mon, " is empowered.");
     }
-
-    // Give electroferric vorticies a little more life if the player is shooting them
-    if (origin_spell == SPELL_MAGNAVOLT && mon->type == MONS_ELECTROFERRIC_VORTEX)
-        mon->add_ench(mon_enchant(ENCH_SLOWLY_DYING, 0, nullptr, BASELINE_DELAY * 2));
 
     if (origin_spell == SPELL_RIMEBLIGHT)
         maybe_spread_rimeblight(*mon, ench_power);
@@ -6656,9 +6685,8 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
 
     case BEAM_SHADOW_TORPOR:
     {
-        int dur = max(2, random_range(2, 5) - div_rand_round(
-                            random2(mon->get_hit_dice() * 30), ench_power));
-        obvious_effect = do_slow_monster(*mon, agent(), dur * BASELINE_DELAY);
+        int dur = max(30, ench_power / 2 + 40 - random2(mon->get_hit_dice() * 4));
+        obvious_effect = do_slow_monster(*mon, agent(), dur);
         return MON_AFFECTED;
     }
 
@@ -6961,6 +6989,11 @@ bool bolt::explode(bool show_more, bool hole_in_the_middle)
             loudness = spell_effect_noise(origin_spell)
                      + (r - 1) * 2; // at radius 1, base noise
         }
+        // These explosions are too punishing for the player (and also a bit too
+        // Qazlal-like in my opinion) if they make full uncontrollable noise
+        // all the time.
+        else if (flavour == BEAM_HAEMOCLASM)
+            loudness = 5;
 
         // Make bloated husks quieter, both for balance (they're waking up
         // whole levels!) and for theme (it's not a huge fireball, it's a big

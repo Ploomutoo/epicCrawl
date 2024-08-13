@@ -959,6 +959,8 @@ spret cast_a_spell(bool check_range, spell_type spell, dist *_target,
     }
 
     finalize_mp_cost(_majin_charge_hp() ? hp_cost : 0);
+    // Check if an HP payment brought us low enough to trigger Celebrant
+    makhleb_celebrant_bloodrite();
     you.turn_is_over = true;
     alert_nearby_monsters();
 
@@ -1381,7 +1383,7 @@ unique_ptr<targeter> find_spell_targeter(spell_type spell, int pow, int range)
         return make_unique<targeter_multiposition>(&you,
                                                    find_sigil_locations(true));
     case SPELL_BOULDER:
-        return make_unique<targeter_boulder>(&you);
+        return make_unique<targeter_boulder>(&you, barrelling_boulder_hp(pow));
     case SPELL_PERMAFROST_ERUPTION:
         return make_unique<targeter_permafrost>(you, pow);
     case SPELL_PETRIFY:
@@ -2591,7 +2593,9 @@ static spret _do_cast(spell_type spell, int powc, const dist& spd,
             { SPELL_MUD_BREATH, "You spew a torrent of mud." },
             { SPELL_GALVANIC_BREATH, "You breathe wild lightning."}
         };
-        mpr(breath_message[spell].c_str());
+
+        if (!fail)
+            mpr(breath_message[spell].c_str());
     }
     break;
 

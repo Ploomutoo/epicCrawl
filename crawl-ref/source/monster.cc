@@ -5061,7 +5061,8 @@ bool monster::can_see_invisible() const
 
 bool monster::invisible() const
 {
-    return has_ench(ENCH_INVIS) && !backlit() && !has_ench(ENCH_FIRE_CHAMPION);
+    return has_ench(ENCH_INVIS) && !backlit() && !has_ench(ENCH_FIRE_CHAMPION)
+            && !has_ench(ENCH_MAGNETISED);
 }
 
 bool monster::visible_to(const actor *looker) const
@@ -5157,6 +5158,12 @@ bool monster::can_burrow() const
 {
     return mons_class_flag(type, M_BURROWS)
            && (type == MONS_DISSOLUTION || behaviour != BEH_WANDER);
+}
+
+bool monster::can_burrow_through(dungeon_feature_type feat) const
+{
+    return can_burrow() && feat_is_diggable(feat)
+           && (type == MONS_DISSOLUTION || feat != DNGN_SLIMY_WALL);
 }
 
 /**
