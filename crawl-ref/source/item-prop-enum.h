@@ -544,6 +544,9 @@ enum special_missile_type // to separate from weapons in general {dlb}
     SPMSL_STEEL,
 #endif
     SPMSL_SILVER,
+    SPMSL_CONFUSION,                   // Concussion | Bombs only
+    SPMSL_STICKY_FLAME,
+    SPMSL_INFESTATION,
 #if TAG_MAJOR_VERSION == 34
     SPMSL_PARALYSIS,                   // dart only from here on
     SPMSL_SLOW,
@@ -552,9 +555,6 @@ enum special_missile_type // to separate from weapons in general {dlb}
 #endif
     SPMSL_FRENZY,                      // Datura
     SPMSL_BLINDING,                    // Atropa
-    SPMSL_CONFUSION,                   // Bombs
-    SPMSL_STICKY_FLAME,
-    SPMSL_INFESTATION,
 
     NUM_REAL_SPECIAL_MISSILES,
     NUM_SPECIAL_MISSILES = NUM_REAL_SPECIAL_MISSILES,
