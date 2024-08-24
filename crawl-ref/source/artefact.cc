@@ -2112,11 +2112,11 @@ static void _make_faerie_armour(item_def &item)
         if (artefact_property(doodad, ARTP_PREVENT_SPELLCASTING))
             continue;
 
-        if (one_chance_in(20))
+        if (one_chance_in(8))
             artefact_set_property(doodad, ARTP_CLARITY, 1);
-        if (one_chance_in(20))
+        if (one_chance_in(8))
             artefact_set_property(doodad, ARTP_MAGICAL_POWER, 1 + random2(10));
-        if (one_chance_in(20))
+        if (one_chance_in(8))
             artefact_set_property(doodad, ARTP_HP, random2(16) - 5);
 
         break;
