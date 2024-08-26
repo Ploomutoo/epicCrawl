@@ -134,6 +134,15 @@ bool attack::handle_phase_damaged()
 bool attack::handle_phase_killed()
 {
     monster* mon = defender->as_monster();
+
+    // Compute this before the monster dies.
+    bool do_mesm = (attacker->is_player()
+        && wpn_skill != SK_THROWING
+        && you.scan_artefacts(ARTP_TROG_MESMERISE)
+        && defender->is_monster()
+        && defender->type != MONS_NO_MONSTER
+        && !mons_is_firewood(*mon));
+
     if (!invalid_monster(mon))
     {
         // Was this a reflected missile from the player?
@@ -142,6 +151,9 @@ bool attack::handle_phase_killed()
         else
             monster_die(*mon, attacker);
     }
+
+    if (do_mesm)
+        you.become_mesmerised_by_nearest();
 
     return true;
 }
@@ -1605,6 +1617,14 @@ void attack::handle_noise(const coord_def & pos)
 
     // Cap noise at shouting volume.
     loudness = min(12, loudness);
+
+    // TrogLoud weapons are very noisy.
+    if (attacker->is_player()
+        && wpn_skill != SK_THROWING
+        && you.scan_artefacts(ARTP_TROG_LOUD))
+    {
+        loudness = div_rand_round(5 * loudness, 2);
+    }
 
     noisy(loudness, pos, attacker->mid);
 }

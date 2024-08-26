@@ -831,6 +831,8 @@ bool player::go_berserk(bool intentional, bool potion)
     mpr("You feel mighty!");
 
     int dur = (20 + random2avg(19,2)) / 2;
+    if (scan_artefacts(ARTP_TROG_RAGE))
+        dur = div_rand_round(6 * dur, 5);
     you.increase_duration(DUR_BERSERK, dur);
 
     // Apply Berserk's +50% Current/Max HP.
@@ -866,8 +868,6 @@ bool player::can_go_berserk(bool intentional, bool potion, bool quiet,
         msg = "You're still recovering from your berserk rage.";
     else if (duration[DUR_DEATHS_DOOR] && temp)
         msg = "You can't enter a blood rage from death's door.";
-    else if (beheld() && !player_equip_unrand(UNRAND_DEMON_AXE) && temp)
-        msg = "You are too mesmerised to rage.";
     else if (afraid() && temp)
         msg = "You are too terrified to rage.";
     else if (!intentional && !potion && clarity() && temp)

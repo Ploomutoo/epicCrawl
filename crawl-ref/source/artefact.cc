@@ -874,6 +874,12 @@ static const artefact_prop_data artp_data[] =
         []() { return 1; }, nullptr, 0, 0 },
     { "Wiz", ARTP_VAL_BOOL, 0,   // ARTP_WIZARDRY,
         []() { return 1; }, nullptr, 0, 0 },
+    { "TrogMesm", ARTP_VAL_BOOL, 0,   // ARTP_TROG_MESMERISE,
+        nullptr, nullptr, 0, 0 },
+    { "TrogRage", ARTP_VAL_BOOL, 0,   // ARTP_TROG_RAGE,
+        nullptr, nullptr, 0, 0 },
+    { "TrogLoud", ARTP_VAL_BOOL, 0,   // ARTP_TROG_LOUD,
+        nullptr, nullptr, 0, 0 },
 };
 COMPILE_CHECK(ARRAYSZ(artp_data) == ARTP_NUM_PROPERTIES);
 // weights sum to 1000
@@ -1972,6 +1978,52 @@ void make_ashenzari_randart(item_def &item)
     item.props[ARTEFACT_APPEAR_KEY].get_string() =
         make_artefact_name(item, true);
 
+}
+
+static string _trog_artefact_name(item_def &item)
+{
+    item.orig_monnum = -GOD_TROG;
+
+    int tries = 100;
+    string name;
+    do
+    {
+        name = _artefact_name_lookup(item, "Trog weapon");
+    }
+    while (--tries > 0 && strwidth(name) > 25);
+
+    return _base_name(item) + " " + (name.empty() ? "of Trog" : name);
+}
+
+void make_trog_randart(item_def &item)
+{
+    ASSERT(!is_artefact(item));
+    ASSERT(item.base_type == OBJ_WEAPONS);
+
+    _artefact_setup_prop_vectors(item);
+    item.flags |= ISFLAG_RANDART;
+
+    // Pick a reasonably Troggish brand.
+    set_artefact_brand(item, random_choose(SPWPN_HEAVY, SPWPN_FLAMING, SPWPN_ANTIMAGIC));
+
+    // We can't let the player swap this weapon freely given many of the
+    // properties granted.
+    artefact_set_property(item, ARTP_DRAIN, 1);
+
+    // We add one of ARTP_TROG_LOUD, ARTP_TROG_MESMERISE, ARTP_TROG_RAGE,
+    // but we do this in acquire.cc so that we can easily guarantee a
+    // mix of them.
+
+    // sometimes add additional properties.
+    if (one_chance_in(5))
+        artefact_set_property(item, ARTP_RAMPAGING, 1);
+    if (one_chance_in(10))
+        artefact_set_property(item, ARTP_HARM, 1);
+
+    // Pick a Troggish name.
+    set_artefact_name(item, _trog_artefact_name(item));
+    item.props[ARTEFACT_APPEAR_KEY].get_string() =
+        make_artefact_name(item, true);
 }
 
 enum gizmo_prop_type
