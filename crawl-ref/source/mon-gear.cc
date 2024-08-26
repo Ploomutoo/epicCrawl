@@ -170,13 +170,6 @@ static void _give_wand(monster* mon, int level)
         return;
 
     item_def& wand = env.item[idx];
-    // Ugly hack: monsters can't use digging wands, so swap em out.
-    while (wand.sub_type == WAND_DIGGING)
-    {
-        dprf("rerolling");
-        generate_wand_item(wand, OBJ_RANDOM, level);
-        item_colour(wand);
-    }
 
     const char* rejection_reason =
         (no_high_tier && is_high_tier_wand(wand.sub_type)) ? "high tier" :
@@ -1451,7 +1444,12 @@ static void _give_ammo(monster* mon, int level, bool mons_summoned)
             brand = SPMSL_POISONED;
             break;
         }
-        if (x_chance_in_y(2, 5))
+        if (one_chance_in(30) && level > 3)
+        {
+            weap_type = MI_BOMB;
+            qty = 1;
+        } 
+        else if (x_chance_in_y(2, 5))
         {
             weap_type  = MI_STONE;
             qty = 1 + random2(5);

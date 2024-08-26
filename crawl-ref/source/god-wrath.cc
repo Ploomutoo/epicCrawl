@@ -923,7 +923,7 @@ static bool _beogh_retribution()
     return true;
 }
 
-static bool _okawaru_retribution()
+bool _okawaru_retribution()
 {
     // warrior theme
     const god_type god = GOD_OKAWARU;

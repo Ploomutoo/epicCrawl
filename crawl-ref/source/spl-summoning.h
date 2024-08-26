@@ -54,6 +54,7 @@ dice_def lightning_spire_damage(int pow);
 spret cast_summon_lightning_spire(int pow, god_type god, bool fail);
 
 spret cast_call_imp(int pow, god_type god, bool fail);
+spret cast_call_imp_horde(int pow, god_type god, bool fail);
 spret summon_shadow_creatures();
 spret cast_summon_horrible_things(int pow, god_type god, bool fail);
 bool can_cast_malign_gateway();

@@ -522,6 +522,7 @@ bloodbane BLOODBANE FIRST
 doom_knight DOOM_KNIGHT
 leech LEECH
 morg MORG
+extendo EXTENDO
 plutonium_sword PLUTONIUM_SWORD
 zealot_sword ZEALOT_SWORD
 singing_sword SINGING_SWORD

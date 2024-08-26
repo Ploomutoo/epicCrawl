@@ -440,7 +440,9 @@ static const vector<brand_weight_tuple> RANGED_BRANDS = {
     { SPWPN_NORMAL,        58 },
     { SPWPN_FLAMING,       11 },
     { SPWPN_FREEZING,      11 },
+    { SPWPN_PENETRATION,   7 },
     { SPWPN_HEAVY,         7 },
+    { SPWPN_SPEED,         7 },
     { SPWPN_DRAINING,      7 },
     { SPWPN_ELECTROCUTION, 4 },
     { SPWPN_ANTIMAGIC,     2 },
@@ -561,18 +563,17 @@ static const weapon_def Weapon_prop[] =
         }},
     { WPN_QUICK_BLADE,       "quick blade",         4,  6, 12,
         SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
-        DAMV_PIERCING, 0, 25, 150, {
-            { SPWPN_NORMAL,         43 },
-            { SPWPN_VENOM,          17 },
+        DAMV_PIERCING, 0, 2, 150, {
+            { SPWPN_NORMAL,         18 },
+            { SPWPN_VENOM,          18 },
             { SPWPN_DRAINING,        9 },
-            { SPWPN_PROTECTION,      6 },
+            { SPWPN_VAMPIRISM,       9 },
             { SPWPN_ELECTROCUTION,   6 },
             { SPWPN_HOLY_WRATH,      5 },
-            { SPWPN_VAMPIRISM,       4 },
             { SPWPN_FLAMING,         4 },
             { SPWPN_FREEZING,        4 },
-            { SPWPN_DISTORTION,      1 },
-            { SPWPN_ANTIMAGIC,       1 },
+            { SPWPN_DISTORTION,      4 },
+            { SPWPN_ANTIMAGIC,       4 },
         }},
     { WPN_SHORT_SWORD,       "short sword",         5,  4, 10,
         SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
@@ -739,6 +740,8 @@ static const weapon_def Weapon_prop[] =
             { SPWPN_FLAMING,       11 },
             { SPWPN_FREEZING,      11 },
             { SPWPN_HEAVY,         7 },
+            { SPWPN_PENETRATION,   7 },
+            { SPWPN_SPEED,         7 },
             { SPWPN_DRAINING,      7 },
             { SPWPN_ELECTROCUTION, 4 },
             { SPWPN_ANTIMAGIC,     2 },
@@ -762,7 +765,7 @@ static const weapon_def Weapon_prop[] =
         SK_RANGED_WEAPONS,   SIZE_MEDIUM, NUM_SIZE_LEVELS, MI_ARROW,
         DAMV_NON_MELEE, 2, 13, 65, RANGED_BRANDS },
     { WPN_TRIPLE_CROSSBOW,   "triple crossbow",    23, -2, 23,
-        SK_RANGED_WEAPONS,   SIZE_SMALL, NUM_SIZE_LEVELS, MI_BOLT,
+        SK_RANGED_WEAPONS,   SIZE_SMALL, NUM_SIZE_LEVELS, MI_BOLT,   
         DAMV_NON_MELEE, 0, 13, 100, RANGED_BRANDS },
 
 };
@@ -835,6 +838,7 @@ static const missile_def Missile_prop[] =
     { MI_JAVELIN,       "javelin",      10, 20, 30 },
     { MI_THROWING_NET,  "throwing net",  0, 0,  30 },
     { MI_BOOMERANG,     "boomerang",     6, 20, 20 },
+    { MI_BOMB,          "bomb",          4,100, 30 },
 };
 
 #if TAG_MAJOR_VERSION == 34
@@ -2299,6 +2303,7 @@ bool ammo_always_destroyed(const item_def &missile)
 {
     const int brand = get_ammo_brand(missile);
     return missile.sub_type == MI_STONE
+           || missile.sub_type == MI_BOMB
            || brand == SPMSL_CHAOS
            || brand == SPMSL_DISPERSAL
            || brand == SPMSL_EXPLODING;
@@ -2380,7 +2385,8 @@ reach_type weapon_reach(const item_def &item)
     if (is_unrandom_artefact(item, UNRAND_RIFT))
         return REACH_THREE;
     if (item_attack_skill(item) == SK_POLEARMS
-        || is_unrandom_artefact(item, UNRAND_LOCHABER_AXE))
+        || is_unrandom_artefact(item, UNRAND_LOCHABER_AXE)
+        || is_unrandom_artefact(item, UNRAND_EXTENDOBLADE))
     {
         return REACH_TWO;
     }

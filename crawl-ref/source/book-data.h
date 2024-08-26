@@ -61,7 +61,7 @@ static const vector<spell_type> spellbook_templates[] =
     SPELL_HAILSTORM,
 },
 
-{   // Book of the Wilderness
+{   // Book of Summonings
     SPELL_SUMMON_FOREST,
     SPELL_SUMMON_MANA_VIPER,
     SPELL_SUMMON_CACTUS,
@@ -439,6 +439,7 @@ static const vector<spell_type> spellbook_templates[] =
 },
 
 { // Book of Blood
+    SPELL_CALL_IMP_HORDE,
     SPELL_SUBLIMATION_OF_BLOOD,
     SPELL_IGNITE_POISON,
     SPELL_SUMMON_HYDRA,
@@ -452,6 +453,7 @@ static const vector<spell_type> spellbook_templates[] =
 
 { // Book of Dangerous Friends
     SPELL_SUMMON_BLAZEHEART_GOLEM,
+    SPELL_CALL_IMP_HORDE,
     SPELL_IOOD,
     SPELL_SPELLFORGED_SERVITOR,
 },

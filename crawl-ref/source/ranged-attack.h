@@ -15,6 +15,7 @@ public:
                   const item_def *wpn, const item_def *projectile,
                   bool teleport, actor *blame = 0, bool mulched = false);
 
+
     // Applies attack damage and other effects.
     bool attack();
     int post_roll_to_hit_modifiers(int mhit, bool random) override;

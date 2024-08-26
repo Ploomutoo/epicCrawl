@@ -3165,6 +3165,9 @@ void level_change(bool skip_attribute_increase)
             upgrade_hepliaklqana_ancestor();
 
         learned_something_new(HINT_NEW_LEVEL);
+
+        if (you.props.exists(ACQUIRE_ITEMS_KEY))
+            acquirement_clear(ACQUIRE_ITEMS_KEY);
     }
 
     while (you.experience >= exp_needed(you.max_level + 1))
@@ -4165,6 +4168,9 @@ int get_real_hp(bool trans, bool drained)
 
     if (trans)
         hitp = get_form()->mult_hp(hitp);
+
+    if (player_equip_unrand(UNRAND_BEAR_SPIRIT))
+        hitp += you.experience_level * 3;
 
     return max(1, hitp);
 }
@@ -8579,7 +8585,7 @@ void player::rev_up(int dur)
     // So we want to gain an average of (66+34)/40 = ~5/2 rev% per aut.
     // Fuzz it between 4/2 and 6/2 (ie 2x to 3x) to avoid tracking.
     const int perc_gained = random_range(dur * 2, dur * 3);
-    you.props[REV_PERCENT_KEY] = min(100, you.rev_percent() + perc_gained);
+    you.props[REV_PERCENT_KEY] = min(150, you.rev_percent() + perc_gained);
 
     if (you.wearing_ego(EQ_GIZMO, SPGIZMO_PARRYREV))
         you.redraw_armour_class = true;

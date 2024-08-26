@@ -285,6 +285,7 @@ unsigned int item_value(item_def item, bool ident)
 
             case SPMSL_CHAOS:
             case SPMSL_CURARE:
+            case SPMSL_INFESTATION:
                 valued *= 4;
                 break;
 
@@ -299,10 +300,10 @@ unsigned int item_value(item_def item, bool ident)
             case SPMSL_FLAME:
             case SPMSL_FROST:
             case SPMSL_SLEEP:
+#endif
             case SPMSL_CONFUSION:
                 valued *= 3;
                 break;
-#endif
 
             case SPMSL_POISONED:
 #if TAG_MAJOR_VERSION == 34
@@ -310,7 +311,8 @@ unsigned int item_value(item_def item, bool ident)
             case SPMSL_EXPLODING:
             case SPMSL_SLOW:
             case SPMSL_SICKNESS:
-#endif
+#endif      
+            case SPMSL_STICKY_FLAME:
                 valued *= 2;
                 break;
             }

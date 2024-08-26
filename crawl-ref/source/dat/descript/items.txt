@@ -1631,3 +1631,8 @@ young poisoner's handbook
 An introductory book for the magic arts of poison. Readers are recommended to
 wear a pair of very thick, non-absorbent gloves.
 %%%%
+bomb
+
+A simple but effective device, its iron shell is filled with explosive powder
+and then augmented with various runes scrawled on its casing.
+%%%%

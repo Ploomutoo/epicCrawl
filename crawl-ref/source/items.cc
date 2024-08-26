@@ -3567,6 +3567,7 @@ colour_t item_def::missile_colour() const
         case MI_DART:
             return WHITE;
         case MI_JAVELIN:
+        case MI_BOMB:
             return RED;
         case MI_THROWING_NET:
             return MAGENTA;

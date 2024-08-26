@@ -3205,6 +3205,8 @@ static bool _item_matches(const item_def &item, fire_type types, bool manual)
         return true;
     if ((types & FIRE_DART) && item.sub_type == MI_DART)
         return true;
+    if ((types & FIRE_BOMB) && item.sub_type == MI_BOMB)
+        return true;
 
     return false;
 }

@@ -341,6 +341,9 @@ effect/javelin5 MI_JAVELIN5
 effect/javelin6 MI_JAVELIN6
 effect/javelin7 MI_JAVELIN7
 
+bomb MI_BOMB
+effect/bomb0 MI_BOMB0
+
 throwing_net MI_THROWING_NET
 # flying nets
 effect/throwing_net0 MI_THROWING_NET0

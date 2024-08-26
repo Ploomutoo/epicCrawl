@@ -2658,6 +2658,7 @@ static tileidx_t _tileidx_missile_base(const item_def &item)
 #endif
         case SPMSL_SILVER:   return TILE_MI_JAVELIN_SILVER;
         }
+    case MI_BOMB:            return TILE_MI_BOMB;
     }
 
     return TILE_ERROR;
@@ -3284,6 +3285,9 @@ tileidx_t tileidx_item_throw(const item_def &item, int dx, int dy)
                 break;
             case MI_BOOMERANG:
                 ch = TILE_MI_BOOMERANG0;
+                break;
+            case MI_BOMB:
+                ch = TILE_MI_BOMB0;
             default:
                 break;
         }
@@ -3982,6 +3986,8 @@ tileidx_t tileidx_ability(const ability_type ability)
         return TILEG_ABILITY_OKAWARU_GIFT_WEAPON;
     case ABIL_OKAWARU_GIFT_ARMOUR:
         return TILEG_ABILITY_OKAWARU_GIFT_ARMOUR;
+    case ABIL_OKAWARU_DENY_GIFTS:
+        return TILEG_ABILITY_OKAWARU_DENY_GIFTS;
     // Makhleb
     case ABIL_MAKHLEB_DESTRUCTION:
         if (you.has_mutation(MUT_MAKHLEB_DESTRUCTION_COC))
@@ -4506,6 +4512,7 @@ tileidx_t tileidx_known_brand(const item_def &item)
         {
 #if TAG_MAJOR_VERSION == 34
         case SPMSL_FLAME:
+        case SPMSL_STICKY_FLAME:
             return TILE_BRAND_FLAME;
         case SPMSL_FROST:
             return TILE_BRAND_FROST;
@@ -4536,6 +4543,7 @@ tileidx_t tileidx_known_brand(const item_def &item)
         case SPMSL_SLOW:
             return TILE_BRAND_SLOWING;
         case SPMSL_SICKNESS:
+        case SPMSL_INFESTATION:
             return TILE_BRAND_SICKNESS;
         case SPMSL_SLEEP:
             return TILE_BRAND_SLEEP;

@@ -691,9 +691,9 @@ static bool _artp_can_go_on_item(artefact_prop_type prop, const item_def &item,
         case ARTP_ENHANCE_ALCHEMY:
             // Maybe we should allow these for robes, too?
             // And hats? And gloves and cloaks and scarves?
-            return !extant_props[ARTP_PREVENT_SPELLCASTING]
-                   && (item.base_type == OBJ_STAVES
-                       || item.is_type(OBJ_ARMOUR, ARM_ORB));
+            return !extant_props[ARTP_PREVENT_SPELLCASTING];
+                   //&& (item.base_type == OBJ_STAVES
+                   //    || item.is_type(OBJ_ARMOUR, ARM_ORB));
 
         default:
             return true;
@@ -1022,9 +1022,11 @@ static void _add_good_randart_prop(artefact_prop_type prop,
                         of rolls for good property boosts.
  * @param max_bad_props The maximum number of bad properties this artefact can
                         be given.
+ * @param lucky         Lucky players should get sligtly better than average
+                        randarts. Currently this is "+1 quality".
  */
 static void _get_randart_properties(const item_def &item,
-                                    artefact_properties_t &item_props)
+                                    artefact_properties_t &item_props, bool lucky = false)
 {
     const object_class_type item_class = item.base_type;
 
@@ -1057,7 +1059,7 @@ static void _get_randart_properties(const item_def &item,
 
     // Each point of quality lets us add or enhance a good property.
     const int max_quality = 7;
-    const int quality = 1 + binomial(max_quality - 1, 21);
+    const int quality = 1 + binomial(max_quality - 1, 21) + lucky;
 
     // We'll potentially add up to 2 bad properties, also considering any fixed
     // bad properties.
@@ -1179,7 +1181,7 @@ void setup_unrandart(item_def &item, bool creating)
     item.plus      = unrand->plus;
 }
 
-static bool _init_artefact_properties(item_def &item)
+static bool _init_artefact_properties(item_def &item, bool lucky = false)
 {
     ASSERT(is_artefact(item));
 
@@ -1197,7 +1199,7 @@ static bool _init_artefact_properties(item_def &item)
 
     artefact_properties_t prop;
     prop.init(0);
-    _get_randart_properties(item, prop);
+    _get_randart_properties(item, prop, lucky);
 
     for (int i = 0; i < ART_PROPERTIES; i++)
         rap[i] = static_cast<short>(prop[i]);
@@ -1851,7 +1853,8 @@ static void _artefact_setup_prop_vectors(item_def &item)
 
 // If force_mundane is true, normally mundane items are forced to
 // nevertheless become artefacts.
-bool make_item_randart(item_def &item, bool force_mundane)
+// If lucky is true, the artefact is a little better than normal.
+bool make_item_randart(item_def &item, bool force_mundane, bool lucky)
 {
     switch (item.base_type)
     {
@@ -1886,7 +1889,7 @@ bool make_item_randart(item_def &item, bool force_mundane)
     do
     {
         // Now that we found something, initialise the props array.
-        if (--randart_tries <= 0 || !_init_artefact_properties(item))
+        if (--randart_tries <= 0 || !_init_artefact_properties(item, lucky))
         {
             // Something went wrong that no amount of rerolling will fix.
             item.unrand_idx = 0;
@@ -2109,11 +2112,11 @@ static void _make_faerie_armour(item_def &item)
         if (artefact_property(doodad, ARTP_PREVENT_SPELLCASTING))
             continue;
 
-        if (one_chance_in(20))
+        if (one_chance_in(8))
             artefact_set_property(doodad, ARTP_CLARITY, 1);
-        if (one_chance_in(20))
+        if (one_chance_in(8))
             artefact_set_property(doodad, ARTP_MAGICAL_POWER, 1 + random2(10));
-        if (one_chance_in(20))
+        if (one_chance_in(8))
             artefact_set_property(doodad, ARTP_HP, random2(16) - 5);
 
         break;

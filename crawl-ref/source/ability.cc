@@ -38,6 +38,7 @@
 #include "god-companions.h"
 #include "god-conduct.h"
 #include "god-passive.h"
+#include "god-wrath.h"
 #include "hints.h"
 #include "invent.h"
 #include "item-prop.h"
@@ -472,7 +473,8 @@ static vector<ability_def> &_get_ability_list()
             0, 0, 0, -1, {fail_basis::invo}, abflag::none },
         { ABIL_OKAWARU_GIFT_ARMOUR, "Receive Armour",
             0, 0, 0, -1, {fail_basis::invo}, abflag::none },
-
+        { ABIL_OKAWARU_DENY_GIFTS, "Deny Gifts",
+            0, 0, 0, -1, {fail_basis::invo}, abflag::none },
 
         // Makhleb
         { ABIL_MAKHLEB_DESTRUCTION, "Unleash Destruction",
@@ -1177,6 +1179,11 @@ ability_type fixup_ability(ability_type ability)
     case ABIL_OKAWARU_GIFT_WEAPON:
         if (you.props.exists(OKAWARU_WEAPON_GIFTED_KEY))
             return ABIL_NON_ABILITY;
+
+    case ABIL_OKAWARU_DENY_GIFTS:
+        if (you.props.exists(OKAWARU_ARMOUR_GIFTED_KEY) && you.props.exists(OKAWARU_WEAPON_GIFTED_KEY))
+            return ABIL_NON_ABILITY;
+
         // fall through
     case ABIL_TSO_BLESS_WEAPON:
     case ABIL_KIKU_BLESS_WEAPON:
@@ -3462,7 +3469,7 @@ static spret _do_ability(const ability_def& abil, bool fail, dist *target,
                  you.hands_act("get", "new energy.").c_str());
         }
         else
-            mprf(MSGCH_DURATION, "You can now deal lightning-fast blows.");
+            mprf("You can now deal lightning-fast blows.");
 
         you.increase_duration(DUR_FINESSE,
                               10 + random2avg(you.skill(SK_INVOCATIONS, 6), 2),
@@ -3482,6 +3489,20 @@ static spret _do_ability(const ability_def& abil, bool fail, dist *target,
     case ABIL_OKAWARU_GIFT_ARMOUR:
         if (!okawaru_gift_armour())
             return spret::abort;
+        break;
+
+    case ABIL_OKAWARU_DENY_GIFTS:
+        if(okawaru_deny_check())
+        {   
+            mprf("You challenge Okawaru for a new set of gifts.");
+            simple_god_message(" accepts your challenge! Prove yourself worthy!");
+            you.penance[GOD_OKAWARU] += 5 + round(you.experience_level/3);
+            _okawaru_retribution();
+        } 
+        else
+        {
+            simple_god_message(" does not care to heed your challenge.");
+        }
         break;
 
     case ABIL_MAKHLEB_ANNIHILATION:
@@ -4513,6 +4534,7 @@ int find_ability_slot(const ability_type abil, char firstletter)
     case ABIL_HEPLIAKLQANA_IDENTITY: // move this?
     case ABIL_ASHENZARI_CURSE:
     case ABIL_ASHENZARI_UNCURSE:
+    case ABIL_OKAWARU_DENY_GIFTS:
     case ABIL_MAKHLEB_BRAND_SELF_1:
     case ABIL_MAKHLEB_BRAND_SELF_2:
     case ABIL_MAKHLEB_BRAND_SELF_3:

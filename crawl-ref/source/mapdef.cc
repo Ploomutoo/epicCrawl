@@ -5032,11 +5032,13 @@ int str_to_ego(object_class_type item_type, string ego_str)
         "steel",
 #endif
         "silver",
+        "concussion",
+        "sticky flame",
+        "infestation",
 #if TAG_MAJOR_VERSION == 34
         "paralysis",
         "slow",
         "sleep",
-        "confusion",
         "sickness",
 #endif
         "datura",

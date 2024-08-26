@@ -841,10 +841,21 @@ static const struct spell_desc spelldata[] =
 },
 
 {
+    SPELL_CALL_IMP_HORDE, "Call Imp Horde",
+    spschool::summoning,
+    spflag::unholy | spflag::selfench | spflag::mons_abjure,
+    4,
+    150,
+    -1, -1,
+    0,
+    TILEG_CALL_IMP_HORDE,
+},
+
+{
     SPELL_SUMMON_DEMON, "Summon Demon",
     spschool::summoning,
-    spflag::unholy
-    | spflag::mons_abjure | spflag::monster,
+    spflag::unholy | spflag::selfench
+    | spflag::mons_abjure  | spflag::monster,
     5,
     200,
     -1, -1,
@@ -1194,7 +1205,7 @@ static const struct spell_desc spelldata[] =
     SPELL_LRD, "Lee's Rapid Deconstruction",
     spschool::earth,
     spflag::target | spflag::destructive,
-    5,
+    4,
     200,
     LOS_RADIUS, LOS_RADIUS,
     0,
@@ -3687,8 +3698,8 @@ static const struct spell_desc spelldata[] =
     SPELL_BOULDER, "Brom's Barrelling Boulder",
     spschool::earth | spschool::conjuration,
     spflag::target | spflag::not_self,
-    4,
-    100,
+    5,
+    200,
     1, 1,
     0,
     TILEG_BOULDER,

@@ -446,18 +446,16 @@ WILL:    1
 BOOL:    poison, skip_ego, nogen
 # end TAG_MAJOR_VERSION
 
-# TAG_MAJOR_VERSION == 34
 NAME:     dagger "Morg"
 OBJ:      OBJ_WEAPONS/WPN_DAGGER
-PLUS:     +4
+PLUS:     +6
 COLOUR:   LIGHTRED
 TILE:     urand_morg
 TILE_EQ:  morg
 BRAND:    SPWPN_PAIN
+DBRAND:  Everpain:   Its brand ignores the negative energy resistance of foes.
 INT:      5
 WILL:     1
-BOOL:     nogen
-# end TAG_MAJOR_VERSION
 
 NAME:    scythe "Finisher"
 OBJ:     OBJ_WEAPONS/WPN_HALBERD
@@ -1835,6 +1833,27 @@ INSCRIP: orb Charlatan
 DBRAND:  It massively reduces your stealth.
 +It interferes with translocations, delaying teleports.
 +Charlatan: It boosts your other skills by 20% of your base Evocations skill.
+
+NAME:    ring of the Frog
+OBJ:     OBJ_JEWELLERY/RING_FIRST_RING
+COLOUR:  ETC_POISON
+TILE:    urand_frog
+
+NAME:    ring of the Scorpion
+OBJ:     OBJ_JEWELLERY/RING_SLAYING
+PLUS:    +8
+COLOUR:  ETC_POISON
+TILE:    urand_scorpion
+
+NAME:     prototype "ExtendoBlade"
+OBJ:      OBJ_WEAPONS/WPN_SHORT_SWORD
+TILE:     spwpn_extendo
+TILE_EQ:  extendo
+PLUS:     5
+COLOUR:   ETC_INCARNADINE
+BRAND:    SPWPN_FLAMING
+INSCRIP:  reach,
+DBRAND:   Reach: Can attack from an additional tile away.
 
 # Fedhas sprint, to allow coglins access to evocable invisibility.
 ENUM:     SCARF_INVISIBILITY

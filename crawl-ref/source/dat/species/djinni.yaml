@@ -33,7 +33,7 @@ aptitudes:
   translocations: 11
   dodging: 1
   stealth: -1
-  shapeshifting: -2
+  shapeshifting: 1
 str: 7
 int: 9
 dex: 8
