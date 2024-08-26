@@ -854,8 +854,8 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_SUMMON_DEMON, "Summon Demon",
     spschool::summoning,
-    spflag::unholy | spflag::selfench
-    | spflag::mons_abjure  | spflag::monster,
+    spflag::unholy
+    | spflag::mons_abjure | spflag::monster,
     5,
     200,
     -1, -1,
