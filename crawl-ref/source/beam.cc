@@ -1098,7 +1098,7 @@ void bolt::affect_wall()
     }
     if (in_bounds(pos()))
     {
-        if (flavour == BEAM_DIGGING)
+        if (flavour == BEAM_DIGGING || flavour == BEAM_BOMB)
             digging_wall_effect();
         else if (can_burn_trees())
             burn_wall_effect();
@@ -2865,7 +2865,7 @@ bool bolt::can_affect_wall(const coord_def& p, bool map_knowledge) const
         return feat_is_flammable(wall);
 
     // Lee's Rapid Deconstruction
-    if (flavour == BEAM_FRAG)
+    if (flavour == BEAM_FRAG || flavour == BEAM_BOMB) 
         return true; // smite targeting, we don't care
 
     return false;
@@ -4501,6 +4501,7 @@ int bolt::apply_AC(const actor *victim, int hurted)
     switch (flavour)
     {
     case BEAM_DAMNATION:
+    case BEAM_BOMB:
         ac_rule = ac_type::none; break;
     case BEAM_COLD:
         if (origin_spell == SPELL_PERMAFROST_ERUPTION)
@@ -7491,6 +7492,7 @@ static string _beam_type_name(beam_type type)
     case BEAM_CONFUSION:             return "confusion";
     case BEAM_INVISIBILITY:          return "invisibility";
     case BEAM_DIGGING:               return "digging";
+    case BEAM_BOMB:                  return "explosion";
     case BEAM_TELEPORT:              return "teleportation";
     case BEAM_POLYMORPH:             return "polymorph";
     case BEAM_MALMUTATE:             return "malmutation";

@@ -523,9 +523,9 @@ static void _setup_missile_beam(const actor *agent, bolt &beam,
                 expl->ench_power   = 200;
                 break;
                 default: 
-                expl->flavour = BEAM_FRAG;
-                if (agent->is_player()) expl->damage = dice_def(3,15 + you.skill_rdiv(SK_THROWING));
-                else                    expl->damage = dice_def(3,10);
+                expl->flavour = BEAM_BOMB;
+                if (agent->is_player()) expl->damage = dice_def(3,20 + you.skill_rdiv(SK_THROWING));
+                else                    expl->damage = dice_def(3,20);
                 expl->name   += " fragments";
             }
             
