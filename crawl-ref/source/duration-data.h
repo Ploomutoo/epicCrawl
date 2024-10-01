@@ -532,6 +532,13 @@ static const duration_def duration_data[] =
       LIGHTBLUE, "",
       "divinely shielded", "divine shield",
       "You are shielded by the power of the Shining One.", D_NO_FLAGS},
+    { DUR_EPHEMERAL_SHIELD,
+      LIGHTBLUE, "",
+      "ephemerally shielded", "ephemeral shield",
+      "You are briefly shielded after casting or invoking.", D_DISPELLABLE | D_EXPIRES,
+      {{ "", []() {
+          you.redraw_armour_class = true; // includes shields
+      }}}},
     { DUR_CLEAVE,
       LIGHTBLUE, "Cleave",
       "cleaving", "cleave",
@@ -746,6 +753,7 @@ static const duration_def duration_data[] =
       "You are seeking vengeance for the death of your brethren.", D_NO_FLAGS},
     { DUR_CONSTRICTION_IMMUNITY, 0, "", "", "constrict immune", "", D_NO_FLAGS, {{""}}},
     { DUR_GRAVE_CLAW_RECHARGE, 0, "", "", "grave claw recharging", "", D_NO_FLAGS},
+    { DUR_TIME_WARPED_BLOOD_COOLDOWN, 0, "", "", "time-warped blood cooldown", "", D_NO_FLAGS},
 
 #if TAG_MAJOR_VERSION == 34
     // And removed ones

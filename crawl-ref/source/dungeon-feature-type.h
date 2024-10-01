@@ -237,6 +237,9 @@ enum dungeon_feature_type
     DNGN_FOUNTAIN_BLUE,
     DNGN_FOUNTAIN_SPARKLING,           // aka 'Magic Fountain' {dlb}
     DNGN_FOUNTAIN_BLOOD,
+#if TAG_MAJOR_VERSION > 34
+    DNGN_FOUNTAIN_EYES,
+#endif
 #if TAG_MAJOR_VERSION == 34
     DNGN_DRY_FOUNTAIN_BLUE,
     DNGN_DRY_FOUNTAIN_SPARKLING,
@@ -244,8 +247,10 @@ enum dungeon_feature_type
 #endif
     DNGN_DRY_FOUNTAIN,
 #if TAG_MAJOR_VERSION > 34
+    DNGN_CACHE_OF_BAKED_GOODS,
     DNGN_CACHE_OF_FRUIT,
     DNGN_CACHE_OF_MEAT,
+    DNGN_DECORATIVE_FLOOR, // XXX: dummy for redefinition until a rewrite
     DNGN_RUNELIGHT,
 #endif
 
@@ -366,6 +371,9 @@ enum dungeon_feature_type
     DNGN_ORB_DAIS,
     DNGN_ENTER_CRUCIBLE,
     DNGN_EXIT_CRUCIBLE,
+    DNGN_FOUNTAIN_EYES,
+    DNGN_CACHE_OF_BAKED_GOODS,
+    DNGN_DECORATIVE_FLOOR,  // XXX: dummy for redefinition until we rewrite code
 
 #endif
 

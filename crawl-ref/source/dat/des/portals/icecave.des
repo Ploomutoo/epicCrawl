@@ -587,6 +587,24 @@ MAP
   ''w'
 ENDMAP
 
+NAME:   portal_ice_cave_entry_guarded_snowflake
+TAGS:   no_monster_gen transparent
+: ice_cave_portal(_G)
+MONS:   polar bear, rime drake
+MAP
+.....a.....
+.a...a...a.
+...aa.aa...
+..a.a.a.a..
+..aa...aa..
+aa..1O2..aa
+..aa...aa..
+..a.a.a.a..
+...aa.aa...
+.a...a...a.
+.....a.....
+ENDMAP
+
 ###############################################################################
 # Entry vaults that only place hard ice cave entrances
 
@@ -1590,22 +1608,22 @@ SHUFFLE: qrs
 : if dgn.persist.ice_cave_hard then
 MONS:    glowing shapeshifter simulacrum / slime creature simulacrum \
          / great orb of eyes simulacrum
-MONS:    orange crystal statue, slime creature band, quicksilver ooze
+MONS:    orange crystal statue, slime creature band, void ooze
 MONS:    azure jelly, rockslime
 {{
 set_random_mon_list("glowing shapeshifter simulacrum w:20" ..
     " / slime creature simulacrum w:20 / great orb of eyes simulacrum w:20" ..
-    " / slime creature w:40 / quicksilver ooze w:20 / azure jelly")
+    " / slime creature w:40 / void ooze w:20 / azure jelly")
 }}
 SUBST:   p = 4, q = 455, r = 5, s = 6
 : else
 MONS:    shapeshifter simulacrum / glowing shapeshifter simulacrum \
          / slime creature simulacrum / great orb of eyes simulacrum
-MONS:    ice statue, slime creature band, quicksilver ooze, azure jelly
+MONS:    ice statue, slime creature band, void ooze, azure jelly
 {{
 set_random_mon_list("shapeshifter simulacrum" ..
     " / glowing shapeshifter simulacrum / slime creature simulacrum" ..
-    " / great orb of eyes simulacrum / slime creature w:20 / quicksilver ooze")
+    " / great orb of eyes simulacrum / slime creature w:20 / void ooze")
 }}
 SUBST:   q = 34455
 :end

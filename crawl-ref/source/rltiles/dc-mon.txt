@@ -216,7 +216,9 @@ swamp_worm_water
 %rim 1
 %sdir mon/animals
 ribbon_worm MONS_RIBBON_WORM
+%rim 0
 brain_worm MONS_BRAIN_WORM
+%rim 1
 tyrant_leech MONS_TYRANT_LEECH
 dart_slug MONS_DART_SLUG
 steelbarb_worm MONS_STEELBARB_WORM
@@ -371,6 +373,10 @@ shadow_prism4
 foxfire MONS_FOXFIRE
 marshlight MONS_MARSHLIGHT
 living_spell MONS_LIVING_SPELL
+living_spell_crystal MONS_LIVING_SPELL_CRYSTAL
+living_spell_earth MONS_LIVING_SPELL_EARTH
+living_spell_holy MONS_LIVING_SPELL_HOLY
+living_spell_ice MONS_LIVING_SPELL_ICE
 %rim 1
 ball_lightning MONS_BALL_LIGHTNING /*'*'*/
 creeping_inferno MONS_CREEPING_INFERNO
@@ -483,6 +489,8 @@ azrael MONS_AZRAEL
 %sdir mon/demons
 efreet MONS_EFREET
 %rim 0
+nekomata MONS_NEKOMATA
+nekomata_phantom MONS_NEKOMATA_PHANTOM
 wendigo MONS_WENDIGO
 %sdir mon/nonliving
 ancestor MONS_ANCESTOR
@@ -574,7 +582,6 @@ obsidian_statue MONS_OBSIDIAN_STATUE
 orange_crystal_statue MONS_ORANGE_STATUE
 wucad_mu_statue MONS_WUCAD_MU_STATUE
 machine_tukima MONS_STRANGE_MACHINE
-hoarfrost_cannon MONS_HOARFROST_CANNON
 %sdir mon/vault
 air_elementalist_statue MONS_AIR_ELEMENTALIST_STATUE
 earth_elementalist_statue MONS_EARTH_ELEMENTALIST_STATUE
@@ -598,6 +605,8 @@ overlay_whip MONS_STATUE_WHIP
 firespitter_statue MONS_FIRESPITTER_STATUE
 obelisk MONS_DIAMOND_OBELISK
 lightning_spire MONS_LIGHTNING_SPIRE
+hoarfrost_cannon MONS_HOARFROST_CANNON
+hellfire_mortar MONS_HELLFIRE_MORTAR
 %sdir mon/nonliving
 spellforged_servitor MONS_SPELLFORGED_SERVITOR
 %rim 1
@@ -753,6 +762,7 @@ meteoran MONS_METEORAN
 %sdir mon/holy
 angel MONS_ANGEL
 daeva MONS_DAEVA
+fravashi MONS_FRAVASHI
 %rim 1
 cherub MONS_CHERUB
 %sdir mon/undead
@@ -835,6 +845,7 @@ eye_of_devastation MONS_EYE_OF_DEVASTATION
 %rim 1
 golden_eye MONS_GOLDEN_EYE
 %sdir mon/holy
+%rim 0
 ophan MONS_OPHAN
 
 ## Hybrids ('H')
@@ -923,7 +934,7 @@ slime_creature3
 slime_creature4
 slime_creature5
 rockslime MONS_ROCKSLIME
-quicksilver_ooze MONS_QUICKSILVER_OOZE
+void_ooze MONS_VOID_OOZE
 %rim 1
 azure_jelly MONS_AZURE_JELLY
 acid_blob MONS_ACID_BLOB

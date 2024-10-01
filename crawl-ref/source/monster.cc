@@ -2349,6 +2349,11 @@ string monster::hand_name(bool plural, bool *can_plural) const
             str = "tentacle";
             break;
         }
+        else if (type == MONS_BLIZZARD_DEMON)
+        {
+            str = "stratum";
+            break;
+        }
         // Deliberate fallthrough.
     case MON_SHAPE_FUNGUS:
         str         = "body";
@@ -2545,7 +2550,8 @@ string monster::arm_name(bool plural, bool *can_plural) const
     string adj;
     string str = "arm";
 
-    // TODO: shared code with species::skin_name for player species
+    // TODO: All extremely non-general or shared species::skin_name code.
+    // (Probably all monster part / adjectives should be in the monster .yaml?)
     switch (mons_genus(type))
     {
     case MONS_DRACONIAN:
@@ -2565,7 +2571,6 @@ string monster::arm_name(bool plural, bool *can_plural) const
         str = "tentacle";
         break;
 
-    // TODO: this looks extremely non-general
     case MONS_LICH:
     case MONS_SKELETAL_WARRIOR:
     case MONS_ANCIENT_CHAMPION:
@@ -3608,6 +3613,11 @@ bool monster::is_insubstantial() const
     return mons_class_flag(type, M_INSUBSTANTIAL);
 }
 
+bool monster::is_amorphous() const
+{
+    return mons_class_flag(type, M_AMORPHOUS);
+}
+
 /// All resists intrinsic to a monster, including enchants, equip, etc.
 resists_t monster::all_resists() const
 {
@@ -3919,7 +3929,7 @@ bool monster::res_petrify(bool /*temp*/) const
 
 bool monster::res_constrict() const
 {
-    return is_insubstantial() || is_spiny() || mons_genus(type) == MONS_JELLY;
+    return is_insubstantial() || is_spiny() || is_amorphous();
 }
 
 bool monster::res_corr(bool /*allow_random*/, bool temp) const
@@ -4854,11 +4864,14 @@ bool monster::is_shapeshifter() const
 
 void monster::scale_hp(int num, int den)
 {
-    // Without the +1, we lose maxhp on every berserk (the only use) if the
-    // maxhp is odd. This version does preserve the value correctly, but only
-    // if it is first inflated then deflated.
-    hit_points     = (hit_points * num + 1) / den;
-    max_hit_points = (max_hit_points * num + 1) / den;
+    // XXX: Without the +1, we lose maxhp on every berserk if the maxhp is odd.
+    // But the +1 also causes monsters to *gain* maxhp every turn an apis aura
+    // is active on them. I'd like a better solution in future, but this should
+    // solve the immediate problem.
+    const int bump = ((num == 2 && den == 3) || (num == 3 && den == 2)) ? 1 : 0;
+
+    hit_points     = (hit_points * num + bump) / den;
+    max_hit_points = (max_hit_points * num + bump) / den;
 
     if (hit_points < 1)
         hit_points = 1;
@@ -6280,7 +6293,7 @@ bool monster::is_web_immune() const
 {
     return mons_class_flag(type, M_WEB_IMMUNE)
             || mons_class_flag(mons_genus(type), M_WEB_IMMUNE)
-            || is_insubstantial();
+            || is_insubstantial() || is_amorphous();
 }
 
 /**

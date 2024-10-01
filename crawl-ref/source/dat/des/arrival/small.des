@@ -4,6 +4,8 @@
 # See arrival_guide.txt for details.
 ##############################################################################
 
+: crawl_require('dlua/vault.lua')
+
 ###############################################################################
 # Probably looks better in tiles
 NAME:   evilmike_arrival_home_sweet_home
@@ -1281,14 +1283,15 @@ TAGS:    arrival
 ORIENT:  float
 SHUFFLE: +'
 SUBST:   ' : x + ':40, '=x+
+: decorative_floor(_G, 'p', "garden patch")
 MAP
 xxxxxxx.@.xxxxxxx
 x.....+...x.....x
 x..(..'...+.....x
 x.....xx.xx.....x
 xxx+'xxx.xxxx'xxx
-@....xx...xx....@
-.....xx...xx.....
+@....xxp..xx....@
+.....xx..pxx.....
 xxx+xxxx.xxxx+xxx
 x.....xx.xx.....x
 x.....'...'..]..x
@@ -1690,20 +1693,19 @@ NAME:    dpeg_arrival_orchard
 TAGS:    arrival
 ORIENT:  float
 MONS:    plant
-SHUFFLE: 1x
-SUBST:   x = '
-NSUBST:  ' = 2:d / *:'
-NSUBST:  . = '.
-FTILE:   '1{ = floor_grass
+SUBST:   x : 1xp
+FTILE:   '1p{ = floor_grass
+FTILE:   " = floor_mud
 COLOUR:  ' = green
+: decorative_floor(_G, 'p', "flower patch")
 MAP
-  .....
- .x...x.
- '''''''
-..''{''..
- '''''''
- .x...x.
-  .....
+  "..."
+ "x"""x"
+ "'''''"
+."''{''".
+ "'''''"
+ "x"""x"
+  "..."
 ENDMAP
 
 ##############################################################################
@@ -2522,25 +2524,26 @@ NAME:    saegor_arrival_fortress
 TAGS:    arrival no_monster_gen no_pool_fixup
 ORIENT:  float
 KPROP:   W = no_tele_into
-NSUBST:  { = 1:{ / 1:> / *:.
+NSUBST:  { = 1:{ / 1:> / 1:M. / *:.
+: decorative_floor(_G, 'M', "flower patch")
 MAP
 wwwwwwwwwcccccwwwwwwwww
 wcccccccwcWtWcwcccccccw
 wc{...GccccGccccG...{cw
 wc.....+.......+.....cw
-wcG...GccGc+cGccG...Gcw
+wcG...ccccc+ccccc...Gcw
 wccc+cccccc+cccccc+cccw
 wcWc.cctt.....ttcc.cWcw
 wttG.ctW.......Wtc.Gttw
-wcWc.Gc.........cG.cWcw
+wcWc.cc.........cc.cWcw
 wccc.cc...WtW...cc.cccw
 @++..++...tGt...++..++@
 wccc.cc...WtW...cc.cccw
-wcWc.Gc.........cG.cWcw
+wcWc.cc.........cc.cWcw
 wttG.ctW.......Wtc.Gttw
 wcWc.cctt.....ttcc.cWcw
 wccc+cccccc+cccccc+cccw
-wcG...GccGc+cGccG...Gcw
+wcG...ccccc+ccccc...Gcw
 wc.....+.......+.....cw
 wc{...GccccGccccG...{cw
 wcccccccwcWtWcwcccccccw
@@ -2664,7 +2667,7 @@ MAP
           ccccccccc
        cccctccccctcccc
       cctt1tc...ct1ttcc
-    ccctttttc.{.ctttttccc
+    cccttttnc.{.cnttttccc
     ccccccccn...ncccccccc
     WWcc..+.......+..ccWW
    @WWz..."'-----'"...zWW@
@@ -3964,4 +3967,32 @@ c.c.c.c....+@
 c.E.c.F.c..+@
 ccccccccc++c
          @@
+ENDMAP
+
+NAME:    angelslayer_arrival_pockets_within_ring
+TAGS:    arrival no_monster_gen transparent
+ORIENT:  float
+SHUFFLE: {([
+SHUFFLE: DEFH
+SUBST:   [H = ., ( = >, DEF = x, T = TV
+MAP
+      xxxxxxx
+    DxD.....ExE
+   DD.........EE
+  DD...........EE
+ DD.............EE
+ x...xxxx........x
+xD...x[.x........Ex
+x....x..x.........x
+x....xxx..........x
+x........T........x
+x....xxx...xxx....x
+x....x..x.x..x....x
+xF...x{.x.x.(x...Hx
+ x...xxxx.xxxx...x
+ FF.............HH
+  FF...........HH
+   FF.........HH
+    FxF.....HxH
+      xxxxxxx
 ENDMAP

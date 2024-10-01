@@ -679,7 +679,8 @@ protect its wearer in a more aggressive fashion than armour customarily does.
 %%%%
 apis
 
-A placid, sacred bull of Elyvilon.
+A placid, sacred bull of Elyvilon. Its status as an exalted envoy of the Healer
+lets its very presence double the vitality and vigour of its allies.
 %%%%
 apocalypse crab
 
@@ -794,7 +795,7 @@ found in packs.
 %%%%
 blizzard demon
 
-A greater demon, wreathed in snow and lightning.
+A greater demon formed from wistful snow and bitter lightning.
 %%%%
 bloated husk
 
@@ -1374,6 +1375,13 @@ A hideous floating undead creature, the anguished spirit of a tortured victim,
 with torn skin hanging from an emaciated body. It restlessly stalks the
 dungeon, inflicting the anguish it felt in life upon those still living.
 %%%%
+fravashi
+
+A beneficent remnant of the countless mortal knights who serve the Shining One.
+Their hosts' role in the divine hierarchy is to guide and direct their legions
+in righteous moral warfare, though they may also call upon those mortals to
+defend themselves.
+%%%%
 frilled lizard
 
 A lizard with a giant and colourful fringe folded around its neck. It flares
@@ -1486,11 +1494,6 @@ goblin
 A short, impatient and unfriendly humanoid. Goblins first appeared only a few
 years ago, but are now remarkably numerous. Sadly, no number of raucous goblin
 parties will put them in a welcoming mood toward adventurers.
-%%%%
-goblin sharper
-
-A goblin newly converted to Nemelex Xobeh. It's still learning about all the
-cards and, thankfully, isn't inclined to use them against you.
 %%%%
 golden dragon
 
@@ -2023,6 +2026,12 @@ necrophage
 A vile undead creation of the most unholy necromancy, made from the decaying
 corpses of humanoid creatures. It exists to spread disease and decay.
 %%%%
+nekomata
+
+An upright feliform trickster of an elderly demon, with a forked tail ablaze
+with a shimmering haze. It holds a deep disdain for mortal humanoids, a
+patronising pity for mortal cats, and enough mystic might to subjugate both.
+%%%%
 neqoxec
 
 A weirdly shaped demon, pulsing and shifting with mutagenic energies, its belly
@@ -2079,7 +2088,8 @@ ophan
 
 A creature from the heavenly realms. It consists of a wheel within a wheel, and
 both of these are covered in eyes; strange flames of holy fire flicker all over
-it.
+it. To be seen by its countless eyes is to be highlighted and branded as both
+dissident and quarry for its allies to hunt down.
 %%%%
 orange crystal statue
 
@@ -2304,11 +2314,6 @@ quicksilver elemental
 A mercurial spirit drawn from the elemental plane of earth. It exists in
 this world by inhabiting a shimmering body of liquid metal.
 %%%%
-quicksilver ooze
-
-A thin coating of shining, reflective goo, covering a great area and rushing
-forward with startling speed. Enchantments slide off it like water.
-%%%%
 quokka
 
 A pesky little marsupial that is a bit like a rat, but not quite.
@@ -2325,8 +2330,9 @@ the gods, it now relies on constructs to protect itself.
 %%%%
 rakshasa
 
-A demon in the form of a tiger, in search of hidden power and knowledge. It is
-an expert in the art of illusion, and is exceptionally intelligent and cruel.
+A maneater demon, bestial and misshapen, in search of hidden power and
+knowledge. It is an expert in the art of illusion, and is exceptionally
+intelligent and cruel.
 %%%%
 rat
 
@@ -2975,6 +2981,13 @@ vine stalker
 A bizarre symbiotic creature, made up of a carnivorous vine magically combined
 with a humanoid.
 %%%%
+void ooze
+
+The viscous detritus of a thousand failed spells, surging forward with a speed
+that defies its towering size. Its very substance is a hole in the fabric of
+magic; enchantments find no purchase there and it leaches magical power from
+anything it touches like a dry sponge in water.
+%%%%
 walking earthen tome
 
 A spellbook that has gone too long without being read. It overflows with magic,
@@ -3318,6 +3331,11 @@ giga bat
 
 An enormous, bloated bat.
 %%%%
+goblin sharper
+
+A goblin newly converted to Nemelex Xobeh. It's still learning about all the
+cards and, thankfully, isn't inclined to use them against you.
+%%%%
 greater air elemental
 
 A mighty spirit drawn from the elemental plane of air, surrounded by a
@@ -3444,9 +3462,9 @@ skeletal bat
 A bat skeleton without the decency to lie unmoving like dead bats are supposed
 to.
 %%%%
-spriggan hatter
+spriggan baker
 
-A spriggan who is going slightly mad from the toxic fumes of their craft.
+A spriggan that has mastered the culinary arts.
 %%%%
 #if TAG_MAJOR_VERSION > 34
 still boulder

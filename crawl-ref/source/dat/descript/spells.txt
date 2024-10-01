@@ -8,7 +8,7 @@ Acid Splash spell
 Spits a glob of acid at a nearby creature, covering it in corrosive slime
 for a short time. It may also splash onto other nearby creatures on impact.
 %%%%
-Agonizing Touch spell
+Agonising Touch spell
 
 Cuts the health of an adjacent creature in half. This damage is never
 directly lethal.
@@ -262,9 +262,9 @@ creatures into ghostly versions of themselves.
 Call of Chaos spell
 
 Calls upon the powers of chaos to empower nearby allies, granting them haste,
-might, agility, or improved resistances. The chaotic magic may occasionally
-backfire and cause allies to instead lose their willpower or be berserked,
-polymorphed, or filled with inner flame.
+might, doubled health, or improved resistances. The chaotic magic may
+occasionally backfire and cause allies to instead lose their willpower or be
+berserked, polymorphed, or filled with inner flame.
 %%%%
 Call Tide spell
 
@@ -1070,6 +1070,12 @@ Mass Confusion spell
 
 Causes confusion in all who gaze upon the caster.
 %%%%
+Mass Regeneration spell
+
+Causes all allied monsters nearby to rapidly regenerate over a short period of
+time. This regeneration is proportional to each of those creature's maximum
+health.
+%%%%
 Maxwell's Capacitive Coupling spell
 
 Gradually builds up electric charge in the caster, so long as they maintain
@@ -1252,6 +1258,12 @@ Petrifying Cloud spell
 
 Exhales calcifying dust, which petrifies anyone affected for longer than a
 brief moment.
+%%%%
+Phantom Blitz spell
+
+Weaves and fires a phantom copy of the caster with great force. Such phantoms
+have the same martial and mystic prowess as the caster, and an impromptu night
+parade of illusions may overwhelm the caster's victims.
 %%%%
 Phantom Mirror spell
 
@@ -1806,6 +1818,12 @@ viper's bite grow even stronger.
 Summon Minor Demon spell
 
 Summons between one and three minor (rank 5) demons.
+%%%%
+Summon Mortal Champion spell
+
+Calls forth one of the mightiest and fastest mortal champions of the Shining
+One. In this Dungeon, spriggan defenders and deep elf blademasters will answer
+the call.
 %%%%
 Summon Mushrooms spell
 

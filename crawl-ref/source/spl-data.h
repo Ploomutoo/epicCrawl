@@ -953,7 +953,7 @@ static const struct spell_desc spelldata[] =
 },
 
 {
-    SPELL_AGONIZING_TOUCH, "Agonizing Touch",
+    SPELL_AGONISING_TOUCH, "Agonising Touch",
     spschool::necromancy,
     spflag::dir_or_target | spflag::not_self | spflag::needs_tracer
         | spflag::WL_check | spflag::monster,
@@ -1882,6 +1882,17 @@ static const struct spell_desc spelldata[] =
     -1, -1,
     0,
     TILEG_TROGS_HAND,
+},
+
+{
+    SPELL_SUMMON_MORTAL_CHAMPION, "Summon Mortal Champion",
+    spschool::summoning,
+    spflag::monster,
+    7,
+    0,
+    -1, -1,
+    0,
+    TILEG_SUMMON_MORTAL_CHAMPION,
 },
 
 {
@@ -3960,6 +3971,17 @@ static const struct spell_desc spelldata[] =
     6, 6,
     0,
     TILEG_TUKIMAS_DANCE,
+},
+
+{
+    SPELL_PHANTOM_BLITZ, "Phantom Blitz",
+    spschool::conjuration | spschool::summoning,
+    spflag::dir_or_target | spflag::needs_tracer | spflag::monster,
+    7,
+    200,
+    7, 7,
+    0,
+    TILEG_PHANTOM_BLITZ,
 },
 
 {

@@ -15,7 +15,7 @@ repulsion field mutation
 
 You are surrounded by a repulsion field, providing a small amount of evasion.
 Each level of this mutation provides more EV. The third level of this mutation
-also halves the accuracy of ranged attacks launched at you.
+also repels missiles, greatly increasing your EV against such attacks.
 %%%%
 icy blue scales mutation
 
@@ -115,10 +115,36 @@ low mp mutation
 
 You have a low magical capacity. Each level of this mutation provides -10% MP.
 %%%%
+efficient magic mutation
+
+You have both an innate understanding and a greater control over the exact flow
+of your magic, letting you cast spells with greater efficiency. Each level of
+this mutation reduces the cost of your spells by 1 MP, to a minimum of 1 MP.
+%%%%
+ephemeral shield mutation
+
+Whenever you use spells or divine abilities with any costs, a shield forms from
+the excess loose magical or spiritual energy to guard you. The magical energy
+from spells only sustains the shield for but a moment, while the spiritual
+energy from using divine abilities lasts a brief bit longer.
+%%%%
 camouflage mutation
 
 Your skin changes colour to match your surroundings. Each level of this
 mutation provides Stealth+.
+%%%%
+passive freeze mutation
+
+Foes who strike you in melee will be frozen, taking damage. This effect is
+guaranteed to trigger if your foe does any damage.
+%%%%
+time-warped blood mutation
+
+Your blood has desynchronized itself from the flow of time. Whenever you fall
+below 50% of your maximum HP, the spilling of your blood surges strangely
+through your surroundings, hasting two of your strongest allies in sight for
+each level of this mutation. After doing so, your blood will be unable to
+further dilate time until your HP has fully recovered.
 %%%%
 # ------ Auxes -----
 horns mutation
@@ -441,11 +467,6 @@ foul stench mutation
 Foes who strike you in melee sometimes cause you to emit a cloud of foul
 miasma, slowing and severely poisoning those caught within. This mutation also
 grants you immunity to miasma (from any source).
-%%%%
-passive freeze mutation
-
-Foes who strike you in melee will be frozen, taking damage. This effect is
-guaranteed to trigger if your foe does any damage.
 %%%%
 spiny mutation
 

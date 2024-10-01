@@ -959,8 +959,10 @@ spret cast_a_spell(bool check_range, spell_type spell, dist *_target,
     }
 
     finalize_mp_cost(_majin_charge_hp() ? hp_cost : 0);
-    // Check if an HP payment brought us low enough to trigger Celebrant
+    // Check if an HP payment brought us low enough
+    // to trigger Celebrant or time-warped blood.
     makhleb_celebrant_bloodrite();
+    _maybe_blood_hastes_allies();
     you.turn_is_over = true;
     alert_nearby_monsters();
 
@@ -2179,11 +2181,18 @@ spret your_spells(spell_type spell, int powc, bool actual_spell,
         _apply_post_zap_effect(spell, orig_target_pos);
 
         const int demonic_magic = you.get_mutation_level(MUT_DEMONIC_MAGIC);
+        const bool ephemeral_shield = you.get_mutation_level(MUT_EPHEMERAL_SHIELD);
 
         if ((demonic_magic == 3 && evoked_wand)
             || (demonic_magic > 0 && (actual_spell || you.divine_exegesis)))
         {
             do_demonic_magic(spell_difficulty(spell) * 6, demonic_magic);
+        }
+
+        if (ephemeral_shield && (actual_spell || you.divine_exegesis))
+        {
+            you.set_duration(DUR_EPHEMERAL_SHIELD, 2);
+            you.redraw_armour_class = true;
         }
 
         if (you.props.exists(BATTLESPHERE_KEY)

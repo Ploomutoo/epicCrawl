@@ -533,12 +533,16 @@ tileidx_t tileidx_feature_base(dungeon_feature_type feat)
         return TILE_DNGN_SPARKLING_FOUNTAIN;
     case DNGN_FOUNTAIN_BLOOD:
         return TILE_DNGN_BLOOD_FOUNTAIN;
+    case DNGN_FOUNTAIN_EYES:
+        return TILE_DNGN_EYES_FOUNTAIN;
     case DNGN_DRY_FOUNTAIN:
         return TILE_DNGN_DRY_FOUNTAIN;
     case DNGN_CACHE_OF_FRUIT:
         return TILE_DNGN_CACHE_OF_FRUIT;
     case DNGN_CACHE_OF_MEAT:
         return TILE_DNGN_CACHE_OF_MEAT;
+    case DNGN_CACHE_OF_BAKED_GOODS:
+        return TILE_DNGN_CACHE_OF_BAKED_GOODS;
     case DNGN_RUNELIGHT:
         return TILE_DNGN_RUNELIGHT;
     case DNGN_PASSAGE_OF_GOLUBRIA:
@@ -2341,6 +2345,7 @@ static const map<monster_info_flags, tileidx_t> monster_status_icons = {
     { MB_SHADOWLESS, TILEI_SHADOWLESS },
     { MB_LOWERED_WL, TILEI_WEAK_WILLED },
     { MB_SIGN_OF_RUIN, TILEI_SIGN_OF_RUIN },
+    { MB_DOUBLED_VIGOUR, TILEI_DOUBLED_VIGOUR },
 };
 
 set<tileidx_t> status_icons_for(const monster_info &mons)
@@ -3542,6 +3547,8 @@ tileidx_t tileidx_bolt(const bolt &bolt)
             return TILE_BOLT_GHOSTLY_FIREBALL;
         else if (bolt.name == "umbral torchlight")
             return TILE_BOLT_UMBRAL_TORCHLIGHT;
+        else if (bolt.name == "phantom echo")
+            return TILE_BOLT_PHANTOM_BLITZ;
         break;
 
     case ETC_MUTAGENIC:
@@ -4496,7 +4503,15 @@ tileidx_t tileidx_known_brand(const item_def &item)
     case OBJ_WEAPONS:
         {
             const int brand = get_weapon_brand(item);
-            if (brand != SPWPN_NORMAL)
+            // XXX HACK: The weapon enums list is a scattered mess of removed
+            // brands presuming a messy false fixed order, and bleeds into
+            // missile brands otherwise. Maybe this should just be a full
+            // switch case fix-up instead.
+            if (brand == SPWPN_ACID)
+                return TILE_BRAND_ACID;
+            else if (brand == SPWPN_FOUL_FLAME)
+                return TILE_BRAND_FOUL_FLAME;
+            else if (brand != SPWPN_NORMAL)
                 return TILE_BRAND_WEP_FIRST + get_weapon_brand(item) - 1;
             break;
         }

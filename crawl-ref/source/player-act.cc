@@ -825,6 +825,13 @@ bool player::go_berserk(bool intentional, bool potion)
         mpr("Your finesse ends abruptly.");
     }
 
+    if (you.duration[DUR_AFRAID] > 0)
+    {
+        you.clear_fearmongers();
+        you.duration[DUR_AFRAID] = 0; // Too angry to be scared.
+        mpr("Your anger overwhelms your terror!");
+    }
+
     if (!_god_prevents_berserk_haste(intentional))
         mpr("You feel yourself moving faster!");
 
@@ -868,8 +875,8 @@ bool player::can_go_berserk(bool intentional, bool potion, bool quiet,
         msg = "You're still recovering from your berserk rage.";
     else if (duration[DUR_DEATHS_DOOR] && temp)
         msg = "You can't enter a blood rage from death's door.";
-    else if (afraid() && temp)
-        msg = "You are too terrified to rage.";
+    else if (beheld() && !player_equip_unrand(UNRAND_DEMON_AXE) && temp)
+        msg = "You are too mesmerised to rage.";
     else if (!intentional && !potion && clarity() && temp)
         msg = "You're too calm and focused to rage.";
     else if (is_lifeless_undead(temp))
@@ -903,6 +910,7 @@ bool player::antimagic_susceptible() const
 bool player::is_web_immune() const
 {
     return is_insubstantial()
+        || is_amorphous()
         || player_equip_unrand(UNRAND_SLICK_SLIPPERS);
 }
 

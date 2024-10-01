@@ -438,7 +438,8 @@ void create_sanctuary(const coord_def& center, int time)
 
         env.pgrid(pos) &= ~(FPROP_BLOODY);
 
-        if (env.grid(pos) == DNGN_FOUNTAIN_BLOOD)
+        if (env.grid(pos) == DNGN_FOUNTAIN_BLOOD
+            || env.grid(pos) == DNGN_FOUNTAIN_EYES)
         {
             if (you.see_cell(pos))
                 blood_count++;
@@ -608,6 +609,8 @@ static int _mons_class_halo_radius(monster_type type)
     case MONS_CHERUB:
         return 4;
     case MONS_DAEVA:
+        return 4;
+    case MONS_FRAVASHI:
         return 4;
     case MONS_OPHAN:
         return 6;

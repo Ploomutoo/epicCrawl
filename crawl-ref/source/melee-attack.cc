@@ -1208,7 +1208,7 @@ bool melee_attack::run_attack_set()
  */
 bool melee_attack::attack()
 {
-    if (!cleaving && !never_cleave)
+    if (!cleaving && !never_cleave && !is_multihit)
     {
         cleave_setup();
         if (!handle_phase_attempted())
@@ -3279,8 +3279,7 @@ void melee_attack::mons_apply_attack_flavour()
         if (defender->is_player())
             barb_player(random_range(4, 8), 4);
         // Insubstantial and jellies are immune
-        else if (!(defender->is_insubstantial() &&
-                    mons_genus(defender->type) != MONS_JELLY))
+        else if (!(defender->is_insubstantial()))
         {
             if (defender_visible)
             {
@@ -3487,7 +3486,7 @@ void melee_attack::mons_apply_attack_flavour()
     case AF_ENGULF:
         if (x_chance_in_y(2, 3) && attacker->can_engulf(*defender))
         {
-            const bool watery = attacker->type != MONS_QUICKSILVER_OOZE;
+            const bool watery = attacker->type != MONS_VOID_OOZE;
             if (defender->is_player() && !you.duration[DUR_WATER_HOLD])
             {
                 you.duration[DUR_WATER_HOLD] = 10;

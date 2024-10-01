@@ -1583,7 +1583,7 @@ static int _shatter_mon_dice(const monster *mon)
     {
         return DEFAULT_SHATTER_DICE * 2;
     }
-    else if (mon->airborne() || mons_is_slime(*mon))
+    else if (mon->airborne() || mon->is_amorphous())
         return 1;
     // Normal damage to everything else.
     else
@@ -1686,7 +1686,7 @@ static int _shatter_player_dice()
         return 6; // reduced later by petrification's damage reduction
     else if (you.form == transformation::statue || you.species == SP_GARGOYLE)
         return 6;
-    else if (you.airborne())
+    else if (you.airborne() || you.is_amorphous())
         return 1;
     else
         return 3;
@@ -4979,6 +4979,10 @@ vector<coord_def> get_magnavolt_targets()
     vector<coord_def> targets;
     for (radius_iterator ri(you.pos(), LOS_RADIUS, C_SQUARE, LOS_NO_TRANS); ri; ++ri)
     {
+        // Don't zap at ourselves, even if we're standing in a cloud
+        if (*ri == you.pos())
+            continue;
+
         if (monster* mon = monster_at(*ri))
         {
             if (mon->has_ench(ENCH_MAGNETISED))
@@ -5330,7 +5334,7 @@ spret cast_grave_claw(actor& caster, coord_def targ, int pow, bool fail)
     return spret::success;
 }
 
-void gain_grave_claw_soul(bool silent)
+void gain_grave_claw_soul(bool silent, bool wizard)
 {
     int& charges = you.props[GRAVE_CLAW_CHARGES_KEY].get_int();
 
@@ -5338,11 +5342,11 @@ void gain_grave_claw_soul(bool silent)
     if (charges == GRAVE_CLAW_MAX_CHARGES)
         return;
 
-    if (--you.duration[DUR_GRAVE_CLAW_RECHARGE] <= 0)
+    if (--you.duration[DUR_GRAVE_CLAW_RECHARGE] <= 0 || wizard)
     {
         // Set recharge to a random 4-6 kills.
         you.duration[DUR_GRAVE_CLAW_RECHARGE] = random_range(4, 6);
-        charges++;
+        charges = wizard ? GRAVE_CLAW_MAX_CHARGES: charges + 1;
 
         if (silent)
             return;

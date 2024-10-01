@@ -649,6 +649,7 @@ ALTAR(DNGN_ALTAR_IGNIS, "candlelit altar of Ignis", "altar_ignis", ETC_CANDLES),
 FOUNTAIN(DNGN_FOUNTAIN_BLUE, "fountain of clear blue water", "fountain_blue", BLUE),
 FOUNTAIN(DNGN_FOUNTAIN_SPARKLING, "fountain of sparkling water", "fountain_sparkling", LIGHTBLUE),
 FOUNTAIN(DNGN_FOUNTAIN_BLOOD, "fountain of blood", "fountain_blood", RED),
+FOUNTAIN(DNGN_FOUNTAIN_EYES, "fountain of eyes", "fountain_eyes", MAGENTA),
 FOUNTAIN(DNGN_DRY_FOUNTAIN, "dry fountain", "dry_fountain", LIGHTGREY),
 #if TAG_MAJOR_VERSION == 34
 FOUNTAIN(DNGN_DRY_FOUNTAIN_BLUE, "dry fountain", "non-fountain_blue", LIGHTGREY),
@@ -656,7 +657,16 @@ FOUNTAIN(DNGN_DRY_FOUNTAIN_SPARKLING, "dry fountain", "non-fountain_sparkling", 
 FOUNTAIN(DNGN_DRY_FOUNTAIN_BLOOD, "dry fountain", "non-fountain_blood", LIGHTGREY),
 #endif
 
+FOUNTAIN(DNGN_DECORATIVE_FLOOR, "decorative floor", "decorative_floor", DARKGREY),
+
 FOUNTAIN(DNGN_RUNELIGHT, "runelight", "runelight", ETC_DISJUNCTION),
+
+{
+    DNGN_CACHE_OF_BAKED_GOODS, "cache of baked goods", "cache of baked goods",
+    DCHAR_ITEM_SKELETON, NUM_DCHAR_TYPES,
+    COLOUR_AND_MAP(YELLOW),
+    FFT_NONE, MF_FLOOR,
+},
 
 {
     DNGN_CACHE_OF_FRUIT, "cache of fruit", "cache of fruit",

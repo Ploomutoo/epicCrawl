@@ -72,6 +72,8 @@ high_mp_3
 low_mp_1 LOW_MP
 low_mp_2
 low_mp_3
+efficient_magic_1 EFFICIENT_MAGIC
+efficient_magic_2
 
 cold_res_1 COLD_RESISTANCE
 cold_res_2
@@ -131,6 +133,9 @@ passive_freeze PASSIVE_FREEZE
 regeneration_1 REGENERATION
 regeneration_2
 regeneration_3
+ephemeral_shield EPHEMERAL_SHIELD
+time_warped_blood_1 TIME_WARPED_BLOOD
+time_warped_blood_2
 
 berserk_1 BERSERK
 berserk_2

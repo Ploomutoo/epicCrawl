@@ -3286,6 +3286,10 @@ static vector<command_type> _allowed_feat_actions(const coord_def &pos)
 {
     vector<command_type> actions;
 
+    // Don't allow interacting with features while viewing other floors.
+    if (!you.on_current_level)
+        return actions;
+
     // ugh code duplication, some refactoring could be useful in all of this
     dungeon_feature_type feat = env.map_knowledge(pos).feat();
     // TODO: CMD_MAP_GOTO_TARGET
@@ -3507,7 +3511,7 @@ void get_feature_desc(const coord_def &pos, describe_info &inf, bool include_ext
             long_desc += "\nSome spells can be cast through it.";
     }
 
-    if (pos == you.pos())
+    if (pos == you.pos() && you.on_current_level)
         long_desc += "\nYou are here.";
 
     inf.body << long_desc;
@@ -3747,8 +3751,8 @@ static vector<command_type> _allowed_actions(const item_def& item)
 {
     vector<command_type> actions;
 
-    if (!in_inventory(item) && item.pos != you.pos()
-        && is_travelsafe_square(item.pos))
+    bool here = you.on_current_level && item.pos == you.pos();
+    if (!in_inventory(item) && !here && is_travelsafe_square(item.pos))
     {
         // XX might be nice to have a way for this to be visible but grayed
         // out?
@@ -6330,15 +6334,14 @@ static string _monster_stat_description(const monster_info& mi, bool mark_spells
     if (mons_class_flag(mi.type, M_BURROWS))
         result << uppercase_first(pronoun) << " can burrow through diggable terrain.\n";
 
-
+    // Insubstantialness should take priority.
     if (mons_class_flag(mi.type, M_INSUBSTANTIAL))
     {
         result << uppercase_first(pronoun) << " "
                << conjugate_verb("are", plural)
                << " insubstantial and immune to ensnarement.\n";
     }
-
-    if (mons_genus(mi.type) == MONS_JELLY)
+    else if (mons_class_flag(mi.type, M_AMORPHOUS))
     {
         result << uppercase_first(pronoun) << " "
                << conjugate_verb("are", plural)
@@ -6401,7 +6404,27 @@ static string _monster_stat_description(const monster_info& mi, bool mark_spells
     if (mon_explodes_on_death(mi.type))
         _desc_mon_death_explosion(result, mi);
 
-    result << _monster_habitat_description(mi);
+    // Flying monsters can't be forced to fall into liquids these days.
+    if (!(mi.airborne()))
+        result << _monster_habitat_description(mi);
+
+    // Hightlight means of interacting with doors.
+    if (mi.itemuse() > MONUSE_NOTHING && mi.itemuse() != NUM_MONUSE &&
+        !mons_class_is_stationary(mi.type))
+    {
+        if (mon_shape_is_humanoid(get_mon_shape(mi.type)))
+            result << uppercase_first(pronoun) << " can open doors.\n";
+        else
+        {
+            result << "Despite " << mi.pronoun(PRONOUN_POSSESSIVE)
+                   << " appearance, " << pronoun << " can open doors.\n";
+        }
+    }
+    else if (mons_class_flag(mi.type, M_CRASH_DOORS))
+        result << uppercase_first(pronoun) << " can crash through doors.\n";
+    else if (mons_class_flag(mi.type, M_EAT_DOORS))
+        result << uppercase_first(pronoun) << " can eat doors.\n";
+
     result << _monster_spells_description(mi, mark_spells);
 
     return result.str();

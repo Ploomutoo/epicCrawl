@@ -775,6 +775,12 @@ static const mon_spellbook mspell_list[] =
       }
     },
 
+    {  MST_FRAVASHI,
+      {
+       { SPELL_SUMMON_MORTAL_CHAMPION, 64, MON_SPELL_MAGICAL },
+      }
+    },
+
     {  MST_SERAPH,
       {
        { SPELL_WARNING_CRY, 50, MON_SPELL_VOCAL| MON_SPELL_BREATH },
@@ -1011,7 +1017,7 @@ static const mon_spellbook mspell_list[] =
     { MST_FENSTRIDER_WITCH,
       {
        { SPELL_PARALYSE, 15, MON_SPELL_WIZARD },
-       { SPELL_AGONIZING_TOUCH, 30, MON_SPELL_WIZARD },
+       { SPELL_AGONISING_TOUCH, 30, MON_SPELL_WIZARD },
        { SPELL_HURL_SLUDGE, 15, MON_SPELL_WIZARD },
       }
     },
@@ -1303,6 +1309,13 @@ static const mon_spellbook mspell_list[] =
       {
        { SPELL_SPLINTERSPRAY, 50, MON_SPELL_MAGICAL },
        { SPELL_WOODWEAL, 150, MON_SPELL_MAGICAL | MON_SPELL_EMERGENCY },
+      }
+    },
+
+    {  MST_NEKOMATA,
+      {
+       { SPELL_PHANTOM_BLITZ, 48, MON_SPELL_MAGICAL },
+       { SPELL_REPEL_MISSILES, 12, MON_SPELL_MAGICAL },
       }
     },
 

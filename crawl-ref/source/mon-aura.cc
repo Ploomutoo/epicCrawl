@@ -60,6 +60,11 @@ static const vector<mon_aura_data> aura_map =
         ENCH_EMPOWERED_SPELLS, 1, false,
         NUM_DURATIONS, "",
         [](const actor& targ) { return targ.antimagic_susceptible() ;}},
+
+    {MONS_APIS,
+        ENCH_DOUBLED_VIGOUR, 1, false,
+        NUM_DURATIONS, "",
+        [](const actor& targ) { return targ.type != MONS_APIS ;}},
 };
 
 static mon_aura_data _get_aura_for(const monster& mon)
@@ -145,6 +150,13 @@ static bool _aura_could_affect(const mon_aura_data& aura, const monster& source,
     if (mons_aligned(&source, &victim) == aura.is_hostile)
         return false;
 
+    // Is the aura something that should affect firewood?
+    if (victim.is_monster() && mons_is_firewood(*victim.as_monster())
+         && aura.ench_type != ENCH_INJURY_BOND)
+    {
+        return false;
+    }
+
     // If the aura suppressed by sanctuary?
     if (aura.is_hostile && (is_sanctuary(source.pos()) || is_sanctuary(victim.pos())))
         return false;
@@ -183,9 +195,10 @@ void mons_update_aura(const monster& mon)
                         continue;
                 }
 
-                // Remove any enchantment that may currently exist, since we don't
-                // want them to stack.
-                mi->del_ench(aura.ench_type, true, false);
+                // Remove any enchantment that may currently exist, since we
+                // don't want them to stack. (Treat doubled vigour differently,
+                // since otherwise it'll keep stacking HP scaling.)
+                mi->del_ench(aura.ench_type, true, aura.ench_type == ENCH_DOUBLED_VIGOUR);
                 mi->add_ench(mon_enchant(aura.ench_type, 1, &mon, aura.base_duration,
                                         aura.is_hostile ? AURA_HOSTILE : AURA_FRIENDLY));
             }

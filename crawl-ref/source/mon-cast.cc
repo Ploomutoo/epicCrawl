@@ -503,6 +503,9 @@ static const map<spell_type, mons_spell_logic> spell_to_logic = {
     { SPELL_FLASHING_BALESTRA, { _foe_not_nearby, _fire_simple_beam,
                                  _zap_setup(SPELL_FLASHING_BALESTRA)
     } },
+    { SPELL_PHANTOM_BLITZ, { _always_worthwhile, _fire_simple_beam,
+                             _zap_setup(SPELL_PHANTOM_BLITZ)
+    } },
     { SPELL_DIVINE_ARMAMENT, { _always_worthwhile, _cast_divine_armament } },
     { SPELL_HASTE_OTHER, {
         _always_worthwhile,
@@ -573,7 +576,7 @@ static const map<spell_type, mons_spell_logic> spell_to_logic = {
             return ai_action::good_or_impossible(_torment_vulnerable(foe));
         }, 6)
     },
-    { SPELL_AGONIZING_TOUCH, _hex_logic(SPELL_AGONIZING_TOUCH, [](const monster &caster) {
+    { SPELL_AGONISING_TOUCH, _hex_logic(SPELL_AGONISING_TOUCH, [](const monster &caster) {
             const actor* foe = caster.get_foe();
             ASSERT(foe);
             return ai_action::good_or_impossible(_torment_vulnerable(foe));
@@ -1408,6 +1411,9 @@ static bool _flavour_benefits_monster(beam_type flavour, monster& monster)
     case BEAM_RESISTANCE:
         return !monster.has_ench(ENCH_RESISTANCE);
 
+    case BEAM_DOUBLE_VIGOUR:
+        return !monster.has_ench(ENCH_DOUBLED_VIGOUR);
+
     case BEAM_CONCENTRATE_VENOM:
         return !monster.has_ench(ENCH_CONCENTRATE_VENOM)
                && (monster.has_spell(SPELL_SPIT_POISON)
@@ -2184,6 +2190,7 @@ bool setup_mons_cast(const monster* mons, bolt &pbolt, spell_type spell_cast,
     case SPELL_SILENCE:
     case SPELL_AWAKEN_FOREST:
     case SPELL_DRUIDS_CALL:
+    case SPELL_SUMMON_MORTAL_CHAMPION:
     case SPELL_SUMMON_HOLIES:
     case SPELL_SUMMON_DRAGON:
     case SPELL_SUMMON_HYDRA:
@@ -2616,7 +2623,7 @@ static bool _mons_call_of_chaos(const monster& mon, bool check_only = false)
 
         beam_type flavour = random_choose_weighted(150, BEAM_HASTE,
                                                    150, BEAM_MIGHT,
-                                                   150, BEAM_AGILITY,
+                                                   150, BEAM_DOUBLE_VIGOUR,
                                                    150, BEAM_RESISTANCE,
                                                     15, BEAM_VULNERABILITY,
                                                     15, BEAM_BERSERK,
@@ -5065,6 +5072,48 @@ static void _mons_cast_summon_illusion(monster* mons, spell_type spell)
     mons_summon_illusion_from(mons, foe, spell);
 }
 
+static void _cast_mortal_champion(monster* mons)
+{
+    ASSERT(mons->get_foe());
+
+    monster_type type = coinflip() ? MONS_SPRIGGAN_DEFENDER
+                                   : MONS_DEEP_ELF_BLADEMASTER;
+
+    if (monster *mortal = create_monster(
+            mgen_data(type, SAME_ATTITUDE(mons), mons->pos(), mons->foe)
+            .set_summoned(mons, 3, SPELL_SUMMON_MORTAL_CHAMPION, mons->god)))
+    {
+        // Replace their weapons with short blades of holy wrath- aside from
+        // feeling more holy, it avoids the spriggans' demon whips.
+        weapon_type wpn = WPN_RAPIER;
+        armour_type arm = ARM_PEARL_DRAGON_ARMOUR;
+
+        destroy_item(mortal->inv[MSLOT_WEAPON]);
+
+        if (type == MONS_SPRIGGAN_DEFENDER)
+        {
+            wpn = WPN_QUICK_BLADE;
+            if (mortal->inv[MSLOT_SHIELD] == NON_ITEM)
+            {
+                give_specific_item(mortal, items(false, OBJ_WEAPONS,
+                                   ARM_BUCKLER, 0, SPARM_FORBID_EGO));
+            }
+        }
+        else if (type == MONS_DEEP_ELF_BLADEMASTER)
+        {
+            destroy_item(mortal->inv[MSLOT_ALT_WEAPON]);
+            give_specific_item(mortal, items(false, OBJ_WEAPONS, wpn, 0, SPWPN_HOLY_WRATH));
+        }
+
+        give_specific_item(mortal, items(false, OBJ_WEAPONS, wpn, 0, SPWPN_HOLY_WRATH));
+        give_specific_item(mortal, items(false, OBJ_ARMOUR, arm, 0, SPARM_FORBID_EGO));
+
+        // Re-mark the items we just gave as summoned
+        mortal->mark_summoned(0, true, 0, false);
+    }
+}
+
+
 static void _cast_vanquished_vanguard(monster* mons)
 {
     ASSERT(mons->get_foe());
@@ -6664,6 +6713,12 @@ void mons_cast(monster* mons, bolt pbolt, spell_type spell_cast,
         _cast_vanquished_vanguard(mons);
         return;
 
+    case SPELL_SUMMON_MORTAL_CHAMPION:
+        if (!foe)
+            return;
+        _cast_mortal_champion(mons);
+        return;
+
     case SPELL_HAUNT:
         ASSERT(foe);
         if (foe->is_player())
@@ -6965,11 +7020,24 @@ void mons_cast(monster* mons, bolt pbolt, spell_type spell_cast,
                             .set_summoned(mons, 1, spell_cast, god);
             mg.props[CUSTOM_SPELL_LIST_KEY].get_vector().push_back(spell);
             mg.hd = hd;
-            create_monster(mg);
+            monster* living = create_monster(mg);
+
+           if (living)
+           {
+#ifdef USE_TILE
+                if (spell == SPELL_LEHUDIBS_CRYSTAL_SPEAR)
+                    living->props[MONSTER_TILE_KEY] = TILEP_MONS_LIVING_SPELL_CRYSTAL;
+                else if (spell == SPELL_PETRIFY)
+                    living->props[MONSTER_TILE_KEY] = TILEP_MONS_LIVING_SPELL_EARTH;
+                else if (spell == SPELL_SMITING)
+                    living->props[MONSTER_TILE_KEY] = TILEP_MONS_LIVING_SPELL_HOLY;
+                else if (spell == SPELL_ICEBLAST)
+                    living->props[MONSTER_TILE_KEY] = TILEP_MONS_LIVING_SPELL_ICE;
+#endif
+           }
         }
         return;
     }
-
 
     case SPELL_SUMMON_UNDEAD:
         _do_high_level_summon(mons, spell_cast, _pick_undead_summon,

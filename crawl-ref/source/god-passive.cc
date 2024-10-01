@@ -1289,7 +1289,8 @@ static coord_def _find_preferred_shadow_shoot_position(monster* target)
     return coord_def();
 }
 
-static bool _simple_shot_tracer(coord_def source, coord_def target, mid_t source_mid = MID_PLAYER)
+static bool _simple_shot_tracer(coord_def source, coord_def target,
+                                    mid_t source_mid = MID_PLAYER_SHADOW_DUMMY)
 {
     bolt tracer;
     tracer.attitude = ATT_FRIENDLY;
@@ -1814,7 +1815,12 @@ void dithmenos_shadow_spell(spell_type spell)
             // Don't cast this spell without any enemies in sight, to prevent
             // tedious pre-casting by the player.
             if (_shadow_target_exists())
-                pos = _get_shadow_spots()[0];
+            {
+                auto spots = _get_shadow_spots();
+                if (spots.empty())
+                    break;
+                pos = spots[0];
+            }
             break;
     }
 

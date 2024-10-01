@@ -136,6 +136,7 @@ static map<enchant_type, monster_info_flags> trivial_ench_mb_mappings = {
     { ENCH_RIMEBLIGHT,      MB_RIMEBLIGHT },
     { ENCH_ARMED,           MB_ARMED },
     { ENCH_SHADOWLESS,      MB_SHADOWLESS },
+    { ENCH_DOUBLED_VIGOUR,  MB_DOUBLED_VIGOUR },
 };
 
 static monster_info_flags ench_to_mb(const monster& mons, enchant_type ench)
@@ -1703,7 +1704,7 @@ bool monster_info::net_immune() const
 {
     // nets go right through (but weapons don't..?)
     return mons_class_flag(type, M_INSUBSTANTIAL)
-        || mons_genus(type) == MONS_JELLY
+        || mons_class_flag(type, M_AMORPHOUS)
     // tentacles are too weird. don't mess with em
         || mons_is_tentacle_or_tentacle_segment(type)
     // if you net something that doesn't move (positionally or attacking),

@@ -2532,10 +2532,13 @@ int exper_value(const monster& mon, bool real, bool legacy)
     // up the exact value anyway. Especially for pillusions.
     if (real || mon.type == MONS_PLAYER_GHOST || mon.type == MONS_PLAYER_ILLUSION)
     {
-        // A berserking monster is much harder, but the xp value shouldn't
-        // depend on whether it was berserk at the moment of death.
+        // Monsters with extra health are much harder, but the xp value
+        // shouldn't depend on whether it was boosted at the moment of death.
         if (mon.has_ench(ENCH_BERSERK))
             maxhp = (maxhp * 2 + 1) / 3;
+
+        if (mon.has_ench(ENCH_DOUBLED_VIGOUR))
+            maxhp = maxhp / 2;
     }
     else
     {
@@ -3771,6 +3774,7 @@ static bool _beneficial_beam_flavour(beam_type flavour)
     {
     case BEAM_HASTE:
     case BEAM_HEALING:
+    case BEAM_DOUBLE_VIGOUR:
     case BEAM_INVISIBILITY:
     case BEAM_MIGHT:
     case BEAM_AGILITY:
@@ -3993,7 +3997,7 @@ static const spell_type smitey_spells[] = {
  * @param mon   The monster in question.
  * @return      Whether the given monster has 'smitey' effects.
  */
-static bool _mons_has_smite_attack(const monster* mons)
+bool _mons_has_smite_attack(const monster* mons)
 {
     return any_of(begin(smitey_spells), end(smitey_spells),
                   [=] (spell_type sp) { return mons->has_spell(sp); });
@@ -4270,7 +4274,7 @@ monster_type royal_jelly_ejectable_monster()
     return random_choose(MONS_ACID_BLOB,
                          MONS_AZURE_JELLY,
                          MONS_ROCKSLIME,
-                         MONS_QUICKSILVER_OOZE);
+                         MONS_VOID_OOZE);
 }
 
 // Replaces @foe_god@ and @god_is@ with foe's god name.

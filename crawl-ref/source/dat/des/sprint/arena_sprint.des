@@ -418,7 +418,7 @@ function arena_sprint_get_monster_set(round, boss)
                     w:1 titan",
                 "fire dragon / ice dragon / storm dragon / w:5 shadow dragon /\
                     w:5 golden dragon / w:1 xtahua",
-                "yak / dream sheep / death yak / apis / catoblepas",
+                "yak / dream sheep / death yak / catoblepas / apis w:2",
                 "glowing shapeshifter",
                 "hell knight / w:5 necromancer / w:1 margery",
                 "wraith / wight / phantasmal warrior / skeletal warrior /\
@@ -476,7 +476,7 @@ function arena_sprint_get_monster_set(round, boss)
                 "tzitzimitl / reaper / shadow dragon / death drake /\
                     deep elf death mage / lich w:15 / ancient lich w:5 /\
                     death knight w:5 / place:Tar:$ w:40",
-                "daeva / angel / cherub / pearl dragon / ophan / apis",
+                "daeva / angel / cherub / pearl dragon / ophan / apis w:2",
                 -- Misc
                 "centaur warrior",
                 "yaktaur / yaktaur captain",
@@ -506,7 +506,7 @@ function arena_sprint_get_monster_set(round, boss)
                 "curse toe / w:20 wandering mushroom / w:4 murray",
                 "reaper / sin beast / geryon w:1",
                 "mana viper / spriggan berserker ; war axe ego:antimagic . animal skin /\
-                   w:20 quicksilver ooze / ghost moth",
+                   w:20 void ooze / ghost moth",
                 "glass eye w:5 / ettin",
                 "executioner / w:1 ignacio",
                 "ghost moth / moth of wrath / w:30 vampire mosquito"
@@ -531,7 +531,7 @@ function arena_sprint_get_monster_set(round, boss)
                     ghost moth / moth of wrath",
                 "place:Snake:$ w:2 / w:40 nagaraja / guardian serpent / w:5 anaconda",
                 "place:Slime:$ / w:30 acid blob / azure jelly / glass eye /\
-                    quicksilver ooze",
+                    void ooze",
                 "dancing weapon ; bardiche",
                 "spriggan defender / spriggan air mage / spriggan druid /\
                     spriggan berserker / spriggan rider",
@@ -550,7 +550,8 @@ function arena_sprint_get_monster_set(round, boss)
                 "tzitzimitl / reaper / shadow dragon / death drake /\
                     deep elf death mage / ancient lich /\
                     death knight w:5 / place:Tar:$ w:40",
-                "daeva / angel / cherub / pearl dragon w:20 / ophan / apis",
+                "daeva / angel / cherub / fravashi w:15 / pearl dragon w:15 /\
+                     ophan / apis w:5",
                 -- Misc
                 "yaktaur captain / vashnia w:1",
                 "lich / ancient lich",
@@ -563,16 +564,16 @@ function arena_sprint_get_monster_set(round, boss)
                     great orb of eyes / w:5 ophan",
                 "w:20 hellion / hell sentinel / sin beast / hell hog / hell knight /\
                     hell hound / hellephant / hellwing / w:2 nellie",
-                "profane servitor w:25 / angel / daeva / cherub / seraph",
+                "profane servitor w:25 / angel / daeva / fravashi w:5 /\
+                    cherub / seraph",
                 -- Gimmicks
                 "neqoxec", "smoke demon", "catoblepas",
-                "moth of wrath / w:20 ettin", "orb spider", "fire crab",
-                "boulder beetle",
+                "moth of wrath / w:20 ettin", "orb spider", "nekomata",
                 "shining eye", "tormentor",
                 "unseen horror / shadow wraith / ghost moth",
                 "reaper / sin beast / geryon w:1",
                 "spriggan berserker ; war axe ego:antimagic . animal skin /\
-                   w:20 quicksilver ooze / ghost moth / w:5 demonspawn warmonger",
+                   w:20 void ooze / ghost moth / w:5 demonspawn warmonger",
                 "glass eye w:5 / tentacled monstrosity",
                 "executioner / w:1 ignacio / w:5 death drake",
                 "ghost moth / moth of wrath / sun moth",
@@ -604,7 +605,7 @@ function arena_sprint_get_monster_set(round, boss)
                 "thorn hunter w:5 / green death / death drake w:15",
                 "orb spider / emperor scorpion / ghost moth / moth of wrath",
                 "nagaraja w:20 / guardian serpent / salamander tyrant",
-                "acid blob w:30 / rockslime / glass eye / quicksilver ooze",
+                "acid blob w:30 / rockslime / glass eye / void ooze",
                 "dancing weapon ; bardiche ego:speed",
                 "spriggan air mage",
                 "ancient lich / w:6 curse skull",
@@ -623,7 +624,8 @@ function arena_sprint_get_monster_set(round, boss)
                 "tzitzimitl / reaper / shadow dragon / death drake /\
                     deep elf death mage / demonspawn soul scholar /\
                     death knight w:5",
-                "daeva w:20 / angel / cherub / pearl dragon w:20 / ophan / apis",
+                "daeva w:20 / angel / cherub w:5 / fravashi w:15 /\
+                    pearl dragon w:15 / ophan / apis",
                 -- Misc
                 "deep elf master archer",
                 "ancient lich / dread lich",
@@ -636,24 +638,25 @@ function arena_sprint_get_monster_set(round, boss)
                     great orb of eyes / w:5 ophan",
                 "w:30 hellion / hell sentinel / sin beast / hell hog / hell knight /\
                     hell hound / hellephant / w:2 nellie",
-                "profane servitor w:25 / angel w:5 / daeva / cherub w:5 / seraph w:15",
+                "profane servitor w:25 / angel w:5 / daeva / fravashi /\
+                    cherub w:5 / seraph w:15",
                 -- Gimmicks
                 "cacodemon", "sun moth", "catoblepas / iron golem w:5",
                 "moth of wrath / w:20 juggernaut", "orb spider", "apocalypse crab",
-                "shining eye", "tormentor",
+                "sphinx", "tormentor",
                 "unseen horror / shadow wraith / ghost moth w:15",
                 "reaper / sin beast / geryon w:1",
-                "ghost moth / quicksilver ooze / demonspawn warmonger",
+                "ghost moth / void ooze / demonspawn warmonger",
                 "glass eye w:5 / tentacled monstrosity",
                 "executioner / w:1 ignacio / w:5 death drake",
                 -- Just die already!
                 "daeva",
+                "nekomata",
                 "royal mummy / mummy priest",
                 "air elemental name:greater n_adj perm_ench:polar_vortex col:lightcyan",
                 "iron golem hd:20 col:magenta name:orb_golem n_rpl n_des n_spe spells:orb_of_destruction.70.natural",
                 "brimstone fiend / ice fiend / tzitzimitl w:5 / hell sentinel",
                 "titan / spriggan air mage / blizzard demon",
-                "sphinx",
                 "orb of fire / orb of fire name:orb_of_ice n_rpl n_des spells:glaciate.80.magical col:lightblue tile:mons_orb_of_ice / " ..
                   "orb of fire name:orb_of_electricity n_rpl n_des spells:chain_lightning.80.magical col:yellow tile:mons_orb_of_electricity",
                 "hellion"
@@ -752,7 +755,7 @@ function arena_sprint_init_boss_table()
               "tentacled monstrosity / glass eye / golden eye / " ..
               "eye of devastation / shining eye", "mnoleg", "glowing rune of zot"}
     bs[11] = {"smoke demon / blizzard demon / green death / rakshasa / " ..
-              "nagaraja / merfolk aquamancer / jorogumo / " ..
+              "nekomata / nagaraja / merfolk aquamancer / jorogumo / " ..
               "fenstrider witch / titan / lich / draconian annihilator / " ..
               "deep elf annihilator", "lom lobon", "magical rune of zot"}
     bs[12] = {"efreet / sun moth / undying armoury / balrug / brimstone fiend",

@@ -45,6 +45,7 @@
 #include "los.h"
 #include "message.h"
 #include "mon-behv.h"
+#include "mon-clone.h"
 #include "mon-death.h"
 #include "mon-explode.h"
 #include "mon-place.h"
@@ -2711,6 +2712,40 @@ void bolt::affect_endpoint()
     }
     break;
 
+    case SPELL_PHANTOM_BLITZ:
+    {
+        if (!agent(true) || !agent(true)->alive())
+            break;
+
+        coord_def spot;
+        int num_found = 0;
+        for (fair_adjacent_iterator ai(pos()); ai; ++ai)
+        {
+            if (feat_is_solid(env.grid(*ai)) || actor_at(*ai))
+                continue;
+
+            if (one_chance_in(++num_found))
+                spot = *ai;
+        }
+
+        if (!spot.origin())
+        {
+            // Clone the original monster and heal the clone to full.
+            monster* blitzer = agent(true)->as_monster();
+            bool obviousness; // dummy argument
+            monster *mirror = clone_mons(blitzer, true, &obviousness,
+                                         blitzer->attitude, spot);
+            mirror->mark_summoned(2, true, SPELL_PHANTOM_BLITZ);
+            mirror->summoner = blitzer->mid;
+            mirror->foe = blitzer->foe;
+            mirror->hit_points = blitzer->max_hit_points;
+#ifdef USE_TILE
+            mirror->props[MONSTER_TILE_KEY] = TILEP_MONS_NEKOMATA_PHANTOM;
+#endif
+        }
+    }
+    break;
+
     case SPELL_GREATER_ENSNARE:
     {
         int count = random_range(3, 6);
@@ -3236,6 +3271,7 @@ bool bolt::harmless_to_player() const
     case BEAM_AGILITY:
     case BEAM_INVISIBILITY:
     case BEAM_RESISTANCE:
+    case BEAM_DOUBLE_VIGOUR:
         return true;
 
     case BEAM_HOLY:
@@ -5190,7 +5226,7 @@ void bolt::monster_post_hit(monster* mon, int dmg)
     }
 
     if (origin_spell == SPELL_THROW_BARBS && dmg > 0
-        && !(mon->is_insubstantial() || mons_genus(mon->type) == MONS_JELLY))
+        && !(mon->is_insubstantial()))
     {
         mon->add_ench(mon_enchant(ENCH_BARBS, 1, agent(),
                                   random_range(5, 7) * BASELINE_DELAY));
@@ -6294,6 +6330,15 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         }
         return MON_AFFECTED;
 
+    case BEAM_DOUBLE_VIGOUR:
+        if (!mon->has_ench(ENCH_DOUBLED_VIGOUR)
+            && mon->add_ench(ENCH_DOUBLED_VIGOUR))
+        {
+            if (simple_monster_message(*mon, " surges with doubled vitality!"))
+                obvious_effect = true;
+        }
+        return MON_AFFECTED;
+
     case BEAM_WEAKNESS:
         mon->weaken(agent(), 8 + random2(4));
         obvious_effect = true;
@@ -7294,6 +7339,7 @@ bool bolt::nice_to(const monster_info& mi) const
 
     if (flavour == BEAM_HASTE
         || flavour == BEAM_HEALING
+        || flavour == BEAM_DOUBLE_VIGOUR
         || flavour == BEAM_MIGHT
         || flavour == BEAM_AGILITY
         || flavour == BEAM_INVISIBILITY
@@ -7552,6 +7598,7 @@ static string _beam_type_name(beam_type type)
     case BEAM_SHADOW_TORPOR:         return "shadow torpor";
     case BEAM_HAEMOCLASM:            return "gore";
     case BEAM_BLOODRITE:             return "blood";
+    case BEAM_DOUBLE_VIGOUR:         return "vigour-doubling";
 
     case NUM_BEAMS:                  die("invalid beam type");
     }

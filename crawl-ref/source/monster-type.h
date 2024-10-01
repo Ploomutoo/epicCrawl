@@ -156,7 +156,7 @@ enum monster_type                      // env.mons[].type
     MONS_GIANT_AMOEBA,
 #else
     MONS_ROCKSLIME,
-    MONS_QUICKSILVER_OOZE,
+    MONS_VOID_OOZE,
 #endif
     MONS_AZURE_JELLY,
 #if TAG_MAJOR_VERSION == 34
@@ -705,6 +705,7 @@ enum monster_type                      // env.mons[].type
 #if TAG_MAJOR_VERSION == 34
     MONS_RAKSHASA_FAKE,
 #else
+    MONS_NEKOMATA,
     MONS_DRYAD,
     MONS_ELEIONOMA,
     MONS_WENDIGO,
@@ -821,6 +822,9 @@ enum monster_type                      // env.mons[].type
     MONS_ANGEL,
     MONS_DAEVA,
     MONS_CHERUB,
+#if TAG_MAJOR_VERSION > 34
+    MONS_FRAVASHI,
+#endif
     MONS_SERAPH,
 #if TAG_MAJOR_VERSION == 34
     MONS_PHOENIX,
@@ -1187,7 +1191,7 @@ enum monster_type                      // env.mons[].type
     MONS_DEEP_ELF_AIR_MAGE,
     MONS_ANIMATED_ARMOUR,
     MONS_ROCKSLIME,
-    MONS_QUICKSILVER_OOZE,
+    MONS_VOID_OOZE,
     MONS_IRONBOUND_FROSTHEART,
     MONS_IRONBOUND_THUNDERHULK,
     MONS_IRONBOUND_BEASTMASTER,
@@ -1270,6 +1274,8 @@ enum monster_type                      // env.mons[].type
     MONS_SHADOW_PRISM,
     MONS_SOUL_WISP,
     MONS_GLOBE_OF_ANNIHILATION,
+    MONS_FRAVASHI,
+    MONS_NEKOMATA,
 #endif
 
     NUM_MONSTERS,               // used for polymorph

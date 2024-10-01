@@ -1856,7 +1856,7 @@ KMONS: 9 = 9
 KMONS: 8 = 8
 SUBST: 9 : 998
 MAP
-8
+9
 ENDMAP
 
 NAME:  nicolae_vaults_tangent_ellipses
@@ -2224,7 +2224,7 @@ TAGS:    vaults_hard
 KITEM:   O = * / | w:3
 KMONS:   O = slime creature w:40 / glowing orange brain / great orb of eyes / \
              large slime creature / very large slime creature w:5 / \
-             quicksilver ooze w:5
+             void ooze w:5
 KMASK:   O = no_trap_gen
 KPROP:   O = no_tele_into
 SHUFFLE: xn
@@ -2339,8 +2339,8 @@ SUBST:   AB = x, C : x., DE = ., s = `, F : F`, - : +x, | = |**%
 MAP
      xx1123
     xx`...12x
-   `Fxs`.C.|x
-  `w`xSs.D.|x
+   pFxs`.C.|x
+  pw`xSs.D.|x
  xF`S``...d1x
 xxxx`xn+-xxxx
 x`sS`n3......

@@ -1304,6 +1304,46 @@ static const mutation_def mut_data[] =
   TILEG_MUT_GENERIC_BAD_MUTATION,
 },
 
+{ MUT_EFFICIENT_MAGIC, 4, 2, mutflag::good, false,
+  "efficient magic",
+
+  {"Spells you cast cost 1 less MP (to a minimum of 1).",
+   "Spells you cast cost 2 less MP (to a minimum of 1).",
+   ""},
+  {"You gain a new grip on the flow of your magic.",
+   "Your grip strengthens on the flow of your magic.",
+   ""},
+  {"The flow of your magic slips from your grasp.",
+   "The flow of your magic starts slipping from your grasp.",
+   ""},
+  TILEG_MUT_EFFICIENT_MAGIC,
+},
+
+{ MUT_EPHEMERAL_SHIELD, 4, 1, mutflag::good, false,
+  "ephemeral shield",
+
+  {"A shield forms around you when casting spells or using Invocations. (SH +7)",
+    "", ""},
+  {"Ambient excess energy start collecting around you.", "", ""},
+  {"The ambient excess energy around you dissipates.", "", ""},
+  TILEG_MUT_EPHEMERAL_SHIELD,
+},
+
+{ MUT_TIME_WARPED_BLOOD, 2, 2, mutflag::good, false,
+  "time-warped blood",
+
+  {"Your blood hastes a few of your allies when you are sufficiently damaged.",
+   "Your blood hastes several of your allies when you are sufficiently damaged.",
+   ""},
+  {"The flow of your blood desyncs from the flow of time itself.",
+   "The flow of your blood has become unstuck from time.",
+   ""},
+  {"Your blood flow once more matches the normal passage of time.",
+   "Your blood flow starts aligning itself with the normal passage of time.",
+   ""},
+  TILEG_MUT_TIME_WARPED_BLOOD,
+},
+
 { MUT_DEMONIC_MAGIC, 0, 3, mutflag::good, false,
   "demonic magic",
 
