@@ -442,6 +442,9 @@ static const vector<property_descriptor> & _get_all_artp_desc_data()
         { ARTP_ENHANCE_ALCHEMY,
             "It increases the power of your Alchemy spells.",
             prop_note::plain },
+        { ARTP_ENHANCE_FORGECRAFT,
+            "It increases the power of your Forgecraft spells.",
+            prop_note::plain },
         { ARTP_ACROBAT,
             "It increases your evasion after moving or waiting.",
             prop_note::plain },
@@ -555,6 +558,7 @@ static vector<string> _randart_propnames(const item_def& item,
         ARTP_ENHANCE_HEXES,
         ARTP_ENHANCE_SUMM,
         ARTP_ENHANCE_NECRO,
+        ARTP_ENHANCE_FORGECRAFT,
         ARTP_ENHANCE_TLOC,
         ARTP_ENHANCE_FIRE,
         ARTP_ENHANCE_ICE,
@@ -3643,8 +3647,8 @@ bool describe_feature_wide(const coord_def& pos, bool do_actions)
             formatted_string desc_text = formatted_string::parse_string(feat.body);
             if (!feat.quote.empty())
             {
-                desc_text.cprintf("\n\n");
-                desc_text += formatted_string::parse_string(feat.quote);
+                desc_text.cprintf("\n_________________\n\n");
+                desc_text += formatted_string::parse_string("<darkgrey>" + feat.quote + "</darkgrey>");
             }
             auto text = make_shared<Text>(desc_text);
             if (&feat != &feats.back())
@@ -4077,7 +4081,7 @@ command_type describe_item_popup(const item_def &item,
     if (!(crawl_state.game_is_hints_tutorial()
           || quote.empty()))
     {
-        desc += "\n\n" + quote;
+        desc += "\n_________________\n\n<darkgrey>" + quote + "</darkgrey>";
     }
 
     if (crawl_state.game_is_hints())
@@ -4412,6 +4416,7 @@ static string _miscast_damage_string(spell_type spell)
         { spschool::translocation, "anchors you in place" },
         { spschool::hexes, "slows you" },
         { spschool::alchemy, "poisons you" },
+        { spschool::forgecraft, "corrodes you" },
     };
 
     spschools_type disciplines = get_spell_disciplines(spell);
@@ -4477,7 +4482,7 @@ static string _player_spell_desc(spell_type spell)
         description << ".\n";
     }
 
-    if (spell == SPELL_SPELLFORGED_SERVITOR)
+    if (spell == SPELL_SPELLSPARK_SERVITOR)
     {
         spell_type servitor_spell = player_servitor_spell();
         description << "Your servitor";
@@ -4487,7 +4492,18 @@ static string _player_spell_desc(spell_type spell)
             description << " casts " << spell_title(player_servitor_spell());
         description << ".\n";
     }
-    else if (you.has_spell(SPELL_SPELLFORGED_SERVITOR) && spell_servitorable(spell))
+    else if (spell == SPELL_PLATINUM_PARAGON)
+    {
+        description << "Your paragon wields ";
+
+        if (you.props.exists(PARAGON_WEAPON_KEY))
+            description << you.props[PARAGON_WEAPON_KEY].get_item().name(DESC_A, true).c_str();
+        else
+            description << "your current weapon";
+
+        description << ".\n";
+    }
+    else if (you.has_spell(SPELL_SPELLSPARK_SERVITOR) && spell_servitorable(spell))
     {
         if (failure_rate_to_int(raw_spell_fail(spell)) <= 20)
             description << "Your servitor can be imbued with this spell.\n";
@@ -4624,13 +4640,11 @@ static void _get_spell_description(const spell_type spell,
 
         const int hd = mon_owner->spell_hd();
         const int range = mons_spell_range_for_hd(spell, hd, mon_owner->is(MB_PLAYER_SERVITOR));
+        const int minrange = (spell == SPELL_CALL_DOWN_LIGHTNING
+                                || spell == SPELL_FLASHING_BALESTRA) ? 2 : 0;
+
         description += "\nRange : ";
-        if (spell == SPELL_CALL_DOWN_LIGHTNING)
-            description += stringize_glyph(mons_char(mon_owner->type)) + "..---->";
-        else if (spell == SPELL_FLASHING_BALESTRA)
-            description += stringize_glyph(mons_char(mon_owner->type)) + "..-->";
-        else
-            description += range_string(range, range, mons_char(mon_owner->type));
+        description += range_string(range, -1, minrange);
 
         if (crawl_state.need_save && you_worship(GOD_DITHMENOS))
         {
@@ -4686,7 +4700,7 @@ static void _get_spell_description(const spell_type spell,
 
     const string quote = getQuoteString(string(spell_title(spell)) + " spell");
     if (!quote.empty())
-        description += "\n" + quote;
+        description += "_________________\n\n<darkgrey>" + quote + "</darkgrey>";
 }
 
 /**
@@ -5002,6 +5016,8 @@ static string _flavour_base_desc(attack_flavour flavour)
         { AF_FOUL_FLAME,        "extra damage, especially to the good" },
         { AF_HELL_HUNT,         "summon demonic beasts" },
         { AF_SWARM,             "summon more of itself" },
+        { AF_ALEMBIC,           "vent poison clouds" },
+        { AF_BOMBLET,           "deploy bomblets" },
         { AF_PLAIN,             "" },
     };
 
@@ -5296,6 +5312,8 @@ static void _attacks_table_row(const monster_info &mi, mon_attack_desc_info &di,
     {
         if (mi.is(MB_STRONG) || mi.is(MB_BERSERK))
             real_dam = real_dam * 3 / 2;
+        if (mi.is(MB_TEMPERED))
+            real_dam = real_dam * 5 / 4;
         if (mi.is(MB_IDEALISED))
             real_dam = real_dam * 2;
         if (mi.is(MB_WEAK))
@@ -6168,7 +6186,7 @@ static string _monster_stat_description(const monster_info& mi, bool mark_spells
     const string holi = holiness == MH_NONLIVING ? "Nonliv."
                                                  : single_holiness_description(holiness);
     pr.AddRow();
-    if (mi.threat != MTHRT_UNDEF && !mons_is_conjured(mi.type))
+    if (mi.threat != MTHRT_UNDEF && !mons_class_is_peripheral(mi.type))
         pr.AddCell("Threat", _get_threat_desc(mi.threat));
     else // ?/m
         pr.AddCell(); // ensure alignment
@@ -6189,13 +6207,10 @@ static string _monster_stat_description(const monster_info& mi, bool mark_spells
     {
         result << "You have ";
         describe_to_hit(mi, result, you.weapon(), true);
-        if (mi.base_ev != mi.ev)
-        {
-            if (!mi.ev)
-                result << " (while incapacitated)";
-            else
-                result << " (at present)";
-        }
+        if (mi.incapacitated()) // Affects ev and sh
+            result << " (while incapacitated)";
+        else if (mi.base_ev != mi.ev)
+            result << " (at present)";
         result << ".\n";
     }
     result << _monster_attacks_description(mi);
@@ -6646,11 +6661,17 @@ void get_monster_db_desc(const monster_info& mi, describe_info &inf,
     if (!result.empty())
         inf.body << "\n" << result;
 
-    if (mi.is(MB_SUMMONED) || mi.is(MB_PERM_SUMMON))
+    if (mi.is(MB_SUMMONED))
     {
-        inf.body << "\nThis monster has been summoned"
-                 << (mi.is(MB_SUMMONED) ? ", and is thus only temporary. "
-                                        : " in a durable way. ");
+        inf.body << "\nThis monster has been ";
+
+        // XXX: Expand this for better descriptions of some other types of
+        //      non-abjurable summons?
+        if (mi.is(MB_ABJURABLE))
+            inf.body << "temporarily summoned to this location. ";
+        else if (mi.is(MB_MINION))
+            inf.body << "created by magic and is temporary. ";
+
         // TODO: hacks; convert angered_by_attacks to a monster_info check
         // (but on the other hand, it is really limiting to not have access
         // to the monster...)
@@ -6665,11 +6686,8 @@ void get_monster_db_desc(const monster_info& mi, describe_info &inf,
             inf.body << "Killing " << it_o << " yields ";
         inf.body << "no experience or items";
 
-        if (!did_stair_use && !mi.is(MB_PERM_SUMMON))
+        if (!did_stair_use)
             inf.body << "; " << it << " " << is << " incapable of using stairs";
-
-        if (mi.is(MB_PERM_SUMMON))
-            inf.body << " and " << it << " cannot be abjured";
 
         inf.body << ".\n";
     }
@@ -6681,13 +6699,6 @@ void get_monster_db_desc(const monster_info& mi, describe_info &inf,
                     " slain, it may be possible to recover "
                  << mi.pronoun(PRONOUN_POSSESSIVE)
                  << " hide, which can be used as armour.\n";
-    }
-
-    if (mi.is(MB_SUMMONED_CAPPED))
-    {
-        inf.body << "\nYou have summoned too many monsters of this kind to "
-                    "sustain them all, and thus this one will shortly "
-                    "expire.\n";
     }
 
     if (!inf.quote.empty())

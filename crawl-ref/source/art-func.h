@@ -553,8 +553,7 @@ static void _DEMON_AXE_melee_effects(item_def* /*item*/, actor* attacker,
                                      actor* defender, bool /*mondied*/,
                                      int /*dam*/)
 {
-    const monster* mon = defender->as_monster();
-    if (mon && (mons_is_firewood(*mon) || mons_is_conjured(mon->type)))
+    if (defender->is_peripheral())
         return;
 
     if (one_chance_in(10))
@@ -564,7 +563,7 @@ static void _DEMON_AXE_melee_effects(item_def* /*item*/, actor* attacker,
             create_monster(
                 mgen_data(summon_any_demon(RANDOM_DEMON_COMMON),
                           SAME_ATTITUDE(mons), mons->pos(), mons->foe)
-                .set_summoned(mons, 6, SPELL_SUMMON_DEMON));
+                .set_summoned(mons, SPELL_SUMMON_DEMON, summ_dur(6)));
         }
         else if (!you.allies_forbidden())
         {
@@ -572,7 +571,7 @@ static void _DEMON_AXE_melee_effects(item_def* /*item*/, actor* attacker,
                                                   : random_demon_by_tier(4));
             if (create_monster(
                     mgen_data(type, BEH_COPY, you.pos(), MHITYOU, MG_FORCE_BEH | MG_AUTOFOE)
-                    .set_summoned(&you, 6, SPELL_SUMMON_DEMON, GOD_NO_GOD)))
+                    .set_summoned(&you, SPELL_SUMMON_DEMON, summ_dur(6))))
             {
                 mpr("A gate to Pandemonium opens briefly!");
             }
@@ -1418,7 +1417,7 @@ static void _BATTLE_world_reacts(item_def */*item*/)
         && stop_summoning_reason(MR_RES_POISON, M_FLIES).empty())
     {
         const int pow = div_rand_round(15 + you.skill(SK_CONJURATIONS, 15), 3);
-        cast_battlesphere(&you, pow, GOD_NO_GOD, false);
+        cast_battlesphere(&you, pow, false);
         did_god_conduct(DID_WIZARDLY_ITEM, 10);
     }
 }
@@ -1755,13 +1754,8 @@ static void _ASMODEUS_melee_effects(item_def* /*weapon*/, actor* attacker,
     if (!attacker->is_player() || you.allies_forbidden())
         return;
 
-    const monster* mon = defender->as_monster();
-    if (mons_is_firewood(*mon)
-        || mons_is_conjured(mon->type)
-        || mon->is_summoned())
-    {
+    if (defender->is_peripheral() || defender->is_summoned())
         return;
-    }
 
     if (one_chance_in(10))
     {
@@ -1772,7 +1766,7 @@ static void _ASMODEUS_melee_effects(item_def* /*weapon*/, actor* attacker,
 
         mgen_data mg(demon, BEH_FRIENDLY, you.pos(), MHITYOU,
                      MG_FORCE_BEH | MG_AUTOFOE);
-        mg.set_summoned(&you, 4, SPELL_FIRE_SUMMON);
+        mg.set_summoned(&you, SPELL_FIRE_SUMMON, summ_dur(4));
 
         if (create_monster(mg))
         {

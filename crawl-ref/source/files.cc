@@ -1210,23 +1210,8 @@ static void _expire_temporary_allies()
         if (!mons.alive())
             continue;
 
-        if (mons.type == MONS_BATTLESPHERE)
-            end_battlesphere(&mons, false);
-        else if (mons.type == MONS_SPECTRAL_WEAPON)
-            end_spectral_weapon(&mons, false);
-        else if (mons.friendly()
-                && (mons.is_summoned() || mons.has_ench(ENCH_FAKE_ABJURATION))
-                    && !mons.is_perm_summoned())
-        {
-            monster_die(mons, KILL_RESET, NON_MONSTER, true);
-        }
-        // Yred & animate dead zombies crumble on floor change
-        else if (mons.has_ench(ENCH_SUMMON)
-                    && mons.get_ench(ENCH_SUMMON).degree == SPELL_ANIMATE_DEAD
-                || (is_yred_undead_follower(mons) && mons.type != MONS_BOUND_SOUL))
-        {
-            monster_die(mons, KILL_RESET, NON_MONSTER, true);
-        }
+        if (mons.was_created_by(you))
+            monster_die(mons, KILL_TIMEOUT, NON_MONSTER, true);
     }
 }
 
@@ -1266,12 +1251,12 @@ static void _grab_followers_and_expire_summons()
         // Note friendlies that are being left behind because they can't take stairs.
         if (fol->friendly() && !mons_can_use_stairs(*fol))
         {
-            if (!mons_is_conjured(fol->type))
+            if (!fol->is_peripheral())
                 non_stair_using_allies++;
-            if (fol->is_summoned())
-                non_stair_using_summons++;
             if (fol->holiness() & MH_UNDEAD)
                 non_stair_using_undead++;
+            else if (fol->is_abjurable())
+                non_stair_using_summons++;
         }
     }
 
@@ -1501,7 +1486,7 @@ static void _place_player(dungeon_feature_type stair_taken,
 
         dprf("%s under player and can't be moved anywhere; killing",
              mon->name(DESC_PLAIN).c_str());
-        monster_die(*mon, KILL_DISMISSED, NON_MONSTER);
+        monster_die(*mon, KILL_RESET_KEEP_ITEMS, NON_MONSTER);
         // XXX: do we need special handling for uniques...?
     }
 

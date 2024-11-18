@@ -45,6 +45,7 @@
 #include "random.h"
 #include "religion.h"
 #include "spl-damage.h"
+#include "spl-summoning.h"
 #include "spl-util.h"
 #include "state.h"
 #include "stringutil.h"
@@ -52,6 +53,7 @@
 #include "teleport.h"
 #include "terrain.h"
 #include "view.h"
+#include "viewchar.h"
 
 static bool _slime_split_merge(monster* thing);
 
@@ -370,7 +372,7 @@ static void _do_merge_slimes(monster* initial_slime, monster* merge_to)
     // case 5 (no-op)
 
     // Have to 'kill' the slime doing the merging.
-    monster_die(*initial_slime, KILL_DISMISSED, NON_MONSTER, true);
+    monster_die(*initial_slime, KILL_RESET, NON_MONSTER, true);
 }
 
 // Slime creatures can split but not merge under these conditions.
@@ -726,7 +728,7 @@ static bool _worthy_sacrifice(monster* soul, const monster* target)
 bool lost_soul_revive(monster& mons, killer_type killer)
 {
     if (killer == KILL_RESET
-        || killer == KILL_DISMISSED
+        || killer == KILL_RESET_KEEP_ITEMS
         || killer == KILL_BANISHED)
     {
         return false;
@@ -789,7 +791,7 @@ bool lost_soul_revive(monster& mons, killer_type killer)
         }
 
         if (mi->alive())
-            monster_die(**mi, KILL_MISC, -1, true);
+            monster_die(**mi, KILL_NON_ACTOR, -1, true);
 
         return true;
     }
@@ -805,24 +807,23 @@ void treant_release_fauna(monster& mons)
 
     monster_type fauna_t = MONS_HORNET;
 
-    mon_enchant abj = mons.get_ench(ENCH_ABJ);
-
     for (int i = 0; i < count; ++i)
     {
         mgen_data fauna_data(fauna_t, SAME_ATTITUDE(&mons),
                             mons.pos(),  mons.foe);
-        fauna_data.set_summoned(&mons, 0, SPELL_NO_SPELL);
         fauna_data.extra_flags |= MF_WAS_IN_VIEW;
-        monster* fauna = create_monster(fauna_data);
 
-        if (fauna)
+        // If the mangrove was summoned, give its fauna the same summon type and duration.
+        if (mons.is_summoned())
         {
-            fauna->set_band_leader(mons);
+            mon_enchant summ = mons.get_ench(ENCH_SUMMON);
+            mon_enchant timer = mons.get_ench(ENCH_SUMMON_TIMER);
+            fauna_data.set_summoned(summ.agent(), summ.degree, timer.duration,
+                                    mons.is_abjurable(), !!(mons.flags & ~MF_PERSISTS));
+        }
 
-            // Give released fauna the same summon duration as their 'parent'
-            if (abj.ench != ENCH_NONE)
-                fauna->add_ench(abj);
-
+        if (create_monster(fauna_data))
+        {
             created = true;
             mons.mangrove_pests--;
         }
@@ -858,7 +859,7 @@ static coord_def _find_nearer_tree(coord_def cur_loc, coord_def target)
 
         if (!cell_see_cell(target, *di, LOS_NO_TRANS) // there might be a better iterator
             || !_adj_to_tree(*di)
-            || !monster_habitable_grid(MONS_ELEIONOMA, env.grid(*di)))
+            || !monster_habitable_grid(MONS_ELEIONOMA, *di))
         {
             continue;
         }
@@ -898,6 +899,45 @@ static void _weeping_skull_cloud_aura(monster* mons)
         place_cloud(CLOUD_MISERY, pos[i], random2(3) + 2, mons);
 }
 
+static void _seismosaurus_egg_hatch(monster* mons)
+{
+    mon_enchant hatch = mons->get_ench(ENCH_HATCHING);
+    hatch.duration -= 1;
+
+    if (hatch.duration  == 4)
+    {
+        simple_monster_message(*mons, " cracks slightly.");
+        mons->number = 1;
+    }
+    else if (hatch.duration  == 2)
+    {
+        simple_monster_message(*mons, " shakes eagerly.");
+        mons->number = 2;
+    }
+    // Hatching time!
+    else if (hatch.duration  == 0)
+    {
+        simple_monster_message(*mons, " hatches with a roar like a landslide!",
+                                false, MSGCH_MONSTER_SPELL);
+
+        change_monster_type(mons, MONS_SEISMOSAURUS, true);
+        mons->heal(mons->max_hit_points);
+
+        mon_enchant timer = mons->get_ench(ENCH_SUMMON_TIMER);
+        timer.duration = random_range(40, 55) * BASELINE_DELAY;
+        mons->update_ench(timer);
+        mons->del_ench(ENCH_HATCHING);
+
+        // Immediately stomp if anything is in range
+        mons->speed_increment = 80;
+        try_mons_cast(*mons, SPELL_SEISMIC_STOMP);
+
+        return;
+    }
+
+    mons->update_ench(hatch);
+}
+
 static inline void _mons_cast_abil(monster* mons, bolt &pbolt,
                                    spell_type spell_cast)
 {
@@ -915,7 +955,7 @@ bool mon_special_ability(monster* mons)
     // Slime creatures can split while out of sight.
     if ((!mons->near_foe() || mons->asleep())
          && mons->type != MONS_SLIME_CREATURE
-         && mons->type != MONS_LOST_SOUL)
+         && mons->type != MONS_SEISMOSAURUS_EGG)
     {
         return false;
     }
@@ -951,7 +991,7 @@ bool mon_special_ability(monster* mons)
 
         for (monster_near_iterator targ(mons, LOS_NO_TRANS); targ; ++targ)
         {
-            if (mons_aligned(mons, *targ) || mons_is_firewood(**targ)
+            if (mons_aligned(mons, *targ) || targ->is_firewood()
                 || grid_distance(mons->pos(), targ->pos()) > 2
                 || !you.see_cell(targ->pos()))
             {
@@ -976,14 +1016,14 @@ bool mon_special_ability(monster* mons)
         {
             foxfire_attack(mons, &you);
             check_place_cloud(CLOUD_FLAME, mons->pos(), 2, mons);
-            mons->suicide();
+            monster_die(*mons, KILL_RESET, NON_MONSTER, true);
             used = true;
             break;
         }
 
         for (monster_near_iterator targ(mons, LOS_NO_TRANS); targ; ++targ)
         {
-            if (mons_aligned(mons, *targ) || mons_is_firewood(**targ)
+            if (mons_aligned(mons, *targ) || targ->is_firewood()
                 || grid_distance(mons->pos(), targ->pos()) > 1
                 || !you.see_cell(targ->pos()))
             {
@@ -993,7 +1033,7 @@ bool mon_special_ability(monster* mons)
             if (!cell_is_solid(targ->pos()))
             {
                 foxfire_attack(mons, *targ);
-                mons->suicide();
+                monster_die(*mons, KILL_RESET, NON_MONSTER, true);
                 used = true;
                 break;
             }
@@ -1094,7 +1134,7 @@ bool mon_special_ability(monster* mons)
 
         const coord_def targ = foe->pos();
         coord_def spot;
-        if (!find_habitable_spot_near(targ, MONS_ELECTRIC_EEL, 3, false, spot)
+        if (!find_habitable_spot_near(targ, MONS_ELECTRIC_EEL, 3, spot)
             || targ.distance_from(spot) >= targ.distance_from(mons->pos()))
         {
             break;
@@ -1146,6 +1186,14 @@ bool mon_special_ability(monster* mons)
         _weeping_skull_cloud_aura(mons);
         break;
 
+    case MONS_SEISMOSAURUS_EGG:
+        if (egg_is_incubating(*mons))
+        {
+            _seismosaurus_egg_hatch(mons);
+            used = true;
+        }
+        break;
+
     default:
         break;
     }
@@ -1154,4 +1202,29 @@ bool mon_special_ability(monster* mons)
         mons->lose_energy(EUT_SPECIAL);
 
     return used;
+}
+
+bool egg_is_incubating(const monster& egg)
+{
+    if (!egg.has_ench(ENCH_HATCHING))
+        return false;
+
+    mon_enchant hatch = egg.get_ench(ENCH_HATCHING);
+
+    // Check if we're near our 'parent'
+    const actor* parent = hatch.agent();
+    if (!parent || !adjacent(parent->pos(), egg.pos()))
+        return false;
+
+    // Finally, check that there are foes sufficiently nearby
+    for (monster_near_iterator mi(&egg, LOS_NO_TRANS); mi; ++mi)
+    {
+        if (!mons_aligned(*mi, &egg) && !mi->is_firewood()
+            && grid_distance(egg.pos(), mi->pos()) <= 4)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }

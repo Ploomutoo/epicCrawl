@@ -2008,13 +2008,10 @@ ORIENT:  float
 DEPTH:   Lair:3-, !Lair:$
 MONS:    necromancer, elephant zombie
 MONS:    basilisk zombie / komodo dragon zombie
-KFEAT:   G = metal_statue
 SHUFFLE: 23
 NSUBST:  2 = 1:2 / * = 2., 3 = 1:3 / * = 3.
 SUBST:   % = %%%%%$$$**|, G = G.
-COLOUR:  G = mist
-TILE:    G = dngn_mystic_cage
-: set_feature_name("metal_statue", "mystic cage")
+: vault_metal_statue_setup(_G, "G", "mystic cage")
 MAP
              wwwwwwwww
         wwwwwwwwwwwwwwwww
@@ -2417,29 +2414,38 @@ ENDMAP
 
 NAME:   nicolae_lair_yak_garden
 TAGS:   no_monster_gen no_item_gen no_trap_gen transparent
-DEPTH:  Lair:4-
-KMONS:  Y = yak
-KMONS:  D = death yak
-KMONS:  C = catoblepas
+DEPTH:  Lair:2-, Crypt
+SUBST:  P = P., f = ffF.
+: local d = you.depth()
+: if you.in_branch("Lair") then
+MONS:   yak, death yak, catoblepas
 KMONS:  P = plant
-KITEM:  f = stone
-SUBST:  P = P., f = f...
-NSUBST: D = 1:D / *:.
+KFEAT:  F = cache of fruit
+:   d = d - 1
+: else
+TAGS:   no_pool_fixup
+MONS:   death yak zombie, lich / revenant, ancient lich / dread lich
+KMONS:  P = withered plant
+KFEAT:  t = petrified_tree
+:   decorative_floor(_G, 'F', "mourning vase")
+: end
+KITEM:  f = large rock q:1
+: nsubst("2 = " .. d .. ":2 / *:.")
 MAP
         .@@@.
       .........
     tt...P.P....tt
    tttttPPPPPPPtttt.
-  .ttDfPP.Y....tDtt...
+  .tt2fPP.1....t2tt...
  .PPttP..P.P.PP.ftP...
  .P....PPP...PPP.PP..@
-..PP..PPPwwwC.P..PPP.@
-......Y.wwwwww.Y.ttP.@
+..PP..PPPwww3.P..PPP.@
+......1.wwwwww.1.ttP.@
 .@.PP..Pwwwwww...fttt.
  @..P..PP.wwwPP.ttttt
   @.PP.PPP..PP..PPttt
   ...Ptt.P.PPPPPP....
-  ...ttfDttPP.......
+  ...ttf2ttPP.......
     .tttttt......@
      ..tt.......
         .....
@@ -3266,7 +3272,6 @@ KITEM:   A = superb_item no_pickup, any good_item no_pickup \
              / no_pickup gold good_item w:15, % no_pickup \
              / nothing, % no_pickup / nothing
 KITEM:   _ = earthy gem
-KFEAT:   g = metal_statue
 KFEAT:   A = enter_hell
 KFEAT:   _ = altar_makhleb
 KFEAT:   L = endless_lava
@@ -3277,10 +3282,8 @@ KPROP:   ` = bloody
 KMASK:   '"`456H = no_item_gen
 FTILE:   "_A456H = floor_cage
 COLOUR:  "456H = red
-COLOUR:  g = warp
-TILE:    g = dimensional_conduit
 TILE:    b = bedevilled_crystal_gehenna
-: set_feature_name("metal_statue", "dimensional conduit")
+: vault_metal_statue_setup(_G, "g", "dimensional conduit")
 : set_feature_name("crystal_wall", "bedevilled crystal wall")
 MAP
   ...TTTT....  .............................

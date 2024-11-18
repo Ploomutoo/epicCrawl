@@ -46,6 +46,7 @@
 #include "state.h"
 #include "stringutil.h"
 #include "spl-damage.h"
+#include "spl-summoning.h"
 #include "target-compass.h"
 #include "terrain.h"
 #include "traps.h"
@@ -64,7 +65,7 @@ static void _apply_move_time_taken();
 static void _swap_places(monster* mons, const coord_def &loc)
 {
     ASSERT(map_bounds(loc));
-    ASSERT(monster_habitable_grid(mons, env.grid(loc)));
+    ASSERT(monster_habitable_grid(mons, loc));
 
     if (monster_at(loc))
     {
@@ -77,7 +78,7 @@ static void _swap_places(monster* mons, const coord_def &loc)
     {
         simple_monster_message(*mons, " dissipates!", false,
                                MSGCH_MONSTER_DAMAGE, MDAM_DEAD);
-        monster_die(*mons, KILL_DISMISSED, NON_MONSTER, true);
+        monster_die(*mons, KILL_RESET, NON_MONSTER, true);
         return;
     }
 
@@ -615,7 +616,7 @@ monster* get_rampage_target(coord_def move)
 
         if (mon->wont_attack()
             || mons_is_projectile(*mon)
-            || mons_is_firewood(*mon)
+            || mon->is_firewood()
             || adjacent(you.pos(), mon->pos()))
         {
             return nullptr;
@@ -993,6 +994,15 @@ void move_player_action(coord_def move)
 
     if (targ_monst)
     {
+        if (try_to_swap
+            && targ_monst->type == MONS_CLOCKWORK_BEE_INACTIVE)
+        {
+            if (clockwork_bee_recharge(*targ_monst))
+                you.turn_is_over = false;
+
+            return;
+        }
+
         if (try_to_swap && !beholder && !fmonger)
         {
             if (swap_check(targ_monst, mon_swap_dest))

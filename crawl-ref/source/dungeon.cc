@@ -733,13 +733,15 @@ void level_clear_vault_memory()
     env.level_map_ids.init(INVALID_MAP_INDEX);
 }
 
-void dgn_flush_map_memory()
+/*
+It's probably better in general to just reset `you` instead of calling this.
+But that's not so convenient for some users of this function, notably lua
+tests. This leaves some state uninitialized, and probably should be immediately
+followed by a call to `initial_dungeon_setup` and something that moves the
+player to a level or regenerates a level.
+*/
+void dgn_reset_player_data()
 {
-    // it's probably better in general to just reset `you`. But that's not so
-    // convenient for lua tests, who are the only user of this function.
-    // This leaves some state uninitialized, and probably should be immediately
-    // followed by a call to `initial_dungeon_setup` and something that moves
-    // the player to a level or regenerates a level.
 
     // vaults and map stuff
     you.uniq_map_tags.clear();
@@ -762,7 +764,7 @@ void dgn_flush_map_memory()
     // the following is supposed to clear any persistent lua state related to
     // the builder. However, it's susceptible to custom dlua doing its own
     // thing...
-    dlua.callfn("dgn_clear_data", "");
+    dlua.callfn("dgn_clear_persistant_data", "");
 
     // monsters
     you.unique_creatures.reset();
@@ -770,6 +772,8 @@ void dgn_flush_map_memory()
     // item stuff that can interact with the builder
     you.runes.reset();
     you.obtainable_runes = 15;
+    initialise_item_sets(true);
+    you.generated_misc.clear();
     you.unique_items.init(UNIQ_NOT_EXISTS);
     you.octopus_king_rings = 0x00;
     you.item_description.init(255); // random names need reset after this, e.g.
@@ -932,7 +936,7 @@ static bool _dgn_square_is_boring(const coord_def &c)
     const dungeon_feature_type feat = env.grid(c);
     return (feat_has_solid_floor(feat) || feat_is_door(feat))
         && (env.mgrid(c) == NON_MONSTER
-            || mons_is_firewood(env.mons[env.mgrid(c)]))
+            || env.mons[env.mgrid(c)].is_firewood())
         && (env.level_map_mask(c) & MMT_PASSABLE
             || !(env.level_map_mask(c) & MMT_OPAQUE));
 }
@@ -1186,7 +1190,7 @@ static int _process_disconnected_zones(int x1, int y1, int x2, int y2,
                             && !env.mons[env.mgrid(c)].is_habitable_feat(fill))
                         {
                             monster_die(env.mons[env.mgrid(c)],
-                                        KILL_RESET, NON_MONSTER, false, true);
+                                        KILL_RESET, NON_MONSTER, true);
                         }
                     }
                 }
@@ -2034,9 +2038,13 @@ static bool _fixup_stone_stairs(bool preserve_vault_stairs,
     // In Hell, don't create extra hatches, the levels are small already.
     if (player_in_branch(BRANCH_ZOT) || player_in_hell())
     {
-        replace = random_choose(DNGN_FOUNTAIN_BLUE,
-                                DNGN_FOUNTAIN_SPARKLING,
-                                DNGN_FOUNTAIN_BLOOD);
+        if (player_in_branch(BRANCH_GEHENNA) || player_in_branch(BRANCH_TARTARUS))
+            replace = random_choose(DNGN_FOUNTAIN_BLOOD, DNGN_DRY_FOUNTAIN);
+        else
+        {
+            replace = random_choose(DNGN_FOUNTAIN_BLUE, DNGN_FOUNTAIN_SPARKLING,
+                                    DNGN_FOUNTAIN_BLOOD);
+        }
     }
 
     dprf(DIAG_DNGN, "Before culling: %d/%d %s stairs",
@@ -2795,6 +2803,8 @@ static void _build_dungeon_level()
         && !player_in_branch(BRANCH_SHOALS))
     {
         _prepare_water();
+        if (player_in_branch(BRANCH_LAIR) || !one_chance_in(4))
+            _prepare_water();
     }
 
     if (player_in_hell())
@@ -2863,6 +2873,7 @@ int count_feature_in_box(int x0, int y0, int x1, int y1,
 // shallow. Checks each water space.
 static void _prepare_water()
 {
+    set<coord_def> fix_positions;
     for (rectangle_iterator ri(1); ri; ++ri)
     {
         if (map_masked(*ri, MMT_NO_POOL) || env.grid(*ri) != DNGN_DEEP_WATER)
@@ -2872,14 +2883,17 @@ static void _prepare_water()
         {
             const dungeon_feature_type which_grid = env.grid(*ai);
 
-            if (which_grid == DNGN_SHALLOW_WATER && one_chance_in(20)
-                || feat_has_dry_floor(which_grid) && x_chance_in_y(2, 5))
+            if (which_grid == DNGN_SHALLOW_WATER && one_chance_in(10)
+                || feat_has_dry_floor(which_grid) && one_chance_in(5))
             {
-                _set_grd(*ri, DNGN_SHALLOW_WATER);
+                fix_positions.insert(*ri);
                 break;
             }
         }
     }
+
+    for (coord_def pos : fix_positions)
+        _set_grd(pos, DNGN_SHALLOW_WATER);
 }
 
 static bool _vault_can_use_layout(const map_def *vault, const map_def *layout)
@@ -4090,7 +4104,7 @@ static void _place_assorted_zombies()
         mg.base_type = z_base;
         mg.behaviour = BEH_SLEEP;
         mg.map_mask |= MMT_NO_MONS;
-        mg.preferred_grid_feature = DNGN_FLOOR;
+        mg.flags |= MG_PREFER_LAND;
 
         place_monster(mg);
     }
@@ -4111,12 +4125,6 @@ static void _builder_monsters()
     const bool in_shoals = player_in_branch(BRANCH_SHOALS);
     if (in_shoals)
         dgn_shoals_generate_flora();
-
-    // Try to place Shoals monsters on floor where possible instead of
-    // letting all the merfolk be generated in the middle of the
-    // water.
-    const dungeon_feature_type preferred_grid_feature =
-        in_shoals ? DNGN_FLOOR : DNGN_UNSEEN;
 
     dprf(DIAG_DNGN, "_builder_monsters: Generating %d monsters", mon_wanted);
     for (int i = 0; i < mon_wanted; i++)
@@ -4149,7 +4157,12 @@ static void _builder_monsters()
 
         mg.flags    |= MG_PERMIT_BANDS;
         mg.map_mask |= MMT_NO_MONS;
-        mg.preferred_grid_feature = preferred_grid_feature;
+
+        // Try to place Shoals monsters on solid ground where possible, instead
+        // of letting half the level spawn at the far reaches of deep water.
+        if (in_shoals)
+            mg.flags |= MG_PREFER_LAND;
+
         place_monster(mg);
     }
 
@@ -4175,7 +4188,7 @@ static void _randomly_place_item(int item)
         found = env.grid(itempos) == DNGN_FLOOR
                 && !map_masked(itempos, MMT_NO_ITEM)
                 // oklobs or statues are ok
-                && (!mon || !mons_is_firewood(*mon));
+                && (!mon || !mon->is_firewood());
     }
     if (!found)
     {
@@ -4688,8 +4701,7 @@ static int _dgn_item_corpse(const item_spec &ispec, const coord_def where)
         mon->position = where;
         corpse = place_monster_corpse(*mon, true);
         // Dismiss the monster we used to place the corpse.
-        mon->flags |= MF_HARD_RESET;
-        monster_die(*mon, KILL_DISMISSED, NON_MONSTER, false, true);
+        monster_die(*mon, KILL_RESET, NON_MONSTER, true);
     }
 
     if (ispec.props.exists(CORPSE_NEVER_DECAYS))
@@ -5096,7 +5108,7 @@ static void _dgn_give_mon_spec_items(mons_spec &mspec, monster *mon)
                 if (_apply_item_props(item, spec, (useless_tries >= 10), true))
                 {
                     // Mark items on summoned monsters as such.
-                    if (mspec.abjuration_duration != 0)
+                    if (mspec.summon_duration != 0)
                         item.flags |= ISFLAG_SUMMONED;
 
                     if (!mon->pickup_item(item, false, true))
@@ -5192,7 +5204,7 @@ monster* dgn_place_monster(mons_spec &mspec, coord_def where,
 
         const habitat_type habitat = mons_class_primary_habitat(montype);
 
-        if (in_bounds(where) && !monster_habitable_grid(montype, env.grid(where)))
+        if (in_bounds(where) && !monster_habitable_grid(montype, where))
             dungeon_terrain_changed(where, habitat2grid(habitat));
     }
 
@@ -5244,7 +5256,7 @@ monster* dgn_place_monster(mons_spec &mspec, coord_def where,
         mg.xp_tracking = XP_VAULT;
 
     // Marking monsters as summoned
-    mg.abjuration_duration = mspec.abjuration_duration;
+    mg.summon_duration     = mspec.summon_duration;
     mg.summon_type         = mspec.summon_type;
     mg.non_actor_summoner  = mspec.non_actor_summoner;
 
@@ -6529,8 +6541,7 @@ static coord_def _get_feat_dest(coord_def base_pos, dungeon_feature_type feat,
                 dest_pos = random_in_bounds();
             }
             while (env.grid(dest_pos) != DNGN_FLOOR
-                   || env.pgrid(dest_pos) & FPROP_NO_TELE_INTO
-                   || count_adjacent_slime_walls(dest_pos) != 0);
+                   || env.pgrid(dest_pos) & FPROP_NO_TELE_INTO);
         }
 
         if (!shaft)

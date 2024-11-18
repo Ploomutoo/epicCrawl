@@ -59,9 +59,10 @@ function random_stair(e, symbol)
   if you.depth() > 1 then
     valid = "([{"
   else
-    valid = "" -- should always coincide with depth_fraction() < 1
+    -- should coincide with you.depth() ~= dgn.br_depth(you.branch())
+    valid = ""
   end
-  if you.depth_fraction() < 1 then
+  if you.depth() ~= dgn.br_depth(you.branch()) then
     valid = valid .. ")]}"
   end
   if valid == "" then
@@ -179,6 +180,7 @@ WEIGHT: 1
 KMONS:  12 = butterfly
 : door_vault_setup(_G)
 : if you.in_branch("D") or you.in_branch("Depths") or you.in_branch("Vaults") then
+FTILE:  12 = floor_lair
 :   decorative_floor(_G, '12', "flower patch")
 : end
 MAP
@@ -451,7 +453,7 @@ xxx..xx..xxx
 ENDMAP
 
 NAME:    regret_index_collectors'_demense
-TAGS:    no_monster_gen vaults_room vaults_orient_s no_pool_fixup
+TAGS:    no_monster_gen vaults_room vaults_orient_s no_pool_fixup no_wall_fixup
 DEPTH:   D:5-, Swamp, Vaults, !Vaults:$, Depths
 : if you.in_branch("D") then
 :   if you.depth() < 8 then
@@ -1664,11 +1666,8 @@ MONS:   hell rat / elephant / death yak / hydra
 MONS:   hell rat simulacrum / elephant simulacrum / \
         death yak simulacrum / hydra simulacrum
 : end
-KFEAT:  G = metal_statue
 SUBST:  G = GG.
-COLOUR: G = mist
-TILE:   G = dngn_mystic_cage
-: set_feature_name("metal_statue", "mystic cage")
+: vault_metal_statue_setup(_G, "G", "mystic cage")
 MAP
 ............
 .xxxxxxxxxx.
@@ -1737,11 +1736,8 @@ MONS:   orc knight, orc w:5 / orc warrior / orc wizard
 MONS:   orc warrior, orc / orc wizard
 :   end
 MONS:   warg
-KFEAT:  G = metal_statue
 SUBST:  * = %, G : GG.
-COLOUR: G = mist
-TILE:   G = dngn_mystic_cage
-:   set_feature_name("metal_statue", "mystic cage")
+: vault_metal_statue_setup(_G, "G", "mystic cage")
 : end
 NSUBST: A = 2 = 122 / *:2, B = 2 = 122 / *:2
 : decorative_floor(_G, 'F', "orcish standard")
@@ -2303,17 +2299,18 @@ cccc..000........cccD
 ccccccccccccccccccccC
 ENDMAP
 
-NAME:  lightli_orcish_oven
-TAGS:  vaults_room vaults_orient_s
-DEPTH: D:6-11, Orc, Vaults
-MONS:  orc warrior, orc, orc warlord, orc knight w:14 / lindwurm w:1
-KITEM: d = stone q:1 no_pickup
-KFEAT: e = cache of meat
-KFEAT: f = cache of baked goods
+NAME:   lightli_orcish_oven
+TAGS:   vaults_room vaults_orient_s
+DEPTH:  D:6-11, Orc, Vaults
+WEIGHT: 5 (Vaults), 10
+MONS:   orc warrior, orc, orc warlord, orc knight w:14 / lindwurm w:1
+KITEM:  d = stone q:1 no_pickup
+KFEAT:  e = cache of meat
+KFEAT:  f = cache of baked goods
 : if you.in_branch("Vaults") then
-SUBST: 1 = 3, 2 = 4, @ = ., d = f, g = h
+SUBST:  1 = 3, 2 = 4, @ = ., d = f, g = h
 : else
-SUBST: d = def
+SUBST:  d = def
 : end
 : dgn.delayed_decay(_G, 'g', 'adder corpse / electric eel corpse')
 : dgn.delayed_decay(_G, 'h', 'hog corpse / lindwurm corpse')
@@ -2341,7 +2338,10 @@ MONS:     lich, occultist / naga mage / tengu conjurer, tengu reaver
 : end
 ITEM:     book of power, robe good_item, hat good_item, robe, hat
 KFEAT:    _ = altar_vehumet
-SHUFFLE: ef, gh, ij
+SHUFFLE:  ef, gh, ij
+TILE:     v = dngn_metal_wall_magenta
+TILE:     c = dngn_stone_wall_magenta
+TILE:     b = dngn_crystal_magenta
 MAP
       ccccc
      ccedfcc
@@ -3171,9 +3171,7 @@ NSUBST: 2 = 2:2 / 1:. / * = 22.
 SUBST:  G = x, m = mx
 : else
 SUBST:  G : GGGx
-COLOUR: G = mist
-TILE:   G = dngn_mystic_cage
-:   set_feature_name("metal_statue", "mystic cage")
+:   vault_metal_statue_setup(_G, "G", "mystic cage")
 : end
 MAP
 ..........
@@ -3240,15 +3238,12 @@ DEPTH:  Depths
 KMONS:  1 = kobold demonologist
 KMONS:  2 = shadow demon / shadow dragon w:5
 KITEM:  1 = | / *, * / %
-KFEAT:  G = metal_statue
 NSUBST: 2 = 1:2 / 3 = 2""" / *:"
 COLOUR: ' = white
 COLOUR: "12 = darkgrey
 FTILE:  'G = floor_pebble_lightgray
 FTILE:  "12 = floor_pebble_darkgray
-COLOUR: G = mist
-TILE:   G = dngn_mystic_cage
-: set_feature_name("metal_statue", "mystic cage")
+: vault_metal_statue_setup(_G, "G", "mystic cage")
 MAP
     ...
   .'''''.
@@ -3330,17 +3325,14 @@ ITEM:    potion of curing ident:type / potion of heal wounds ident:type
 KFEAT:   A = altar_the_shining_one
 KFEAT:   B = altar_elyvilon
 KFEAT:   C = altar_zin
-KFEAT:   g = metal_statue
 KFEAT:   S = w
 SHUFFLE: ABC
 COLOUR:  c = white
 TILE:    c = wall_church
 FTILE:   .+d123GgtABC = floor_limestone
 COLOUR:  .123 = white
-COLOUR:  g = silver
 TILE:    G = dngn_statue_depths_zot_angel
-TILE:    g = dngn_silver_statue
-: set_feature_name("metal_statue", "silver statue")
+: vault_metal_statue_setup(_G, "g", "silver statue")
 MAP
 xxxxxxxxx
 xcccccccx
@@ -3444,10 +3436,12 @@ MONS:    shadow demon / green death / blizzard demon / balrug / cacodemon / \
          sin beast / hellion / reaper / tormentor
 KITEM:   | = superb_item / any good_item / randbook disc:summoning w:5
 : if you.in_branch("Depths") then
-SUBST:   2 = 3, 4 = 5
+SUBST:   2 = 3, 4 = 5, v = c
 NSUBST:  3 = 1:5 / *:3
-: end
+TILE:    c = stone_wall_pyre
+: else
 SUBST:   b = bbv
+: end
 SHUFFLE: {( / <<
 KPROP:   2345*| = no_tele_into
 TILE:    b = bedevilled_crystal_pandemonium
@@ -7794,8 +7788,7 @@ SUBST:  x = v, 2 = .
 MONS:   reaper, soul eater
 KITEM:  d = talisman of death / talisman of death randart w:1
 SUBST:  " = G
-TILE:   G = dngn_gravestone
-:   set_feature_name("granite_statue", "a gravestone")
+:   vault_granite_statue_setup(_G, "G", "gravestone")
 : elseif r >= 7 then
 MONS:   air elemental
 KMONS:  2" = raiju
@@ -7900,17 +7893,17 @@ KITEM:   CD = large rock q:1
 KITEM:   % = % / any scroll q:1
 KFEAT:   C = altar_ecumenical
 KPROP:   C = no_tele_into
-TILE:    G = dngn_crumbled_column
 COLOUR:  W = lightgreen
-: set_feature_name("granite_statue", "broken pillar")
+: vault_granite_statue_setup(_G, "G", "broken pillar")
+: decorative_floor(_G, '?', "broken floral vase")
 MAP
 XXXXXXXXXX
 XzzzzzcccXXXXXXXXX
 Xznnn...cccccccccXXXXXXXXX
 XznCng..c~......cccccccczXXXXXX
-Xznnn.).~c.G..G.c......2zcccccccc
+Xznnn.).~c.G..G.c......?zcccccccc
 Xz0g....c~..ee...c.Vt.1.zc......@
-Xc..}.WW~c..ee..c..tt...zc.G..G.@
+Xc..}.WW~c..ee..c..tt2..zc.G..G.@
 Xc....WWc~.G..G..c...tt.zc......@
 Xc~c~c~ccc......c..1.tV.zc......@
 Xcc~c~czzc~c~c~ccc1.....zc.G..G.@
@@ -7921,7 +7914,7 @@ Xc..%*..c~.tt...zc.G..G.c-......c
 Xc.G..G.~c...tt.zc..ff..-c.Vt.1.&
 Xc2.....c~...tV.zc..ff..c-.tW...&
 Xccccccccc0.....zc.G..G.-c...Wt.&
-XXXXXXXXXccccccczc......c-.1.tV.&
+XXXXXXXXXccccccczc?.....c-.1.tV.&
         XXXXXXXXXccccccccc......c
                 XXXXXXXXXcccccccc
                         XXXXXXX
@@ -9780,12 +9773,9 @@ KITEM:  Z = any skeleton
 ITEM:   potion of degeneration ident:type, potion of ambrosia ident:type
 ITEM:   scroll of immolation ident:type / % w:20
 KFEAT:  67 = w
-KFEAT:  G = metal_statue
 NSUBST: . = 10:d / 2:e / 8:Z / 3:` / 3:4 / 3 = 45.. / *:.
 KPROP:  ` = bloody
-COLOUR: G = mist
-TILE:   G = dngn_mystic_cage
-: set_feature_name("metal_statue", "mystic cage")
+: vault_metal_statue_setup(_G, "G", "mystic cage")
 MAP
      WWWWWWWWWWWWWW.@.WWWWWWWWWWWWWW
     WWWWWWWWwwwwwww...wWwWwwWWWwwwwwww
@@ -10331,7 +10321,6 @@ ENDMAP
 NAME:  laboratory
 DEPTH: D:12-, Depths, Elf
 MONS:  arcanist, occultist, small abomination, large abomination
-KFEAT: G = metal_statue
 KFEAT: T = permanent teleport trap
 : if you.branch() ~= "D" then
 SUBST: 1 = 2
@@ -10341,9 +10330,7 @@ SUBST: * = %, | = *
 SUBST: 1 = 12
 :   end
 : end
-COLOUR:  G = mist
-TILE:    G = dngn_mystic_cage
-: set_feature_name("metal_statue", "mystic cage")
+: vault_metal_statue_setup(_G, "G", "mystic cage")
 MAP
 ccc+cccccc
 cT......Gc
@@ -10733,6 +10720,9 @@ CHANCE: 1% (Geh, Coc, Dis, Tar, Pan), 2%
 DEPTH:  D:8-, Depths, Orc, Elf, Lair, Snake, Spider, Slime, Crypt, \
         Geh, !Geh:$, Coc, !Coc:$, Dis, !Dis:$, Geh, !Geh:$, Pan
 KFEAT:  X = slimy_wall
+# FIXME: subvaults still don't set feature names on a higher level.
+#        For now, only the bee room uses this, so this should be fine.
+: set_feature_name("decorative_floor", "flower patch")
 {{
     -- An incredibly ugly kludge to avoid duplicating the list of valid
     -- branches/depths (and causing mysterious errors if it's not up to date).

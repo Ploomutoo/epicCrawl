@@ -3981,7 +3981,11 @@ mons_list::mons_spec_slot mons_list::parse_mons_spec(string spec)
         else if (dur < 1 || dur > 6)
             dur = 0;
 
-        mspec.abjuration_duration = dur;
+        // XXX: Hard-coding dependence on summon degree is awkward, but
+        //      actually randomizing the timer, per summon, in vault code is
+        //      also awkward.
+        if (dur > 0)
+            mspec.summon_duration = summ_dur(dur);
 
         // Orc apostle power and band power
         int pow = strip_number_tag(mon_str, "pow:");
@@ -4017,11 +4021,15 @@ mons_list::mons_spec_slot mons_list::parse_mons_spec(string spec)
                                 s_type.c_str());
                 return slot;
             }
-            if (mspec.abjuration_duration == 0)
+            if (mspec.summon_duration == 0)
             {
                 error = "marked summon with no duration";
                 return slot;
             }
+
+            // XXX: This shouldn't always be true, but is true for all current
+            //      uses of this in actual vaults.
+            mspec.extra_monster_flags |= MF_ACTUAL_SUMMON;
         }
 
         mspec.summon_type = summon_type;
@@ -4031,7 +4039,7 @@ mons_list::mons_spec_slot mons_list::parse_mons_spec(string spec)
         {
             non_actor_summoner = replace_all_of(non_actor_summoner, "_", " ");
             mspec.non_actor_summoner = non_actor_summoner;
-            if (mspec.abjuration_duration == 0)
+            if (mspec.summon_duration == 0)
             {
                 error = "marked summon with no duration";
                 return slot;

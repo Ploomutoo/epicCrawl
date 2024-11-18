@@ -562,10 +562,20 @@ LUAFN(moninf_get_spells)
     const vector<mon_spell_slot> &unique_slots = get_unique_spells(*mi);
     vector<string> spell_titles;
 
+    bool abjuration = false;
     for (const auto& slot : unique_slots)
+    {
         spell_titles.emplace_back(spell_title(slot.spell));
-    clua_stringtable(ls, spell_titles);
 
+        // XXX: Probably get_unique_spells() could just do this for us.
+        if (get_spell_flags(slot.spell) & spflag::mons_abjure)
+            abjuration = true;
+    }
+
+    if (abjuration)
+        spell_titles.emplace_back(spell_title(SPELL_ABJURATION));
+
+    clua_stringtable(ls, spell_titles);
     return 1;
 }
 
@@ -708,7 +718,7 @@ LUAFN(moninf_get_can_traverse)
     PLAYERCOORDS(p, 2, 3)
     lua_pushboolean(ls,
         map_bounds(p)
-        && monster_habitable_grid(mi->type, env.map_knowledge(p).feat()));
+        && monster_habitable_feat(mi->type, env.map_knowledge(p).feat()));
     return 1;
 }
 
@@ -841,6 +851,32 @@ LUAFN(moninf_get_name)
     return 1;
 }
 
+/*
+ * The x,y coordinates of the monster that summoned this monster, in player
+ * centered coordinates. If the monster was not summoned by another monster
+ * that's currently in LOS, return nil.
+ * @treturn int
+ * @treturn int
+ * @function pos
+ */
+LUAFN(moninf_get_summoner_pos)
+{
+    MONINF(ls, 1, mi);
+
+    const auto *summoner = monster_by_mid(mi->summoner_id);
+    if (summoner && you.can_see(*summoner))
+    {
+        lua_pushnumber(ls, summoner->pos().x - you.pos().x);
+        lua_pushnumber(ls, summoner->pos().y - you.pos().y);
+        return 2;
+    }
+    else
+    {
+        lua_pushnil(ls);
+        return 1;
+    }
+}
+
 static const struct luaL_reg moninf_lib[] =
 {
     MIREG(type),
@@ -895,6 +931,7 @@ static const struct luaL_reg moninf_lib[] =
     MIREG(x_pos),
     MIREG(y_pos),
     MIREG(pos),
+    MIREG(summoner_pos),
     MIREG(avg_local_depth),
     MIREG(avg_local_prob),
 

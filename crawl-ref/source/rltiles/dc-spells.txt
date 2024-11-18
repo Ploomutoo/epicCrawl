@@ -83,6 +83,7 @@ freezing_cloud FREEZING_CLOUD
 frozen_ramparts FROZEN_RAMPARTS
 hailstorm HAILSTORM
 hoarfrost_cannonade HOARFROST_CANNONADE
+hoarfrost_bullet HOARFROST_BULLET
 ice_form ICE_FORM
 ice_storm ICE_STORM
 metabolic_englaciation METABOLIC_ENGLACIATION
@@ -97,7 +98,6 @@ polar_vortex POLAR_VORTEX
 %sdir gui/spells/necromancy
 agony AGONY
 animate_dead ANIMATE_DEAD
-animate_skeleton ANIMATE_SKELETON
 bolt_of_draining BOLT_OF_DRAINING
 borgnjors_revivification BORGNJORS_REVIVIFICATION
 borgnjors_vile_clutch BORGNJORS_VILE_CLUTCH
@@ -134,7 +134,6 @@ sting STING
 venom_bolt VENOM_BOLT
 
 %sdir gui/spells/summoning
-animate_armour ANIMATE_ARMOUR
 call_canine_familiar CALL_CANINE_FAMILIAR
 call_imp CALL_IMP
 call_imp_horde CALL_IMP_HORDE
@@ -142,8 +141,6 @@ malign_gateway MALIGN_GATEWAY
 mass_abjuration MASS_ABJURATION
 monstrous_menagerie MONSTROUS_MENAGERIE
 recall RECALL
-spellforged_servitor SPELLFORGED_SERVITOR
-summon_blazeheart_golem SUMMON_BLAZEHEART_GOLEM
 summon_cactus_giant SUMMON_CACTUS_GIANT
 summon_demon SUMMON_DEMON
 summon_dragon SUMMON_DRAGON
@@ -152,10 +149,11 @@ summon_greater_demon SUMMON_GREATER_DEMON
 summon_horrible_things SUMMON_HORRIBLE_THINGS
 summon_hydra SUMMON_HYDRA
 summon_ice_beast SUMMON_ICE_BEAST
-summon_lightning_spire SUMMON_LIGHTNING_SPIRE
 summon_mana_viper SUMMON_MANA_VIPER
+summon_seismosaurus_egg SUMMON_SEISMOSAURUS_EGG
 summon_shadow_creatures SUMMON_SHADOW_CREATURES
 summon_small_mammal SUMMON_SMALL_MAMMAL
+surprising_crocodile SURPRISING_CROCODILE
 
 %sdir gui/spells/translocation
 apportation APPORTATION
@@ -171,6 +169,24 @@ gavotte GAVOTTE
 gravitas GRAVITAS
 manifold_assault MANIFOLD_ASSAULT
 electric_charge ELECTRIC_CHARGE
+
+%sdir gui/spells/forgecraft
+awaken_armour AWAKEN_ARMOUR
+construct_spike_launcher SPIKE_LAUNCHER
+diamond_sawblades DIAMOND_SAWBLADES
+forge_blazeheart_golem FORGE_BLAZEHEART_GOLEM
+forge_lightning_spire FORGE_LIGHTNING_SPIRE
+fortress_blast FORTRESS_BLAST
+kinetic_discus KINETIC_DISCUS
+launch_clockwork_bee CLOCKWORK_BEE
+monarch_bomb MONARCH_BOMB
+phalanx_beetle PHALANX_BEETLE
+percussive_tempering PERCUSSIVE_TEMPERING
+platinum_paragon PLATINUM_PARAGON
+rending_blade RENDING_BLADE
+spellspark_servitor SPELLSPARK_SERVITOR
+splinterfrost_shell SPLINTERFROST_SHELL
+walking_alembic WALKING_ALEMBIC
 
 # item-based spells
 %sdir gui/spells/misc
@@ -188,11 +204,14 @@ warp_space WARP_SPACE
 %sdir gui/spells/monster
 generic GENERIC_MONSTER_SPELL
 air_elementals AIR_ELEMENTALS
+avatar_song AVATAR_SONG
 awaken_forest AWAKEN_FOREST
 awaken_vines AWAKEN_VINES
 battlecry BATTLECRY
 berserk_other BERSERK_OTHER
 bestow_arms BESTOW_ARMS
+blink_allies_away BLINK_ALLIES_AWAY
+blink_allies_encircling BLINK_ALLIES_ENCIRCLING
 blink_other BLINK_OTHER
 brain_bite BRAIN_BITE
 call_of_chaos CALL_OF_CHAOS
@@ -208,6 +227,7 @@ conjure_living_spells CONJURE_LIVING_SPELLS
 corrupting_pulse CORRUPTING_PULSE
 create_tentacles CREATE_TENTACLES
 crystallizing_shot CRYSTALLIZING_SHOT
+dimensional_anchor DIMENSIONAL_ANCHOR
 doom_howl DOOM_HOWL
 draining_gaze DRAINING_GAZE
 drain_magic DRAIN_MAGIC
@@ -218,11 +238,11 @@ ensnare ENSNARE
 entropic_weave ENTROPIC_WEAVE
 eruption ERUPTION
 fake_mara_summon FAKE_MARA_SUMMON
-fake_rakshasa_summon FAKE_RAKSHASA_SUMMON
 fire_breath FIRE_BREATH
 fire_elementals FIRE_ELEMENTALS
 fire_summon FIRE_SUMMON
 flaming_cloud FLAMING_CLOUD
+flash_freeze FLASH_FREEZE
 flay FLAY
 forceful_invitation FORCEFUL_INVITATION
 ghostly_fireball GHOSTLY_FIREBALL
@@ -234,7 +254,9 @@ ink_cloud INK_CLOUD
 injury_bond INJURY_BOND
 iron_elementals IRON_ELEMENTALS
 legendary_destruction LEGENDARY_DESTRUCTION
+magma_barrage MAGMA_BARRAGE
 malmutate MALMUTATE
+mesmerise MESMERISE
 metal_splinters METAL_SPLINTERS
 miasma_breath MIASMA_BREATH
 might MIGHT
@@ -250,10 +272,12 @@ porkalator PORKALATOR
 quicksilver_bolt QUICKSILVER_BOLT
 rebounding_blaze REBOUNDING_BLAZE
 rebounding_chill REBOUNDING_CHILL
+resonance_strike RESONANCE_STRIKE
 roll ROLL
 seal_doors SEAL_DOORS
 sentinel_mark SENTINEL_MARK
 shezas_dance SHEZAS_DANCE
+siren_song SIREN_SONG
 sleep SLEEP
 slug_dart SLUG_DART
 spectral_cloud SPECTRAL_CLOUD
@@ -265,6 +289,7 @@ sprint SPRINT
 steam_ball STEAM_BALL
 sticky_flame_range STICKY_FLAME_RANGE
 sticks_to_snakes STICKS_TO_SNAKES
+stoke_flames STOKE_FLAMES
 strip_willpower STRIP_WILLPOWER
 stunning_burst STUNNING_BURST
 summon_drakes SUMMON_DRAKES
@@ -290,6 +315,8 @@ throw_ally THROW_ALLY
 throw_klown_pie THROW_KLOWN_PIE
 thorn_volley THORN_VOLLEY
 virulence VIRULENCE
+vitrify VITRIFY
+vitrifying_gaze VITRIFYING_GAZE
 wall_of_brambles WALL_OF_BRAMBLES
 warning_cry WARNING_CRY
 water_elementals WATER_ELEMENTALS
@@ -324,6 +351,7 @@ shadow_puppet SHADOW_PUPPET
 shadow_shard SHADOW_SHARD
 shadow_tempest SHADOW_TEMPEST
 shadow_torpor SHADOW_TORPOR
+shadow_turret SHADOW_TURRET
 shadowball SHADOWBALL
 
 # spells mimicking divine abilities

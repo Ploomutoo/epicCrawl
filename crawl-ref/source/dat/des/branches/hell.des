@@ -4,6 +4,8 @@
 #           dis.des, geh.des, coc.des, or tar.des.
 ##############################################################################
 
+: crawl_require('dlua/vault.lua')
+
 {{
 function hell_entry_feature(e, glyph)
     e.tags("extra luniq_enter_hell chance_enter_hell")
@@ -341,7 +343,7 @@ SHUFFLE: +- / +- / =+
 NSUBST:  - = 1:+cc / *:c
 SUBST:   = = c
 KMASK:   l = no_monster_gen
-TILE:    c = dngn_stone_wall_red
+TILE:    c = stone_wall_pyre
 : hell_entry_feature(_G, 'O')
 : hell_entry_tier(_G, "low")
 MAP
@@ -390,7 +392,7 @@ ENDMAP
 NAME:    pf_vacation_house_of_asmodeus
 TAGS:    transparent uniq_hell_entry_geh
 WEIGHT:  4
-TILE:    c = dngn_stone_wall_red
+TILE:    c = stone_wall_pyre
 COLOUR:  c = red
 FTILE:  'O = floor_infernal_blank
 : hell_entry_feature(_G, 'O')
@@ -1003,11 +1005,8 @@ NAME:   vestibule_tar_nicolae_cwn_annwn
 TAGS:   vestibule_tar patrolling
 KMONS:  1D = doom hound / nothing
 KFEAT:  D = enter_tartarus
-KFEAT:  G = metal_statue
-COLOUR: G = mist
 TILE:   c = dngn_stone_dark
-TILE:   G = dngn_mystic_cage
-: set_feature_name("metal_statue", "mystic cage")
+: vault_metal_statue_setup(_G, "G", "mystic cage")
 MAP
 ccccccccccccccccccccccccccccccccc
  cccccccccccccc...cccccccccccccc
@@ -1173,14 +1172,14 @@ MAP
                ...
 ENDMAP
 
-NAME: vestibule_geh_grunt_obsidian_fortress
-TAGS: vestibule_geh
-KFEAT: G = enter_gehenna
-MONS: balrug / hellion, sin beast / hell hog
-MONS: sun demon / smoke demon / hell knight
-NSUBST: 2 = 3:2 / *:.
-NSUBST: 3 = 3:3 / *:.
-FTILE: 123+G = floor_infernal_blank
+NAME:   vestibule_geh_grunt_obsidian_fortress
+TAGS:   vestibule_geh
+KFEAT:  G = enter_gehenna
+MONS:   balrug / hellion, sin beast / hell hog
+MONS:   sun demon / smoke demon / hell knight
+NSUBST: 2 = 3:2 / *:., 3 = 3:3 / *:.
+FTILE:  123+G = floor_infernal_blank
+TILE:   c = stone_wall_pyre
 : hell_lava_spawns(_G)
 MAP
 lllllllllccccccccccccccclllllllll
@@ -1235,7 +1234,7 @@ KMONS:   D = balrug band / sin beast band / hell hog band / \
 KFEAT:   D = enter_gehenna
 SHUFFLE: Pp/Qq/Rr/Ss
 SUBST:   P = +, p = ., QRS = c, qrs = l, L = l.
-TILE:    c = dngn_stone_wall_red
+TILE:    c = stone_wall_pyre
 FTILE:   +D' = floor_infernal_blank
 COLOUR:  c = red
 MAP

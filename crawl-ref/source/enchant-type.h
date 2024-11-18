@@ -22,7 +22,7 @@ enum enchant_type
     ENCH_ROT,
 #endif
     ENCH_SUMMON,
-    ENCH_ABJ,
+    ENCH_SUMMON_TIMER,
     ENCH_CORONA,
     ENCH_CHARM,
     ENCH_STICKY_FLAME,
@@ -32,8 +32,8 @@ enum enchant_type
     ENCH_SLEEP_WARY,
 #if TAG_MAJOR_VERSION == 34
     ENCH_SUBMERGED,
-#endif
     ENCH_SHORT_LIVED,
+#endif
     ENCH_PARALYSIS,
     ENCH_SICK,
 #if TAG_MAJOR_VERSION == 34
@@ -89,7 +89,9 @@ enum enchant_type
     ENCH_FLIGHT,
     ENCH_LIQUEFYING,
     ENCH_POLAR_VORTEX,
+#if TAG_MAJOR_VERSION == 34
     ENCH_FAKE_ABJURATION,
+#endif
     ENCH_DAZED,          // Dazed - less chance of acting each turn.
     ENCH_MUTE,           // Silenced.
     ENCH_BLIND,          // Blind (everything is invisible).
@@ -121,12 +123,12 @@ enum enchant_type
 #endif
     ENCH_WEAK,
     ENCH_DIMENSION_ANCHOR,
-    ENCH_AWAKEN_VINES,   // Is presently animating snaplasher vines
 #if TAG_MAJOR_VERSION == 34
+    ENCH_AWAKEN_VINES,
     ENCH_CONTROL_WINDS,
     ENCH_WIND_AIDED,
-#endif
     ENCH_SUMMON_CAPPED,  // Abjuring quickly because a summon cap was hit
+#endif
     ENCH_TOXIC_RADIANCE,
 #if TAG_MAJOR_VERSION == 34
     ENCH_GRASPING_ROOTS_SOURCE, // Not actually entangled, but entangling others
@@ -228,6 +230,9 @@ enum enchant_type
     ENCH_CHANGED_APPEARANCE,  // Visual change for player shadow during Shadowslip
     ENCH_SHADOWLESS,
     ENCH_DOUBLED_VIGOUR,
+    ENCH_KINETIC_GRAPNEL,
+    ENCH_TEMPERED,
+    ENCH_HATCHING,
     // Update enchant_names[] in mon-ench.cc when adding or removing
     // enchantments.
     NUM_ENCHANTMENTS

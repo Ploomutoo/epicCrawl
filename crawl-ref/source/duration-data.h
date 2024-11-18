@@ -5,9 +5,12 @@
 #pragma once
 
 #include "act-iter.h"
+#include "mon-death.h"
 #include "god-abil.h"
 #include "god-companions.h"
 #include "god-passive.h"
+#include "spl-damage.h"
+#include "spl-other.h"
 #include "spl-selfench.h"
 #include "tag-version.h"
 #include "timed-effects.h"
@@ -32,12 +35,8 @@ static void _end_death_channel()
     you.attribute[ATTR_DIVINE_DEATH_CHANNEL] = 0;
     for (monster_iterator mi; mi; ++mi)
     {
-        if (mi->type == MONS_SPECTRAL_THING && mi->summoner == MID_PLAYER)
-        {
-            mon_enchant abj = mi->get_ench(ENCH_FAKE_ABJURATION);
-            abj.duration = 0;
-            mi->update_ench(abj);
-        }
+        if (mi->was_created_by(you, SPELL_DEATH_CHANNEL))
+            monster_die(**mi, KILL_TIMEOUT, NON_MONSTER);
     }
 }
 
@@ -645,7 +644,8 @@ static const duration_def duration_data[] =
       "You are surrounded by jinxing sprites.", D_DISPELLABLE | D_EXPIRES,
       {{ "The jinxing sprites lose interest in you." }}},
     { DUR_CANINE_FAMILIAR_DEAD, YELLOW, "-Dog", "unable to call your familiar",
-      "You are unable to call your canine familiar.", "", D_EXPIRES, {{ "",
+      "canine familiar cooldown", "You are unable to call your canine familiar.",
+      D_EXPIRES, {{ "",
         [](){mprf(MSGCH_RECOVERY, "Your familiar recovers from its injuries.");}}}},
     { DUR_BEOGH_CAN_RECRUIT, LIGHTBLUE, "Recruit", "", "can recruit",
       "You may recruit a defeated apostle into your service", D_EXPIRES,
@@ -754,6 +754,10 @@ static const duration_def duration_data[] =
     { DUR_CONSTRICTION_IMMUNITY, 0, "", "", "constrict immune", "", D_NO_FLAGS, {{""}}},
     { DUR_GRAVE_CLAW_RECHARGE, 0, "", "", "grave claw recharging", "", D_NO_FLAGS},
     { DUR_TIME_WARPED_BLOOD_COOLDOWN, 0, "", "", "time-warped blood cooldown", "", D_NO_FLAGS},
+    { DUR_SPIKE_LAUNCHER_ACTIVE, 0, "", "", "spike launcher", "", D_NO_FLAGS, {{"", end_spike_launcher}}},
+    { DUR_PARAGON_ACTIVE, 0, "", "", "paragon active", "", D_NO_FLAGS, {{""}}},
+    { DUR_FORTRESS_BLAST_TIMER, 0, "", "", "fortress blast charging", "", D_DISPELLABLE},
+    { DUR_PHALANX_BARRIER, 0, "", "phalanx barrier", "phalanx barrier", "", D_NO_FLAGS},
 
 #if TAG_MAJOR_VERSION == 34
     // And removed ones

@@ -151,10 +151,12 @@ enum attack_flavour
     AF_FOUL_FLAME,
     AF_HELL_HUNT,
     AF_SWARM,
+    AF_ALEMBIC,
+    AF_BOMBLET,
 };
 
 // Non-spell "summoning" types to give to monster::mark_summoned(), or
-// as the fourth parameter of mgen_data's constructor.
+// as the second parameter of mgen_data::set_summoned().
 //
 // Negative values since spells are non-negative.
 enum mon_summon_type
@@ -172,6 +174,7 @@ enum mon_summon_type
     MON_SUMM_LANTERN, // Lantern of shadows
 #endif
     MON_SUMM_BUTTERFLIES, // Scroll of butterflies
+    MON_SUMM_REAPING, // Yred's reaping passive
 };
 
 #include "mon-flags.h"

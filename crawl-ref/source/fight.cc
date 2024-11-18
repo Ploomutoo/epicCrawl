@@ -89,18 +89,12 @@ int aux_to_hit()
 
 }
 
-static double _to_hit_to_land(attack &atk)
-{
-    int to_land = atk.calc_pre_roll_to_hit(false);
-    if (to_land >= AUTOMATIC_HIT)
-        return 1;
-
-    return to_land;
-}
-
 static double _to_hit_hit_chance(const monster_info& mi, attack &atk, bool melee,
                                  int to_land, bool is_aux = false)
 {
+    if (to_land >= AUTOMATIC_HIT)
+        return 1.0;
+
     const double AUTO_MISS_CHANCE = is_aux ? 0 : 2.5;
     const double AUTO_HIT_CHANCE = is_aux ? 3.3333 : 2.5;
 
@@ -154,11 +148,17 @@ static double _to_hit_shield_chance(const monster_info& mi,
                                     bool melee, int to_land, bool penetrating)
 {
     // Duplicates more logic that is defined in attack::attack_shield_blocked, and
-    // attack_melee and attack_ranged classes, for real attacks.
+    // melee_attack and ranged_attack classes, for real attacks, and also
+    // monster::shield_bonus (since it's randomised and loses some resolution
+    // through division, it's more accurate to use floating point math here.)
 
-    // Attack first checks for incapacitation, this is handled with a shield bonus
-    // of -100 (or if they have no shield) so we can resolve this here.
-    if (mi.shield_bonus == -100)
+    // Guaranteed hits should ignore the shield as well
+    if (to_land >= AUTOMATIC_HIT)
+        return 0;
+
+    // Shield bonus is -100 if incapacitated or the roll is too low, resolve
+    // that first. Monster can only block at all if shield_class > 2.
+    if (mi.incapacitated() || mi.sh <= 2)
         return 0;
 
     // There is also a check for a ranged attacker to ignore a shield, but we can't call
@@ -169,13 +169,24 @@ static double _to_hit_shield_chance(const monster_info& mi,
 
     // Main check
     const int con_block = you.shield_bypass_ability(to_land);
-    const int pro_block = _to_hit_is_invisible(mi) ? mi.shield_bonus : mi.shield_bonus / 3;
 
-    // There is also a check for shield exhausted but we have no way of accounting for
-    // this (and we assume not)
+    // This is an approximation of the average result of shield_bonus, which
+    // looks odd due to how integer rounding affects the result for different
+    // values of sh. It's a sequence of fractions looking like:
+    // 1/3, 2/4, 4/5, 6/6, 9/7, 12/8, 16/9, 20/10 ... (for sh starting from 3)
+    const int pro_mult = (mi.sh - 1) / 2;
+    double pro_block = (double)(pro_mult * (mi.sh - pro_mult - 1)) / (double)mi.sh;
+
+    // Slightly inaccurate for very low shield values as the chance should be
+    // zero below a certain sh, due to integer division in attack_shield_blocked.
+    if (_to_hit_is_invisible(mi))
+        pro_block /= 3.0;
+
+    // Shield exhaustion would be checked at this point but it's only meaningful
+    // for multiple hits, so for basic hit chance we assume no exhaustion.
 
     // Final average
-    return min(1.0, max(0.0, (double)pro_block / (double)con_block));
+    return min(1.0, max(0.0, pro_block / (double)con_block));
 }
 
 /**
@@ -187,7 +198,7 @@ static double _to_hit_shield_chance(const monster_info& mi,
 int to_hit_pct(const monster_info& mi, attack &atk, bool melee,
                bool penetrating, int distance)
 {
-    const int to_land = _to_hit_to_land(atk);
+    const int to_land = atk.calc_pre_roll_to_hit(false);
     const double hit_chance = _to_hit_hit_chance(mi, atk, melee, to_land);
     const double shield_chance = _to_hit_shield_chance(mi, melee, to_land, penetrating);
     const int blind_miss_chance = player_blind_miss_chance(distance);
@@ -463,6 +474,9 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
         if (you.duration[DUR_EXECUTION])
             you.duration[DUR_EXECUTION] += you.time_taken;
 
+        if (you.duration[DUR_PARAGON_ACTIVE])
+            paragon_attack_trigger();
+
         return true;
     }
 
@@ -553,6 +567,11 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
         fire_final_effects();
     }
 
+    // Here, rather than in melee_attack, so that it only triggers on attack
+    // actions, rather than additional times for bonus attacks (ie: from Autumn Katana)
+    if (attacker->as_monster()->type == MONS_PLATINUM_PARAGON)
+        paragon_charge_up(*attacker->as_monster());
+
     return true;
 }
 
@@ -585,7 +604,7 @@ stab_type find_stab_type(const actor *attacker,
     // No stabbing monsters that cannot fight (e.g. plants) or monsters
     // the attacker can't see (either due to invisibility or being behind
     // opaque clouds).
-    if (def && mons_is_firewood(*def))
+    if (def && def->is_firewood())
         return STAB_NO_STAB;
 
     if (attacker && !attacker->can_see(defender))
@@ -1465,6 +1484,61 @@ string stop_summoning_reason(resists_t resists, monclass_flags_t flags)
     if (you.duration[DUR_VORTEX])
         return "polar vortex";
     return "";
+}
+
+bool warn_about_bad_targets(spell_type spell, vector<coord_def> targets,
+                            function<bool(const monster&)> should_ignore)
+{
+    return warn_about_bad_targets(spell_title(spell), targets, should_ignore);
+}
+
+bool warn_about_bad_targets(const char* source_name, vector<coord_def> targets,
+                            function<bool(const monster&)> should_ignore)
+{
+    vector<const monster*> bad_targets;
+    for (coord_def p : targets)
+    {
+        const monster* mon = monster_at(p);
+        if (!mon || god_protects(&you, *mon)
+            || always_shoot_through_monster(&you, *mon))
+        {
+            continue;
+        }
+
+        if (should_ignore && should_ignore(*mon))
+            continue;
+
+        // If we've already found and marked this target as bad, don't include
+        // it a second time (or it will produce a confusing prompt).
+        if (find(bad_targets.begin(), bad_targets.end(), mon) != bad_targets.end())
+            continue;
+
+        string adj, suffix;
+        bool penance;
+        if (bad_attack(mon, adj, suffix, penance, you.pos()))
+            bad_targets.push_back(mon);
+    }
+
+    if (bad_targets.empty())
+        return false;
+
+    const monster* ex_mon = bad_targets.back();
+    string adj, suffix;
+    bool penance;
+    bad_attack(ex_mon, adj, suffix, penance, you.pos());
+    const string and_more = bad_targets.size() > 1 ?
+            make_stringf(" (and %zu other bad targets)",
+                         bad_targets.size() - 1) : "";
+    const string prompt = make_stringf("%s might hit %s%s. Cast it anyway?",
+                                       source_name,
+                                       ex_mon->name(DESC_THE).c_str(),
+                                       and_more.c_str());
+    if (!yesno(prompt.c_str(), false, 'n'))
+    {
+        canned_msg(MSG_OK);
+        return true;
+    }
+    return false;
 }
 
 /**

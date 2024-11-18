@@ -656,7 +656,8 @@ static bool _artp_can_go_on_item(artefact_prop_type prop, const item_def &item,
                 || extant_props[ARTP_ENHANCE_ICE]
                 || extant_props[ARTP_ENHANCE_AIR]
                 || extant_props[ARTP_ENHANCE_EARTH]
-                || extant_props[ARTP_ENHANCE_ALCHEMY])
+                || extant_props[ARTP_ENHANCE_ALCHEMY]
+                || extant_props[ARTP_ENHANCE_FORGECRAFT])
             {
                 return false;
             }
@@ -689,6 +690,7 @@ static bool _artp_can_go_on_item(artefact_prop_type prop, const item_def &item,
         case ARTP_ENHANCE_AIR:
         case ARTP_ENHANCE_EARTH:
         case ARTP_ENHANCE_ALCHEMY:
+        case ARTP_ENHANCE_FORGECRAFT:
             // Maybe we should allow these for robes, too?
             // And hats? And gloves and cloaks and scarves?
             return !extant_props[ARTP_PREVENT_SPELLCASTING];
@@ -880,6 +882,8 @@ static const artefact_prop_data artp_data[] =
         nullptr, nullptr, 0, 0 },
     { "TrogLoud", ARTP_VAL_BOOL, 0,   // ARTP_TROG_LOUD,
         nullptr, nullptr, 0, 0 },
+    { "Forgecraft", ARTP_VAL_BOOL, 20, // ARTP_ENHANCE_FORGECRAFT,
+        []() {return 1;}, nullptr, 0, 0},
 };
 COMPILE_CHECK(ARRAYSZ(artp_data) == ARTP_NUM_PROPERTIES);
 // weights sum to 1000
@@ -1024,12 +1028,15 @@ static void _add_good_randart_prop(artefact_prop_type prop,
  *
  * @param item          The item to apply properties to.
  * @param item_props    The properties of that item.
+<<<<<<< HEAD
  * @param quality       How high quality the randart will be, measured in number
                         of rolls for good property boosts.
  * @param max_bad_props The maximum number of bad properties this artefact can
                         be given.
  * @param lucky         Lucky players should get sligtly better than average
                         randarts. Currently this is "+1 quality".
+=======
+>>>>>>> 648c01eb48a7f6ef76dd2e9b01b7d7ccb6cf2377
  */
 static void _get_randart_properties(const item_def &item,
                                     artefact_properties_t &item_props, bool lucky = false)
@@ -1077,7 +1084,7 @@ static void _get_randart_properties(const item_def &item,
     // enhance one good property.
     int good = max(quality + fixed_bad + bad - fixed_good, 0);
 
-    // We want avoid generating more then 4-ish properties properties or things
+    // We want to avoid generating more than 4-ish properties or things
     // get spammy. Extra "good" properties will be used to enhance properties
     // only, not to add more distinct properties. There's still a small chance
     // of >4 properties.

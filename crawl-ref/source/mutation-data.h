@@ -2359,6 +2359,15 @@ static const mutation_def mut_data[] =
   TILEG_MUT_NO_ALCHEMY_MAGIC,
 },
 
+{ MUT_NO_FORGECRAFT_MAGIC, 0, 1, mutflag::bad, false,
+  "no forgecraft magic",
+
+  {"You cannot study or cast Forgecraft magic.", "", ""},
+  {"You can no longer study or cast Forgecraft magic.", "", ""},
+  {"You can once more study and cast Forgecraft magic.", "", ""},
+  TILEG_MUT_NO_FORGECRAFT_MAGIC,
+},
+
 { MUT_NO_SUMMONING_MAGIC, 0, 1, mutflag::bad, false,
   "no summoning magic",
 
@@ -2657,6 +2666,8 @@ static const mutation_def mut_data[] =
   {"Your lower body shifts to a powerful aquatic tail in water.", "", ""},
   {"Your legs feel aquatic.", "", ""},
   {"Your legs no longer feel aquatic."},
+
+  TILEG_MUT_MERTAIL,
 },
 
 { MUT_FLOAT, 0, 1, mutflag::good, false,

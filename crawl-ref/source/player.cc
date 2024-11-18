@@ -447,7 +447,7 @@ bool swap_check(monster* mons, coord_def &loc, bool quiet)
     }
 
     // First try: move monster onto your position.
-    bool swap = !monster_at(loc) && monster_habitable_grid(mons, env.grid(loc));
+    bool swap = !monster_at(loc) && monster_habitable_grid(mons, loc);
 
     // Choose an appropriate habitat square at random around the target.
     if (!swap)
@@ -455,7 +455,7 @@ bool swap_check(monster* mons, coord_def &loc, bool quiet)
         int num_found = 0;
 
         for (adjacent_iterator ai(mons->pos()); ai; ++ai)
-            if (!monster_at(*ai) && monster_habitable_grid(mons, env.grid(*ai))
+            if (!monster_at(*ai) && monster_habitable_grid(mons, *ai)
                 && one_chance_in(++num_found))
             {
                 loc = *ai;
@@ -1280,7 +1280,8 @@ static bool _mons_inhibits_regen(const monster &m)
 {
     return mons_is_threatening(m)
                 && !m.wont_attack()
-                && !m.neutral();
+                && !m.neutral()
+                && you.can_see(m);
 }
 
 /// Is the player's hp regeneration inhibited by nearby monsters?
@@ -1847,6 +1848,11 @@ int player_spec_hex()
 int player_spec_summ()
 {
     return you.scan_artefacts(ARTP_ENHANCE_SUMM);
+}
+
+int player_spec_forgecraft()
+{
+    return you.scan_artefacts(ARTP_ENHANCE_FORGECRAFT);
 }
 
 int player_spec_alchemy()
@@ -4796,7 +4802,7 @@ bool sticky_flame_player(int intensity, int duration, string source, string sour
     }
     else
     {
-        mprf(MSGCH_WARN, "You are covered in %sliquid fire!",
+        mprf(MSGCH_WARN, "You are covered in %sliquid fire! Move or burn!",
                          intensity_str.c_str());
     }
 
@@ -4954,6 +4960,18 @@ void barb_player(int turns, int pow)
         you.increase_duration(DUR_BARBS, turns, max_turns);
         you.attribute[ATTR_BARBS_POW] =
             min(max_pow, you.attribute[ATTR_BARBS_POW]++);
+    }
+}
+
+void crystallize_player()
+{
+    if (x_chance_in_y(3, 4))
+    {
+        if (!you.duration[DUR_VITRIFIED])
+            mpr("Your body becomes as fragile as glass!");
+        else
+            mpr("You feel your fragility will last longer.");
+        you.increase_duration(DUR_VITRIFIED, random_range(8, 18), 50);
     }
 }
 
@@ -6633,6 +6651,9 @@ int player::armour_class_with_specific_items(int scale,
     if (you.props.exists(PASSWALL_ARMOUR_KEY))
         AC += you.props[PASSWALL_ARMOUR_KEY].get_int() * 100;
 
+    if (you.duration[DUR_PHALANX_BARRIER])
+        AC += you.props[PHALANX_BARRIER_POWER_KEY].get_int();
+
     AC -= 100 * corrosion_amount();
 
     AC += sanguine_armour_bonus();
@@ -7432,7 +7453,7 @@ void player::paralyse(const actor *who, int str, string source)
 
     stop_delay(true, true);
     stop_directly_constricting_all(false);
-    end_wait_spells();
+    stop_channelling_spells();
     redraw_armour_class = true;
     redraw_evasion = true;
 }
@@ -7486,7 +7507,7 @@ bool player::fully_petrify(bool /*quiet*/)
     _pruneify();
 
     stop_delay(true, true);
-    end_wait_spells();
+    stop_channelling_spells();
 
     return true;
 }
@@ -7856,7 +7877,8 @@ bool player::is_stationary() const
 
 bool player::is_motile() const
 {
-    return !is_stationary() && !you.duration[DUR_NO_MOMENTUM];
+    return !is_stationary() && !you.duration[DUR_NO_MOMENTUM]
+                            && !you.duration[DUR_FORTRESS_BLAST_TIMER];
 }
 
 bool player::malmutate(const string &reason)
@@ -8000,7 +8022,7 @@ void player::put_to_sleep(actor*, int power, bool hibernate)
     _pruneify();
 
     stop_directly_constricting_all(false);
-    end_wait_spells();
+    stop_channelling_spells();
     stop_delay(true, true);
     flash_view(UA_MONSTER, DARKGREY);
 
@@ -8101,7 +8123,7 @@ bool player::can_do_shaft_ability(bool quiet) const
         return false;
     }
 
-    if (you.duration[DUR_NO_MOMENTUM])
+    if (!you.is_motile())
     {
         if (!quiet)
             mpr("You can't shaft yourself while stuck.");
@@ -8277,6 +8299,7 @@ bool player::attempt_escape()
 
 void player::sentinel_mark(bool trap)
 {
+    flash_tile(you.pos(), YELLOW, 120, TILE_BOLT_SENTINEL_MARK);
     if (duration[DUR_SENTINEL_MARK])
     {
         mpr("The mark upon you grows brighter.");

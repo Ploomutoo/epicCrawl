@@ -535,6 +535,11 @@ void debuff_player(bool ignore_resistance)
             mprf(MSGCH_DURATION, "You are no longer on fire.");
             end_sticky_flame_player();
         }
+        else if (duration == DUR_FORTRESS_BLAST_TIMER)
+        {
+            len = 0;
+            mprf(MSGCH_DURATION, "Your fortress blast dissipates harmlessly.");
+        }
         else if (len > 1)
         {
             len = 1;
@@ -590,7 +595,7 @@ bool monster_is_debuffable(const monster &mon)
 
 bool monster_can_be_unravelled(const monster& mon)
 {
-    return monster_is_debuffable(mon) || mon.is_summoned();
+    return monster_is_debuffable(mon) || mon.is_abjurable();
 }
 
 /**
@@ -1286,7 +1291,7 @@ void setup_cleansing_flame_beam(bolt &beam, int pow,
     if (caster == cleansing_flame_source::generic
         || caster == cleansing_flame_source::tso)
     {
-        beam.thrower   = KILL_MISC;
+        beam.thrower   = KILL_NON_ACTOR;
         beam.source_id = MID_NOBODY;
     }
     else if (attacker->is_player())
@@ -1367,7 +1372,7 @@ void dreamshard_shatter()
         {
             mgen_data mg(RANDOM_COMPATIBLE_MONSTER, BEH_FRIENDLY, you.pos(),
                          MHITYOU, MG_FORCE_BEH | MG_AUTOFOE | MG_NO_OOD);
-            mg.set_summoned(&you, 4, MON_SUMM_AID, GOD_NO_GOD);
+            mg.set_summoned(&you, MON_SUMM_AID, summ_dur(4));
             if (create_monster(mg))
                 ++created;
         }

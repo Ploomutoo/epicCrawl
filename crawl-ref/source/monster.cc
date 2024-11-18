@@ -294,7 +294,7 @@ bool monster::floundering_at(const coord_def p) const
     const dungeon_feature_type grid = env.grid(p);
     return (liquefied(p)
             || (feat_is_water(grid)
-                // Can't use monster_habitable_grid() because that'll return
+                // Can't use monster_habitable_feat() because that'll return
                 // true for non-water monsters in shallow water.
                 && mons_primary_habitat(*this) != HT_WATER
                 // Use real_amphibious to detect giant non-water monsters in
@@ -314,9 +314,9 @@ bool monster::can_pass_through_feat(dungeon_feature_type grid) const
     return mons_class_can_pass(mons_base_type(*this), grid);
 }
 
-bool monster::is_habitable_feat(dungeon_feature_type actual_grid) const
+bool monster::is_habitable_feat(dungeon_feature_type feat) const
 {
-    return monster_habitable_grid(this, actual_grid);
+    return monster_habitable_feat(this, feat);
 }
 
 bool monster::can_drown() const
@@ -525,7 +525,7 @@ item_def *monster::get_defining_object() const
     // really guarantee these items
     if (mons_class_is_animated_weapon(type) && inv[MSLOT_WEAPON] != NON_ITEM)
         return &env.item[inv[MSLOT_WEAPON]];
-    else if (type == MONS_ANIMATED_ARMOUR && inv[MSLOT_ARMOUR] != NON_ITEM)
+    else if (type == MONS_ARMOUR_ECHO && inv[MSLOT_ARMOUR] != NON_ITEM)
         return &env.item[inv[MSLOT_ARMOUR]];
 
     return nullptr;
@@ -1045,8 +1045,15 @@ bool monster::unequip(item_def &item, bool msg, bool force)
     switch (item.base_type)
     {
     case OBJ_WEAPONS:
-        if (!force && mons_class_is_animated_object(type))
+        // In specific circumstances, it is possible for a launcher-wielding
+        // paragon to put their launcher away to punch something instead (which
+        // causes problems with its abilities). So try to prevent them from
+        // doing this.
+        if (!force && mons_class_is_animated_object(type)
+            && type != MONS_PLATINUM_PARAGON)
+        {
             return false;
+        }
         unequip_weapon(item, msg);
         break;
 
@@ -1242,34 +1249,28 @@ bool monster::drop_item(mon_inv_type eslot, bool msg)
 
     if (pitem.flags & ISFLAG_SUMMONED)
     {
-        if (msg)
-        {
-            mprf("%s %s as %s drops %s!",
-                 pitem.name(DESC_THE).c_str(),
-                 summoned_poof_msg(this, pitem).c_str(),
-                 name(DESC_THE).c_str(),
-                 pitem.quantity > 1 ? "them" : "it");
-        }
+        // Monsters sometimes drop summoned items in the process of being
+        // initialized and given equipment, but they should never try to do
+        // this where the player can see it.
+        ASSERT(!msg);
 
         item_was_destroyed(pitem);
         destroy_item(item_index);
     }
-    else
+
+    if (msg)
     {
-        if (msg)
-        {
-            mprf("%s drops %s.", name(DESC_THE).c_str(),
-                 pitem.name(DESC_A).c_str());
-        }
+        mprf("%s drops %s.", name(DESC_THE).c_str(),
+                pitem.name(DESC_A).c_str());
+    }
 
-        if (!move_item_to_grid(&item_index, pos(), swimming()))
-        {
-            // Re-equip item if we somehow failed to drop it.
-            if (was_unequipped && msg)
-                equip_message(pitem);
+    if (!move_item_to_grid(&item_index, pos(), swimming()))
+    {
+        // Re-equip item if we somehow failed to drop it.
+        if (was_unequipped && msg)
+            equip_message(pitem);
 
-            return false;
-        }
+        return false;
     }
 
     inv[eslot] = NON_ITEM;
@@ -2625,7 +2626,7 @@ void monster::set_position(const coord_def &c)
     actor::set_position(c);
 }
 
-void monster::moveto(const coord_def& c, bool clear_net)
+void monster::moveto(const coord_def& c, bool clear_net, bool clear_constrict)
 {
     if (clear_net && c != pos() && in_bounds(pos()))
         mons_clear_trapping_net(this);
@@ -2634,8 +2635,11 @@ void monster::moveto(const coord_def& c, bool clear_net)
 
     // Do constriction invalidation after to the move, so that all LOS checking
     // is available.
-    clear_invalid_constrictions(true);
-    clear_far_engulf();
+    if (clear_constrict)
+    {
+        clear_invalid_constrictions(true);
+        clear_far_engulf();
+    }
 }
 
 bool monster::fumbles_attack()
@@ -3204,7 +3208,7 @@ int monster::base_armour_class() const
         return get_experience_level() / 2;
     }
 
-    if (type == MONS_ANIMATED_ARMOUR)
+    if (type == MONS_ARMOUR_ECHO)
     {
         // Armour spirits get double AC from their armour.
         const int armour_slot = inv[MSLOT_ARMOUR];
@@ -4104,6 +4108,7 @@ int monster::skill(skill_type sk, int scale, bool /*real*/, bool /*temp*/) const
     case SK_EARTH_MAGIC:
     case SK_AIR_MAGIC:
     case SK_SUMMONINGS:
+    case SK_FORGECRAFT:
         return is_actual_spellcaster() ? hd : hd / 3;
 
     // Weapon skills for spectral weapon
@@ -4385,7 +4390,7 @@ int monster::hurt(const actor *agent, int amount, beam_type flavour,
            did_hurt_conduct(DID_HURT_FOE, *this, amount);
         }
 
-        if (amount && !mons_is_firewood(*this)
+        if (amount && !is_firewood()
             && agent && agent->alive() && agent->is_monster()
             && agent->as_monster()->has_ench(ENCH_ANGUISH))
         {
@@ -4453,7 +4458,7 @@ int monster::hurt(const actor *agent, int amount, beam_type flavour,
         && type != MONS_NO_MONSTER)
     {
         if (agent == nullptr)
-            monster_die(*this, KILL_MISC, NON_MONSTER);
+            monster_die(*this, KILL_NON_ACTOR, NON_MONSTER);
         else if (agent->is_player())
             monster_die(*this, KILL_YOU, NON_MONSTER);
         else
@@ -4558,19 +4563,10 @@ void monster::uglything_init(bool only_mutate)
     colour          = ghost->colour;
 }
 
-void monster::inugami_init()
-{
-    hit_dice            = ghost->xl;
-    // these `max`es let an incomplete inugami be valid long enough to get
-    // fully set up
-    max_hit_points      = max(static_cast<int>(ghost->max_hp), 1);
-    hit_points          = max(max_hit_points, 1);
-}
-
 void monster::ghost_demon_init()
 {
-    hit_dice        = ghost->xl;
-    max_hit_points  = min<short int>(ghost->max_hp, MAX_MONSTER_HP);
+    hit_dice        = max<short int>(ghost->xl, 1);
+    max_hit_points  = max<short int>(1, min<short int>(ghost->max_hp, MAX_MONSTER_HP));
     hit_points      = max_hit_points;
     speed           = ghost->speed;
     speed_increment = 70;
@@ -4638,7 +4634,7 @@ bool monster::check_set_valid_home(const coord_def &place,
     if (actor_at(place))
         return false;
 
-    if (!monster_habitable_grid(this, env.grid(place)))
+    if (!monster_habitable_grid(this, place))
         return false;
 
     if (!is_trap_safe(place))
@@ -4653,7 +4649,7 @@ bool monster::check_set_valid_home(const coord_def &place,
 
 bool monster::is_location_safe(const coord_def &place)
 {
-    if (!monster_habitable_grid(this, env.grid(place)))
+    if (!monster_habitable_grid(this, place))
         return false;
 
     if (!is_trap_safe(place))
@@ -4716,7 +4712,7 @@ bool monster::find_home_near_place(const coord_def &c)
                 continue;
             dist(*ai - c) = last_dist = dist(p - c) + 1;
 
-            if (!monster_habitable_grid(this, env.grid(*ai)))
+            if (!monster_habitable_grid(this, *ai))
                 continue;
 
             q.push(*ai);
@@ -4774,10 +4770,10 @@ bool monster::needs_abyss_transit() const
 {
     return (mons_is_unique(type)
             || (flags & MF_BANISHED)
-            || get_experience_level() > 8 + random2(25)
-            && mons_can_use_stairs(*this))
+               && get_experience_level() > 8 + random2(25)
+               && mons_can_use_stairs(*this))
         && !is_summoned()
-        && !mons_is_conjured(type)
+        && !is_peripheral()
         // We want to 'kill' banished apostles for real, so that they can escape
         // on their own instead of being actually lost in the abyss
         && type != MONS_ORC_APOSTLE;
@@ -4971,7 +4967,6 @@ bool monster::can_get_mad() const
         return false;
 
     // Brainless natural monsters can still be berserked/frenzied.
-    // This could maybe all be replaced by mons_is_object()?
     if (mons_intel(*this) == I_BRAINLESS && !(holiness() & MH_NATURAL))
         return false;
 
@@ -5274,7 +5269,9 @@ static bool _mons_is_icy(int mc)
            || mc == MONS_ICE_STATUE
            || mc == MONS_BLOCK_OF_ICE
            || mc == MONS_NARGUN
-           || mc == MONS_HOARFROST_CANNON;
+           || mc == MONS_HOARFROST_CANNON
+           || mc == MONS_PILLAR_OF_RIME
+           || mc == MONS_SPLINTERFROST_BARRICADE;
 }
 
 bool monster::is_icy() const
@@ -5382,7 +5379,7 @@ void monster::apply_location_effects(const coord_def &oldpos,
 
     if (alive()
         && (mons_habitat(*this) == HT_WATER || mons_habitat(*this) == HT_LAVA)
-        && !monster_habitable_grid(this, env.grid(pos()))
+        && !monster_habitable_grid(this, pos())
         && type != MONS_HELLFIRE_MORTAR
         && !has_ench(ENCH_AQUATIC_LAND))
     {
@@ -5391,9 +5388,9 @@ void monster::apply_location_effects(const coord_def &oldpos,
 
     if (alive() && has_ench(ENCH_AQUATIC_LAND))
     {
-        if (!monster_habitable_grid(this, env.grid(pos())))
+        if (!monster_habitable_grid(this, pos()))
             simple_monster_message(*this, " flops around on dry land!");
-        else if (!monster_habitable_grid(this, env.grid(oldpos)))
+        else if (!monster_habitable_grid(this, oldpos))
         {
             if (you.can_see(*this))
             {
@@ -5494,7 +5491,8 @@ void monster::self_destruct()
  *  @param force     whether to move it even if you're standing there
  *  @returns whether the move took place.
  */
-bool monster::move_to_pos(const coord_def &newpos, bool clear_net, bool force)
+bool monster::move_to_pos(const coord_def &newpos, bool clear_net, bool force,
+                          bool clear_constrict)
 {
     const actor* a = actor_at(newpos);
     if (a && !(a->is_player() && (fedhas_passthrough(this) || force)))
@@ -5507,7 +5505,7 @@ bool monster::move_to_pos(const coord_def &newpos, bool clear_net, bool force)
         env.mgrid(pos()) = NON_MONSTER;
 
     // Set monster x,y to new value.
-    moveto(newpos, clear_net);
+    moveto(newpos, clear_net, clear_constrict);
 
     // Set new monster grid pointer to this monster.
     env.mgrid(newpos) = index;
@@ -5539,8 +5537,8 @@ bool monster::swap_with(monster* other)
         return false;
     }
 
-    if (!monster_habitable_grid(this, env.grid(new_pos))
-        || !monster_habitable_grid(other, env.grid(old_pos)))
+    if (!monster_habitable_grid(this, new_pos)
+        || !monster_habitable_grid(other, old_pos))
     {
         return false;
     }
@@ -5591,7 +5589,7 @@ bool monster::do_shaft()
     // If a pacified monster is leaving the level via a shaft trap, and
     // has reached its goal, vaporize it instead of moving it.
     // ditto, non-monsters like battlespheres and prisms.
-    if (!pacified() && !mons_is_conjured(type))
+    if (!pacified() && !is_peripheral())
         set_transit(lev);
 
     string msg = make_stringf(" %s a shaft!",
@@ -5666,7 +5664,7 @@ bool monster::matches_player_speed() const
 {
     if (crawl_state.game_is_arena()
         || !mons_is_recallable(&you, *this)
-        || is_summoned())
+        || has_ench(ENCH_SUMMON_TIMER))
     {
         return false;
     }
@@ -5676,11 +5674,8 @@ bool monster::matches_player_speed() const
     for (radius_iterator ri(pos(), 5, C_SQUARE, LOS_NO_TRANS, true); ri; ++ri)
     {
         const monster* m = monster_at(*ri);
-        if (m && !m->wont_attack() && !mons_is_firewood(*m)
-              && m->visible_to(this))
-        {
+        if (m && !m->wont_attack() && !m->is_firewood() && m->visible_to(this))
             return false;
-        }
     }
     return true;
 }
@@ -5903,7 +5898,7 @@ void monster::react_to_damage(const actor *oppressor, int damage,
                 mname = old_name;
 
             mounted_kill(this, fly_died ? MONS_HORNET : MONS_SPRIGGAN,
-                !oppressor ? KILL_MISC
+                !oppressor ? KILL_NON_ACTOR
                 : (oppressor->is_player())
                   ? KILL_YOU : KILL_MON,
                 (oppressor && oppressor->is_monster())
@@ -6477,39 +6472,22 @@ int monster::spell_hd(spell_type spell) const
 }
 
 /**
- * Remove this monsters summon's. Any monsters summoned by this monster will be
- * abjured and any spectral weapon or battlesphere avatars they have will be
- * ended.
+ * Remove this monsters summons. Any dependent summoned/created monsters
+ * belonging to this monster will time out.
  *
- * @param check_attitude If true, only remove summons/avatars whose attitude
+ * @param check_attitude If true, only remove summons/constructs whose attitude
  *                       differs from the the monster.
  */
 void monster::remove_summons(bool check_attitude)
 {
-    monster* avatar = find_spectral_weapon(this);
-    if (avatar && (!check_attitude || attitude != avatar->attitude))
-        end_spectral_weapon(avatar, false, false);
-
-    avatar = find_battlesphere(this);
-    if (avatar && (!check_attitude || attitude != avatar->attitude))
-        end_battlesphere(avatar, false);
-
     for (monster_iterator mi; mi; ++mi)
     {
-        int sumtype = 0;
-
         if ((!check_attitude || attitude != mi->attitude)
             && mi->summoner == mid
-            && (mi->is_summoned(nullptr, &sumtype)
-                || sumtype == MON_SUMM_CLONE)
-                || sumtype == SPELL_HOARFROST_CANNONADE)
+            && mi->is_summoned()
+            && !(mi->flags & MF_PERSISTS))
         {
-            mi->del_ench(ENCH_ABJ);
-
-            // TODO: Make non-abjurable things that should still be removed on
-            //       caster death not be special-cased in 4 different ways.
-            if (sumtype == SPELL_HOARFROST_CANNONADE)
-                mi->del_ench(ENCH_FAKE_ABJURATION);
+            mi->del_ench(ENCH_SUMMON_TIMER);
         }
     }
 }
@@ -6538,11 +6516,8 @@ bool monster::angered_by_attacks() const
             && !mons_is_avatar(type)
             && !mons_class_is_zombified(type)
             && !is_divine_companion()
-            && type != MONS_SPELLFORGED_SERVITOR
-            && type != MONS_HOARFROST_CANNON
-            && type != MONS_BLOCK_OF_ICE
-            && !mons_is_conjured(type)
             && !testbits(flags, MF_DEMONIC_GUARDIAN)
+            && !((holiness() & MH_NONLIVING) && mons_intel(*this) == I_BRAINLESS)
             // allied fed plants, hep ancestor:
             && !god_protects(*this);
 }
@@ -6577,4 +6552,14 @@ monster* monster::get_band_leader() const
 void monster::set_band_leader(const monster& leader)
 {
     props[BAND_LEADER_KEY].get_int() = leader.mid;
+}
+
+bool monster::is_firewood() const
+{
+    return mons_class_is_firewood(type);
+}
+
+bool monster::is_peripheral() const
+{
+    return mons_class_is_peripheral(type);
 }

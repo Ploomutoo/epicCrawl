@@ -53,8 +53,7 @@ static bool _monster_clone_exists(monster* mons)
 
 static bool _mons_is_illusion_cloneable(monster* mons)
 {
-    return !mons_is_conjured(mons->type)
-           && !mons_is_tentacle_or_tentacle_segment(mons->type)
+    return !mons->is_peripheral()
            && !mons->is_illusion()
            && !_monster_clone_exists(mons);
 }
@@ -97,8 +96,8 @@ static void _mons_summon_monster_illusion(monster* caster,
         foe->props[CLONE_PRIMARY_KEY] = clone_id;
         mons_add_blame(clone,
                        "woven by " + caster->name(DESC_THE));
-        if (!clone->has_ench(ENCH_ABJ))
-            clone->mark_summoned(6, true, MON_SUMM_CLONE);
+        if (!clone->has_ench(ENCH_SUMMON_TIMER))
+            clone->mark_summoned(MON_SUMM_CLONE, summ_dur(6), true, true);
         clone->add_ench(ENCH_PHANTOM_MIRROR);
         clone->summoner = caster->mid;
 
@@ -207,20 +206,20 @@ int mons_summon_illusion_from(monster* mons, actor *foe,
 {
     if (foe->is_player())
     {
-        int abj = 6;
+        int dur = 6;
 
         if (xom)
-            abj = 2;
+            dur = 2;
         else if (card_power >= 0)
         {
           // card effect
-          abj = 2 + random2(card_power);
+          dur = 2 + random2(card_power);
         }
 
         if (monster *clone = create_monster(
                 mgen_data(MONS_PLAYER_ILLUSION, SAME_ATTITUDE(mons),
                           mons->pos(), mons->foe)
-                 .set_summoned(mons, abj, spell_cast)))
+                 .set_summoned(mons, spell_cast, summ_dur(dur))))
         {
             if (card_power >= 0)
                 mpr("Suddenly you stand beside yourself.");
@@ -257,8 +256,7 @@ bool mons_clonable(const monster* mon, bool needs_adjacent)
     if (mons_is_unique(mon->type)
         || mon->type == MONS_INUGAMI
         || mon->is_named()
-        || mons_is_conjured(mon->type)
-        || mons_is_tentacle_or_tentacle_segment(mon->type))
+        || mon->is_peripheral())
     {
         return false;
     }
@@ -271,7 +269,7 @@ bool mons_clonable(const monster* mon, bool needs_adjacent)
         {
             if (in_bounds(*ai)
                 && !actor_at(*ai)
-                && monster_habitable_grid(mon, env.grid(*ai)))
+                && monster_habitable_grid(mon, *ai))
             {
                 square_found = true;
                 break;
@@ -320,7 +318,7 @@ monster* clone_mons(const monster* orig, bool quiet, bool* obvious,
         {
             if (in_bounds(*ai)
                 && !actor_at(*ai)
-                && monster_habitable_grid(orig, env.grid(*ai)))
+                && monster_habitable_grid(orig, *ai))
             {
                 pos = *ai;
             }

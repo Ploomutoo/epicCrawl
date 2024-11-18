@@ -100,7 +100,9 @@ enum monster_info_flags
     MB_CLINGING,
 #endif
     MB_NAME_ZOMBIE,
+#if TAG_MAJOR_VERSION == 34
     MB_PERM_SUMMON,
+#endif
     MB_INNER_FLAME,
     MB_UMBRAED,
 #if TAG_MAJOR_VERSION == 34
@@ -138,8 +140,8 @@ enum monster_info_flags
     MB_CONTROL_WINDS,
     MB_WIND_AIDED,
     MB_SUMMONED_NO_STAIRS, // Temp. summoned and capped monsters
-#endif
     MB_SUMMONED_CAPPED,    // Expiring due to summons cap
+#endif
     MB_TOXIC_RADIANCE,
     MB_GRASPING_ROOTS,
     MB_FIRE_VULN,
@@ -239,6 +241,12 @@ enum monster_info_flags
     MB_SOUL_SPLINTERED,
     MB_ENGULFING_PLAYER,
     MB_DOUBLED_VIGOUR,
+    MB_ABJURABLE,
+    MB_UNREWARDING,
+    MB_MINION,
+    MB_KINETIC_GRAPNEL,
+    MB_TEMPERED,
+    MB_HATCHING,
     NUM_MB_FLAGS
 };
 
@@ -289,9 +297,9 @@ struct monster_info_base
     bool sleepwalking;
     bool backlit;
     bool umbraed;
-    int shield_bonus;
 
-    uint32_t client_id;
+    mid_t client_id;
+    mid_t summoner_id;
 };
 
 // Monster info used by the pane; precomputes some data
@@ -428,6 +436,8 @@ struct monster_info : public monster_info_base
     // (Maybe unify somehow?)
     // Note: actor version is now actor::cannot_act.
     bool cannot_move() const;
+    bool asleep() const;
+    bool incapacitated() const;
     bool airborne() const;
     bool ground_level() const;
 

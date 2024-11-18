@@ -8,6 +8,9 @@
 # fighters in a library), but that's kind of the point.
 #
 ##############################################################################
+
+: crawl_require('dlua/vault.lua')
+
 {{
 
 trove = {}
@@ -279,7 +282,7 @@ end
 function trove.spell_skills (e)
     local spell_skills = { "Spellcasting", "Conjurations", "Hexes", "Summonings",
         "Necromancy", "Translocations", "Alchemy", "Fire Magic", "Ice Magic",
-        "Air Magic", "Earth Magic" }
+        "Air Magic", "Earth Magic", "Forgecraft" }
     local skill_total = 0
     local nonzero_skills = 0
     for _, skill in ipairs(spell_skills) do
@@ -1268,14 +1271,9 @@ item(genweap(egos2[1]))
 item(genweap(egos2[2]))
 }}
 KFEAT:   + = closed_clear_door
-KFEAT:   S = metal_statue
 SHUFFLE: defg
-COLOUR:  G = mountain
-COLOUR:  S = yellow
-TILE:    G = dngn_scintillating_statue
-TILE:    S = dngn_golden_statue
-: set_feature_name("granite_statue", "scintillating statue")
-: set_feature_name("metal_statue", "golden statue")
+: vault_granite_statue_setup(_G, "G", "scintillating statue")
+: vault_metal_statue_setup(_G, "G", "golden statue")
 : trove.setup_features(_G)
 MAP
 xxxxxxxxxxxxxxxxxx

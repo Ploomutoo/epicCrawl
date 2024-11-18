@@ -497,9 +497,11 @@ public:
     // Set player position without updating view geometry.
     void set_position(const coord_def &c) override;
     // Low-level move the player. Use this instead of changing pos directly.
-    void moveto(const coord_def &c, bool clear_net = true) override;
+    void moveto(const coord_def &c, bool clear_net = true,
+                bool clear_constrict = true) override;
     bool move_to_pos(const coord_def &c, bool clear_net = true,
-                     bool /*force*/ = false) override;
+                     bool /*force*/ = false,
+                     bool clear_constrict = true) override;
     // Move the player during an abyss shift.
     void shiftto(const coord_def &c);
     bool blink_to(const coord_def& c, bool quiet = false) override;
@@ -611,9 +613,12 @@ public:
 
     god_type  deity() const override;
     bool      alive() const override;
-    bool      is_summoned(int* duration = nullptr,
-                          int* summon_type = nullptr) const override;
-    bool      is_perm_summoned() const override { return false; };
+    bool      is_summoned() const override { return false; };
+    bool      was_created_by(int) const override { return false; };
+    bool      was_created_by(const actor&, int = SPELL_NO_SPELL) const override
+                             { return false; };
+    bool      is_firewood() const override { return false; };
+    bool      is_peripheral() const override { return false; };
 
     bool        swimming() const override;
     bool        floundering() const override;
@@ -1081,6 +1086,7 @@ int player_spec_fire();
 int player_spec_hex();
 int player_spec_alchemy();
 int player_spec_summ();
+int player_spec_forgecraft();
 int player_spec_tloc();
 
 int player_speed();
@@ -1195,6 +1201,7 @@ bool spell_slow_player(int pow);
 bool slow_player(int turns);
 void dec_slow_player(int delay);
 void barb_player(int turns, int pow);
+void crystallize_player();
 void blind_player(int turns, colour_t flavour_colour = WHITE);
 int player_blind_miss_chance(int distance);
 void dec_berserk_recovery_player(int delay);

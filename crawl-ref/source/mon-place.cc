@@ -113,15 +113,14 @@ static bool _hab_requires_mon_flight(dungeon_feature_type g)
 }
 
 /**
- * Can this monster survive on actual_grid?
+ * Can this monster survive on a given feature?
  *
  * @param mon         the monster to be checked.
- * @param actual_grid the feature type that mon might not be able to survive.
+ * @param feat        the feature type that mon might not be able to survive.
  * @returns whether the monster can survive being in/over the feature,
  *          regardless of whether it may be dangerous or harmful.
  */
-bool monster_habitable_grid(const monster* mon,
-                            dungeon_feature_type actual_grid)
+bool monster_habitable_feat(const monster* mon, dungeon_feature_type feat)
 {
     // Zombified monsters enjoy the same habitat as their original,
     // except lava-based monsters.
@@ -129,40 +128,39 @@ bool monster_habitable_grid(const monster* mon,
         ? draconian_subspecies(*mon)
         : fixup_zombie_type(mon->type, mons_base_type(*mon));
 
-    bool type_safe = monster_habitable_grid(mt, actual_grid, DNGN_UNSEEN);
-    return type_safe ||
-                    _hab_requires_mon_flight(actual_grid) && mon->airborne();
+    bool type_safe = monster_habitable_feat(mt, feat);
+    return type_safe || (_hab_requires_mon_flight(feat) && mon->airborne());
 }
 
 /**
- * Can monsters of this class survive on actual_grid?
+ * Can monsters of this class survive on on a given feature type?
  *
  * @param mt the monster class to check against
- * @param actual_grid the terrain feature being checked
- * @param wanted_grid if == DNGN_UNSEEN, or if the monster can't survive on it,
- *                    ignored. Otherwise, return false even if actual_grid is
- *                    survivable, if actual_grid isn't similar to wanted_grid.
+ * @param feat the terrain feature being checked
  */
-bool monster_habitable_grid(monster_type mt,
-                            dungeon_feature_type actual_grid,
-                            dungeon_feature_type wanted_grid)
+bool monster_habitable_feat(monster_type mt, dungeon_feature_type feat)
 {
     // No monster may be placed in walls etc.
-    if (!mons_class_can_pass(mt, actual_grid))
+    if (!mons_class_can_pass(mt, feat))
         return false;
 
 #if TAG_MAJOR_VERSION == 34
     // Monsters can't use teleporters, and standing there would look just wrong.
-    if (actual_grid == DNGN_TELEPORTER)
+    if (feat == DNGN_TELEPORTER)
         return false;
 #endif
     // The kraken is so large it cannot enter shallow water.
     // Its tentacles can, and will, though.
-    if ((actual_grid == DNGN_SHALLOW_WATER
-        || actual_grid == DNGN_TOXIC_BOG)
+    if ((feat == DNGN_SHALLOW_WATER || feat == DNGN_TOXIC_BOG)
         && mt == MONS_KRAKEN)
     {
         return false;
+    }
+    // Only eldritch tentacles are allowed to exist on this feature.
+    else if (feat == DNGN_MALIGN_GATEWAY)
+    {
+        return mt == MONS_ELDRITCH_TENTACLE
+               || mt == MONS_ELDRITCH_TENTACLE_SEGMENT;
     }
 
     const dungeon_feature_type feat_preferred =
@@ -170,28 +168,8 @@ bool monster_habitable_grid(monster_type mt,
     const dungeon_feature_type feat_nonpreferred =
         habitat2grid(mons_class_secondary_habitat(mt));
 
-    // If the caller insists on a specific feature type, try to honour
-    // the request. This allows the builder to place amphibious
-    // creatures only on land, or flying creatures only on lava, etc.
-    if (wanted_grid != DNGN_UNSEEN
-        && monster_habitable_grid(mt, wanted_grid, DNGN_UNSEEN))
-    {
-        return _feat_compatible(wanted_grid, actual_grid);
-    }
-
-    if (actual_grid == DNGN_MALIGN_GATEWAY)
-    {
-        if (mt == MONS_ELDRITCH_TENTACLE
-            || mt == MONS_ELDRITCH_TENTACLE_SEGMENT)
-        {
-            return true;
-        }
-        else
-            return false;
-    }
-
-    if (_feat_compatible(feat_preferred, actual_grid)
-        || _feat_compatible(feat_nonpreferred, actual_grid))
+    if (_feat_compatible(feat_preferred, feat)
+        || _feat_compatible(feat_nonpreferred, feat))
     {
         return true;
     }
@@ -199,10 +177,20 @@ bool monster_habitable_grid(monster_type mt,
     // [dshaligram] Flying creatures are all HT_LAND, so we
     // only have to check for the additional valid grids of deep
     // water and lava.
-    if (_hab_requires_mon_flight(actual_grid) && (mons_class_flag(mt, M_FLIES)))
+    if (_hab_requires_mon_flight(feat) && (mons_class_flag(mt, M_FLIES)))
         return true;
 
     return false;
+}
+
+bool monster_habitable_grid(const monster* mon, const coord_def& pos)
+{
+    return monster_habitable_feat(mon, env.grid(pos));
+}
+
+bool monster_habitable_grid(monster_type mt, const coord_def& pos)
+{
+    return monster_habitable_feat(mt, env.grid(pos));
 }
 
 static int _ood_fuzzspan(level_id &place)
@@ -536,12 +524,24 @@ static bool _valid_monster_generation_location(const mgen_data &mg,
     }
 
     const monster_type montype = fixup_zombie_type(mg.cls, mg.base_type);
-    if (!monster_habitable_grid(montype, env.grid(mg_pos), mg.preferred_grid_feature)
+    if (!monster_habitable_grid(montype, mg_pos)
         || (mg.behaviour != BEH_FRIENDLY
             && is_sanctuary(mg_pos)
             && !mons_is_tentacle_segment(montype)))
     {
         return false;
+    }
+
+    // If we've been requested to place amphibious monsters on solid ground, do
+    // so if possible.
+    if (mg.flags & MG_PREFER_LAND)
+    {
+        habitat_type habitat = mons_class_primary_habitat(montype);
+        if (habitat != HT_WATER && habitat != HT_LAVA
+            && !feat_has_solid_floor(env.grid(mg_pos)))
+        {
+            return false;
+        }
     }
 
     bool close_to_player = grid_distance(you.pos(), mg_pos) <= LOS_RADIUS;
@@ -632,7 +632,8 @@ monster* place_monster(mgen_data mg, bool force_pos, bool dont_place)
     mg.cls = resolve_monster_type(mg.cls, mg.base_type, mg.proximity,
                                   &mg.pos, mg.map_mask,
                                   &place, &want_band, allow_ood);
-    // TODO: it doesn't seem that this check can ever come out to be true??
+    // Place may have been updated inside resolve_monster_type
+    // and then inside pick_random_monster for OOD.
     bool chose_ood_monster = place.absdepth() > mg.place.absdepth() + 5;
     if (want_band)
         mg.flags |= MG_PERMIT_BANDS;
@@ -818,7 +819,7 @@ monster* place_monster(mgen_data mg, bool force_pos, bool dont_place)
             else if (mon->type == MONS_ORC_APOSTLE)
             {
                 member->flags |= (MF_HARD_RESET | MF_APOSTLE_BAND | MF_NO_REWARD);
-                member->mark_summoned(0, true, 0, false);
+                member->mark_summoned();
             }
         }
     }
@@ -857,9 +858,9 @@ void mons_add_blame(monster* mon, const string &blame_string, bool at_front)
 static void _place_twister_clouds(monster *mon)
 {
     // Yay for the abj_degree having a huge granularity.
-    if (mon->has_ench(ENCH_ABJ))
+    if (mon->has_ench(ENCH_SUMMON_TIMER))
     {
-        mon_enchant abj = mon->get_ench(ENCH_ABJ);
+        mon_enchant abj = mon->get_ench(ENCH_SUMMON_TIMER);
         mon->lose_ench_duration(abj, abj.duration / 2);
     }
 
@@ -925,7 +926,7 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
             (!is_sanctuary(mg.pos) || mons_is_tentacle_segment(montype)))
         && !monster_at(mg.pos)
         && (you.pos() != mg.pos || fedhas_passthrough_class(mg.cls))
-        && (force_pos || monster_habitable_grid(montype, env.grid(mg.pos))))
+        && (force_pos || monster_habitable_grid(montype, mg.pos)))
     {
         fpos = mg.pos;
     }
@@ -1206,10 +1207,6 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
         mon->flags &= ~MF_KNOWN_SHIFTER;
     }
 
-    // dur should always be 1-6 for monsters that can be abjured.
-    const bool summoned = mg.abjuration_duration >= 1
-                       && mg.abjuration_duration <= 6;
-
     if (mons_class_is_animated_weapon(mg.cls))
     {
         if (mg.props.exists(TUKIMA_WEAPON))
@@ -1218,7 +1215,7 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
             mon->props[TUKIMA_WEAPON] = true;
         }
         else
-            give_item(mon, place.absdepth(), summoned);
+            give_item(mon, place.absdepth(), mg.is_summoned());
 
 
         // Dancing weapons *always* have a weapon. Fail to create them
@@ -1248,7 +1245,7 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
     else if (mons_class_itemuse(mg.cls) >= MONUSE_STARTING_EQUIPMENT
              && !mg.props.exists(KIKU_WRETCH_KEY))
     {
-        give_item(mon, place.absdepth(), summoned);
+        give_item(mon, place.absdepth(), mg.is_summoned());
         // Give these monsters a second weapon. - bwr
         if (mons_class_wields_two_weapons(mg.cls))
             give_weapon(mon, place.absdepth());
@@ -1302,13 +1299,13 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
         mon->behaviour = BEH_WANDER;
     }
 
-    if (summoned)
+    if (mg.is_summoned())
     {
-        // Instead of looking for dancing weapons, look for Tukima's dance.
-        // Dancing weapons can be created with shadow creatures. {due}
-        mon->mark_summoned(mg.abjuration_duration,
-                           mg.summon_type != SPELL_TUKIMAS_DANCE,
-                           mg.summon_type);
+        // Dancing weapons created by Tukima's Dance shouldn't mark their
+        // inventory as summoned so that they can drop themselves to the floor
+        // upon death.
+        mon->mark_summoned(mg.summon_type, mg.summon_duration,
+                           mg.summon_type != SPELL_TUKIMAS_DANCE);
         _inherit_kmap(*mon, mg.summoner);
 
         if (mg.summon_type > 0 && mg.summoner)
@@ -1327,7 +1324,7 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
 
     // Perm summons shouldn't leave gear either.
     if (mg.extra_flags & MF_HARD_RESET && mg.extra_flags & MF_NO_REWARD)
-        mon->mark_summoned(0, true, 0, false);
+        mon->mark_summoned();
 
     ASSERT(!invalid_monster_index(mg.foe)
            || mg.foe == MHITYOU || mg.foe == MHITNOT);
@@ -1337,7 +1334,7 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
 
     if (mg.flags & MG_BAND_MINION)
         blame_prefix = "led by ";
-    else if (mg.abjuration_duration > 0)
+    else if (mg.summon_duration > 0)
     {
         blame_prefix = "summoned by ";
 
@@ -1488,7 +1485,7 @@ static bool _good_zombie(monster_type base, monster_type cs,
 
     // Actually pick a monster that is happy where we want to put it.
     // Fish zombies on land are helpless and uncool.
-    if (in_bounds(pos) && !monster_habitable_grid(base, env.grid(pos)))
+    if (in_bounds(pos) && !monster_habitable_grid(base, pos))
         return false;
 
     if (cs == MONS_NO_MONSTER)
@@ -2671,7 +2668,7 @@ monster* mons_place(mgen_data mg)
     // This gives a slight challenge to the player as they ascend the
     // dungeon with the Orb.
     if (_is_random_monster(mg.cls) && player_on_orb_run()
-        && !player_in_branch(BRANCH_ABYSS) && !mg.summoned())
+        && !player_in_branch(BRANCH_ABYSS) && !mg.is_summoned())
     {
 #ifdef DEBUG_MON_CREATION
         mprf(MSGCH_DIAGNOSTICS, "Call _pick_zot_exit_defender()");
@@ -2717,10 +2714,18 @@ monster* mons_place(mgen_data mg)
         behaviour_event(creation, ME_EVAL);
     }
 
+    // If MG_AUTOFOE is set, find the nearest valid foe and point this monster
+    // towards it immediately.
     if (mg.flags & MG_AUTOFOE && (creation->attitude == ATT_FRIENDLY
                                   || mg.behaviour == BEH_CHARMED))
     {
         set_nearest_monster_foe(creation, true);
+        const actor* foe = creation->get_foe();
+        if (foe)
+        {
+            creation->behaviour = BEH_SEEK;
+            creation->target = foe->pos();
+        }
     }
 
     return creation;
@@ -2835,20 +2840,27 @@ coord_def find_newmons_square_contiguous(monster_type mons_class,
     return in_bounds(p) ? p : coord_def(-1, -1);
 }
 
-coord_def find_newmons_square(monster_type mons_class, const coord_def &p)
+coord_def find_newmons_square(monster_type mons_class, const coord_def &p,
+                              int preferred_radius, int max_radius,
+                              int exclude_radius,
+                              const actor* in_sight_of)
 {
-    coord_def empty;
-    coord_def pos(-1, -1);
+    coord_def pos(0, 0);
 
-    if (mons_class == WANDERING_MONSTER)
-        mons_class = RANDOM_MONSTER;
+    // First search within our preferred radius.
+    if (find_habitable_spot_near(p, mons_class, preferred_radius, pos,
+                                 exclude_radius, in_sight_of))
+    {
+        return pos;
+    }
 
-    // Might be better if we chose a space and tried to match the monster
-    // to it in the case of RANDOM_MONSTER, that way if the target square
-    // is surrounded by water or lava this function would work.  -- bwr
-
-    if (find_habitable_spot_near(p, mons_class, 2, true, empty))
-        pos = empty;
+    // If we didn't find a spot there, expand our search one radius at a time,
+    // until we hit max_radius.
+    for (int rad = preferred_radius + 1; rad <= max_radius; ++rad)
+    {
+        if (find_habitable_spot_near(p, mons_class, rad, pos, rad - 1, in_sight_of))
+            return pos;
+    }
 
     return pos;
 }
@@ -2873,10 +2885,8 @@ conduct_type god_hates_monster(monster_type type)
 bool mons_can_hate(monster_type type)
 {
     return you.allies_forbidden()
-        // don't turn foxfire, guardian golem, etc hostile
-        && !mons_is_conjured(type)
-        // ignore things like tentacles, butterflies, plants, etc
-        && mons_class_gives_xp(type);
+        // don't turn foxfire, blocks of ice, etc hostile
+        && !mons_class_is_peripheral(type);
 }
 
 void check_lovelessness(monster &mons)
@@ -2940,7 +2950,11 @@ monster* create_monster(mgen_data mg, bool fail_msg)
         || you.pos() == mg.pos && !fedhas_passthrough_class(mg.cls)
         || !mons_class_can_pass(montype, env.grid(mg.pos)))
     {
-        mg.pos = find_newmons_square(montype, mg.pos);
+        mg.pos = find_newmons_square(montype, mg.pos, mg.range_preferred,
+                                     mg.range_max, mg.range_min,
+                                     (mg.flags & MG_SEE_SUMMONER)
+                                        ? mg.summoner
+                                        : nullptr);
     }
 
     if (in_bounds(mg.pos))
@@ -2957,29 +2971,50 @@ monster* create_monster(mgen_data mg, bool fail_msg)
     return summd;
 }
 
+/**
+ * Attempts to choose a random empty cell that a monster could occupy, within a
+ * certain radius of a given position and with valid line of sight to that
+ * position.
+ *
+ * @param where          The center point to begin searching.
+ * @param mon_type       The type of monster to test habitability for.
+ * @param radius         How far from the center point to include in the search.
+ * @param result [out]  If a spot is chosen, this will be set to its location.
+ *                      Will remain unchanged if no valid spot is found.
+ * @param exclude_radius All spots within this distance of the center point will
+ *                       be excluded from the search. (Defaults to -1, which
+ *                       excludes nothing. 0 will exclude only the center.)
+ * @param in_sight_of  If not null, spots will only be considered valid so long
+ *                     as they are in sight of the given actor.
+ *
+ * @return Whether a valid spot was found. (If true, empty will be set to this spot)
+ */
 bool find_habitable_spot_near(const coord_def& where, monster_type mon_type,
-                              int radius, bool allow_centre, coord_def& empty,
-                              bool in_player_sight)
+                              int radius, coord_def& result, int exclude_radius,
+                              const actor* in_sight_of)
 {
     int good_count = 0;
 
-    for (radius_iterator ri(where, radius, C_SQUARE, !allow_centre);
+    for (radius_iterator ri(where, radius, C_SQUARE, exclude_radius >= 0);
          ri; ++ri)
     {
+        if (exclude_radius > 0 && grid_distance(where, *ri) <= exclude_radius)
+            continue;
+
         if (actor_at(*ri))
             continue;
 
         if (!cell_see_cell(where, *ri, LOS_NO_TRANS))
             continue;
 
-        if (!monster_habitable_grid(mon_type, env.grid(*ri)))
+        if (!monster_habitable_grid(mon_type, *ri))
             continue;
 
-        if (in_player_sight && !you.see_cell_no_trans(*ri))
+        if (in_sight_of && !in_sight_of->see_cell_no_trans(*ri))
             continue;
 
         if (one_chance_in(++good_count))
-            empty = *ri;
+            result = *ri;
     }
 
     return good_count > 0;

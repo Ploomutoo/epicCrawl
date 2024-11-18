@@ -174,7 +174,7 @@ static bool _valid_morph(monster* mons, monster_type new_mclass)
     }
 
     // Determine if the monster is happy on current tile.
-    return monster_habitable_grid(new_mclass, env.grid(mons->pos()));
+    return monster_habitable_grid(new_mclass, mons->pos());
 }
 
 static bool _jiyva_slime_target(monster_type targetc)
@@ -225,7 +225,7 @@ void change_monster_type(monster* mons, monster_type targetc, bool do_seen)
     }
 
     // Inform listeners that the original monster is gone.
-    fire_monster_death_event(mons, KILL_MISC, true);
+    fire_monster_death_event(mons, KILL_NON_ACTOR, true);
 
     // the actual polymorphing:
     auto flags =
@@ -302,18 +302,17 @@ void change_monster_type(monster* mons, monster_type targetc, bool do_seen)
     if (!mons->props.exists(ORIG_HD_KEY))
         mons->props[ORIG_HD_KEY] = mons->get_experience_level();
 
-    mon_enchant abj       = mons->get_ench(ENCH_ABJ);
-    mon_enchant fabj      = mons->get_ench(ENCH_FAKE_ABJURATION);
+    mon_enchant timer     = mons->get_ench(ENCH_SUMMON_TIMER);
     mon_enchant charm     = mons->get_ench(ENCH_CHARM);
     mon_enchant shifter   = mons->get_ench(ENCH_GLOWING_SHAPESHIFTER,
                                            ENCH_SHAPESHIFTER);
     mon_enchant summon    = mons->get_ench(ENCH_SUMMON);
     mon_enchant tp        = mons->get_ench(ENCH_TP);
-    mon_enchant vines     = mons->get_ench(ENCH_AWAKEN_VINES);
     mon_enchant forest    = mons->get_ench(ENCH_AWAKEN_FOREST);
     mon_enchant hexed     = mons->get_ench(ENCH_HEXED);
     mon_enchant insanity  = mons->get_ench(ENCH_FRENZIED);
     mon_enchant vengeance = mons->get_ench(ENCH_VENGEANCE_TARGET);
+    mon_enchant tempered  = mons->get_ench(ENCH_TEMPERED);
 
     mons->number       = 0;
 
@@ -345,17 +344,16 @@ void change_monster_type(monster* mons, monster_type targetc, bool do_seen)
     mons->god = (mons->is_priest() && old_god == GOD_NO_GOD) ? GOD_NAMELESS
                                                              : old_god;
 
-    mons->add_ench(abj);
-    mons->add_ench(fabj);
+    mons->add_ench(timer);
     mons->add_ench(charm);
     mons->add_ench(shifter);
     mons->add_ench(summon);
     mons->add_ench(tp);
-    mons->add_ench(vines);
     mons->add_ench(forest);
     mons->add_ench(hexed);
     mons->add_ench(insanity);
     mons->add_ench(vengeance);
+    mons->add_ench(tempered);
 
     mons->ench_countdown = old_ench_countdown;
 
@@ -714,7 +712,7 @@ void slimify_monster(monster* mon)
     const monster_type target = _slime_target(*mon);
 
     // Bail out if jellies can't live here.
-    if (!monster_habitable_grid(target, env.grid(mon->pos())))
+    if (!monster_habitable_grid(target, mon->pos()))
     {
         simple_monster_message(*mon, " quivers momentarily.");
         return;

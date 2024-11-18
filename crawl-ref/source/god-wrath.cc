@@ -123,9 +123,11 @@ static string _god_wrath_name(god_type god)
 static mgen_data _wrath_mon_data(monster_type mtyp, god_type god)
 {
     mgen_data mg = mgen_data::hostile_at(mtyp, true, you.pos())
-                    .set_summoned(nullptr, 0, 0, god)
-                    .set_non_actor_summoner(_god_wrath_name(god));
+                    .set_summoned(nullptr, MON_SUMM_WRATH)
+                    .set_non_actor_summoner(_god_wrath_name(god))
+                    .set_range(2, you.current_vision);
     mg.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
+    mg.god = god;
     return mg;
 }
 
@@ -371,13 +373,8 @@ void lucy_check_meddling()
     for (monster_near_iterator mi(you.pos(), LOS_NO_TRANS); mi; ++mi)
     {
         monster *mon = *mi;
-        if (!mon
-            || mon->attitude != ATT_HOSTILE
-            || mons_is_conjured(mon->type)
-            || mons_is_firewood(*mon))
-        {
+        if (!mon || mon->attitude != ATT_HOSTILE || mon->is_peripheral())
             continue;
-        }
         potential_banishees.push_back(mon);
     }
     if (potential_banishees.empty())
@@ -391,9 +388,8 @@ void lucy_check_meddling()
         if (invalid_monster(mon) || !mon->alive())
             continue;
         // 80% chance of banishing god wrath summons, 30% chance of banishing
-        // other creatures nearby. Lazily assume that any perma summoned mons
-        // is a god wrath summon.
-        if (x_chance_in_y(mon->is_perm_summoned() ? 8 : 3, 10))
+        // other creatures nearby.
+        if (x_chance_in_y(mon->was_created_by(MON_SUMM_WRATH) ? 8 : 3, 10))
         {
             if (!banished)
             {
@@ -1675,7 +1671,7 @@ static int _fedhas_corpse_spores(beh_type attitude)
                                                MHITNOT,
                                                MG_FORCE_PLACE,
                                                GOD_FEDHAS)
-                                            .set_summoned(&you, 0, 0)))
+                                            .set_summoned(&you, SPELL_NO_SPELL)))
         {
             plant->flags |= MF_NO_REWARD;
 
@@ -2059,15 +2055,13 @@ static monster* _ignis_champion_target()
         monster* mon = monster_at(*ri);
         // Some of these cases are redundant. TODO: cleanup
         if (!mon
-            || mons_is_firewood(*mon)
+            || mon->is_peripheral()
             || !mons_can_use_stairs(*mon, DNGN_STONE_STAIRS_DOWN_I)
-            || mons_is_tentacle_or_tentacle_segment(mon->type)
             || mon->is_stationary()
-            || mons_is_conjured(mon->type)
-            || mon->is_perm_summoned()
             || mon->wont_attack()
             // no stealing another god's pals :P
-            || mon->is_priest())
+            || mon->is_priest()
+            || mon->god != GOD_NO_GOD)
         {
             continue;
         }

@@ -255,17 +255,13 @@ static void _clear_golubria_traps()
     }
 }
 
-static void _clear_constructs()
+static void _remove_unstable_monsters()
 {
     for (auto &mons : menv_real)
-        if (mons.type == MONS_FULMINANT_PRISM
-            || mons.type == MONS_SHADOW_PRISM
-            || mons.type == MONS_HELLFIRE_MORTAR
-            || mons.type == MONS_BOULDER
-            || mons.type == MONS_BALLISTOMYCETE_SPORE)
-        {
+    {
+        if (mons_class_flag(mons.type, M_UNSTABLE) && mons.is_summoned())
             mons.reset();
-        }
+    }
 }
 
 static void _complete_zig()
@@ -298,7 +294,7 @@ void leaving_level_now(dungeon_feature_type stair_used)
     dungeon_events.fire_event(DET_LEAVING_LEVEL);
 
     _clear_golubria_traps();
-    _clear_constructs();
+    _remove_unstable_monsters();
 }
 
 static void _update_travel_cache(const level_id& old_level,
@@ -771,7 +767,7 @@ void floor_transition(dungeon_feature_type how,
 
     // Magical level changes (which currently only exist "downwards") need this.
     clear_trapping_net();
-    end_wait_spells();
+    stop_channelling_spells();
     you.stop_constricting_all();
     you.stop_being_constricted();
     you.clear_beholders();

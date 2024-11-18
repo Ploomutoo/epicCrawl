@@ -1852,7 +1852,6 @@ static void _maybe_remove_armour(mutation_type mut, int level)
         if (_mut_blocks_item_reason(you.inv[slot], mut, level).empty())
             continue;
         remove_one_equip((equipment_type)i, false, true);
-        ash_check_bondage();
     }
 }
 
@@ -2456,6 +2455,7 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
         }
 
         _maybe_remove_armour(mutat, cur_base_level);
+        ash_check_bondage();
 
         xom_is_stimulated(_calc_mutation_amusement_value(mutat));
 
@@ -2844,7 +2844,7 @@ string get_mutation_desc(mutation_type mut)
 
     const string quote = getQuoteString(key);
     if (!quote.empty())
-        desc << "\n\n" << quote;
+        desc << "\n_________________\n\n<darkgrey>" << quote << "</darkgrey>";
     return desc.str();
 }
 
@@ -3383,6 +3383,7 @@ void roll_demonspawn_mutations()
 bool perma_mutate(mutation_type which_mut, int how_much, const string &reason)
 {
     ASSERT(_is_valid_mutation(which_mut));
+    ASSERT(!mut_check_conflict(which_mut, true));
 
     int cap = get_mutation_cap(which_mut);
     how_much = min(how_much, cap);
@@ -3534,7 +3535,7 @@ void check_demonic_guardian()
 
         monster *guardian = create_monster(
             mgen_data(mt, BEH_FRIENDLY, you.pos(), MHITYOU,
-                      MG_FORCE_BEH | MG_AUTOFOE).set_summoned(&you, 2, 0));
+                      MG_FORCE_BEH | MG_AUTOFOE).set_summoned(&you, 0, summ_dur(2)));
 
         if (!guardian)
             return;
@@ -3571,7 +3572,7 @@ void check_monster_detect()
                 cell.clear_monster();
             continue;
         }
-        if (mons_is_firewood(*mon))
+        if (mon->is_firewood())
             continue;
 
         // [ds] If the PC remembers the correct monster at this

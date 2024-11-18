@@ -384,8 +384,8 @@ static bool _killer_whose_match(kill_category whose, killer_type killer)
                    || killer == KILL_MON;
 
         case KC_OTHER:
-            return killer == KILL_MON_MISSILE || killer == KILL_MISCAST
-                   || killer == KILL_MISC || killer == KILL_MON;
+            return killer == KILL_MON_MISSILE
+                   || killer == KILL_NON_ACTOR || killer == KILL_MON;
 
         case KC_NCATEGORIES:
             die("kill category not matching killer type");
@@ -617,8 +617,8 @@ static void _handle_spectral_cloud(const cloud_struct& cloud)
                              (agent ? agent->foe : short{MHITYOU}),
                              MG_FORCE_PLACE)
                     .set_base(basetype)
-                    .set_summoned(actor_by_mid(cloud.source), 1,
-                                  SPELL_SPECTRAL_CLOUD));
+                    .set_summoned(actor_by_mid(cloud.source),
+                                  SPELL_SPECTRAL_CLOUD, summ_dur(1)));
 }
 
 void manage_clouds()
@@ -797,7 +797,7 @@ void place_cloud(cloud_type cl_type, const coord_def& ctarget, int cl_range,
 
     god_conduct_trigger conducts[3];
     kill_category whose = KC_OTHER;
-    killer_type killer  = KILL_MISC;
+    killer_type killer  = KILL_NON_ACTOR;
     mid_t source        = MID_NOBODY;
     if (agent && agent->is_player())
     {
@@ -1005,10 +1005,8 @@ bool actor_cloud_immune(const actor &act, const cloud_struct &cloud)
         return true;
     }
 
-    int summon_type = 0;
-    act.is_summoned(nullptr, &summon_type);
     if (!player && have_passive(passive_t::cloud_immunity)
-        && (act.as_monster()->friendly() && summon_type == MON_SUMM_AID))
+        && act.was_created_by(MON_SUMM_AID))
     {
         return true;
     }
@@ -1620,7 +1618,7 @@ kill_category cloud_struct::killer_to_whose(killer_type _killer)
 
         case KILL_MON:
         case KILL_MON_MISSILE:
-        case KILL_MISC:
+        case KILL_NON_ACTOR:
             return KC_OTHER;
 
         default:
@@ -1635,7 +1633,7 @@ killer_type cloud_struct::whose_to_killer(kill_category _whose)
     {
         case KC_YOU:         return KILL_YOU_MISSILE;
         case KC_FRIENDLY:    return KILL_MON_MISSILE;
-        case KC_OTHER:       return KILL_MISC;
+        case KC_OTHER:       return KILL_NON_ACTOR;
         case KC_NCATEGORIES: die("invalid kill category");
     }
     return KILL_NONE;
@@ -1918,16 +1916,12 @@ static bool _is_chaos_polyable(const actor &defender)
     if (!mon)
         return true;
 
-    return !mons_is_firewood(*mon) && !mons_invuln_will(*mon);
+    return !mon->is_firewood() && !mons_invuln_will(*mon);
 }
 
 static bool _is_chaos_slowable(const actor &defender)
 {
-    const monster* mon = defender.as_monster();
-    if (!mon)
-        return true;
-
-    return !mons_is_firewood(*mon);
+    return !defender.is_firewood() && !defender.stasis();
 }
 
 struct chaos_effect
@@ -1959,7 +1953,7 @@ static const vector<chaos_effect> chaos_effects = {
 
             // The player shouldn't get new permanent followers from cloning.
             if (clone->attitude == ATT_FRIENDLY && !clone->is_summoned())
-                clone->mark_summoned(6, true, MON_SUMM_CLONE);
+                clone->mark_summoned(MON_SUMM_CLONE, summ_dur(6));
             else
                 clone->flags |= (MF_NO_REWARD | MF_HARD_RESET);
 
@@ -2001,9 +1995,7 @@ static const vector<chaos_effect> chaos_effects = {
                victim.res_acid() < 3; }, BEAM_RESISTANCE, },
     { "slowing", 10, _is_chaos_slowable, BEAM_SLOW },
     { "confusing", 12, [](const actor &victim) {
-        return !(victim.clarity()
-               || (victim.is_monster()
-               && mons_is_conjured(victim.as_monster()->type))); },
+        return !victim.clarity() && !victim.is_peripheral(); },
                BEAM_CONFUSION },
     { "weakening", 10, [](const actor & victim) {
         return !victim.is_monster()
@@ -2030,10 +2022,8 @@ static const vector<chaos_effect> chaos_effects = {
        },
     },
     {
-        "minipara", 3, [](const actor &victim) {
-            return !victim.is_monster()
-                    || !mons_is_firewood(*victim.as_monster());
-        }, BEAM_NONE, [](actor* victim, actor* source) {
+        "minipara", 3, _is_chaos_slowable, BEAM_NONE,
+        [](actor* victim, actor* source) {
             victim->paralyse(source, 1);
             return you.can_see(*victim);
         },

@@ -138,6 +138,9 @@ static void _wizard_make_friendly(monster* m)
 
     mon_attitude_type att = m->attitude;
 
+    // Propogate attitude change up to the ultimate head, if this is a tentacle.
+    m = &get_tentacle_head(get_tentacle_head(*m));
+
     // During arena mode, skip directly from friendly to hostile.
     if (crawl_state.arena_suspended && att == ATT_FRIENDLY)
         att = ATT_NEUTRAL;
@@ -2020,15 +2023,11 @@ void direction_chooser::do_redraws()
 
 coord_def direction_chooser::find_summoner()
 {
-    const monster* mon = monster_at(target());
-
-    if (mon && mon->is_summoned()
-        // Don't leak information about rakshasa mirrored illusions.
-        && !mon->has_ench(ENCH_PHANTOM_MIRROR)
-        // Don't leak information about invisible or out-of-los summons.
-        && you.can_see(*mon))
+    const auto *mon = monster_at(target());
+    if (mon && mon->is_summoned() && you.can_see(*mon))
     {
-        const monster *summ = monster_by_mid(mon->summoner);
+        monster_info mi(mon);
+        const monster *summ = monster_by_mid(mi.summoner_id);
         // Don't leak information about invisible summoners.
         if (summ && you.can_see(*summ))
             return summ->pos();
@@ -2039,8 +2038,7 @@ coord_def direction_chooser::find_summoner()
 void direction_chooser::highlight_summoner(crawl_view_buffer &vbuf)
 {
     const coord_def summ_loc = find_summoner();
-
-    if (summ_loc == INVALID_COORD || !you.see_cell(summ_loc))
+    if (summ_loc == INVALID_COORD)
         return;
 
     auto& cell = vbuf(grid2view(summ_loc) - 1);
@@ -2835,10 +2833,6 @@ static bool _find_monster(const coord_def& where, targ_mode_type mode,
         if (x.is_bool())
             return bool(x);
     }
-
-    // Target the player for friendly and general spells.
-    if ((mode == TARG_FRIEND || mode == TARG_ANY) && where == you.pos())
-        return true;
 
     // Don't target out of range
     if (!_is_target_in_range(where, range, hitfunc, find_preferred))
@@ -3770,18 +3764,15 @@ static string _get_monster_desc(const monster_info& mi)
                 + " indifferent to you.\n";
     }
 
-    if (mi.is(MB_SUMMONED) || mi.is(MB_PERM_SUMMON))
+    if (mi.is(MB_ABJURABLE))
     {
         text += pronoun + " " + conjugate_verb("have", mi.pronoun_plurality())
-                + " been summoned";
-        if (mi.is(MB_SUMMONED_CAPPED))
-        {
-            text += ", and " + conjugate_verb("are", mi.pronoun_plurality())
-                    + " expiring";
-        }
-        else if (mi.is(MB_PERM_SUMMON))
-            text += " but will not time out";
-        text += ".\n";
+                + " been summoned.\n";
+    }
+    else if (mi.is(MB_MINION))
+    {
+        text += pronoun + " " + conjugate_verb("have", mi.pronoun_plurality())
+                + " been created by magic.\n";
     }
 
     if (mi.is(MB_HALOED))
@@ -3896,8 +3887,7 @@ string get_monster_equipment_desc(const monster_info& mi,
                 if (!str.empty())
                     str += " ";
 
-                // animated armour is has "animated" in its name already,
-                // spectral weapons have "spectral".
+                // spectral weapons have "spectral" in their name already.
                 if (mi.type == MONS_DANCING_WEAPON)
                     str += "dancing weapon";
                 else if (mi.type == MONS_PANDEMONIUM_LORD)
@@ -3954,8 +3944,8 @@ string get_monster_equipment_desc(const monster_info& mi,
     if (!weap.empty() && !mons_class_is_animated_weapon(mi.type))
         item_descriptions.push_back(weap.substr(1)); // strip leading space
 
-    // as with dancing weapons, don't claim animated armours 'wear' their armour
-    if (mon_arm && mi.type != MONS_ANIMATED_ARMOUR)
+    // as with dancing weapons, don't claim armour echoes 'wear' their armour
+    if (mon_arm && mi.type != MONS_ARMOUR_ECHO)
     {
         const string armour_desc = make_stringf("wearing %s",
                                                 mon_arm->name(DESC_A).c_str());

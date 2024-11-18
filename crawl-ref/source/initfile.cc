@@ -1095,7 +1095,7 @@ static const string message_channel_names[] =
     "friend_enchant", "monster_damage", "monster_target", "banishment",
     "equipment", "floor", "multiturn", "examine", "examine_filter", "diagnostic",
     "error", "tutorial", "orb", "timed_portal", "hell_effect", "monster_warning",
-    "dgl_message", "decor_flavour",
+    "dgl_message", "decor_flavour", "monster_timeout"
 };
 
 // returns -1 if unmatched else returns 0--(NUM_MESSAGE_CHANNELS-1)
@@ -1651,7 +1651,8 @@ void game_options::reset_options()
           SPELL_IGNITION, SPELL_NOXIOUS_BOG, SPELL_ANGUISH,
           SPELL_CAUSE_FEAR, SPELL_INTOXICATE, SPELL_DISCORD, SPELL_DISPERSAL,
           SPELL_ENGLACIATION, SPELL_DAZZLING_FLASH, SPELL_FLAME_WAVE,
-          SPELL_PLASMA_BEAM, SPELL_PILEDRIVER };
+          SPELL_PLASMA_BEAM, SPELL_PILEDRIVER, SPELL_DIAMOND_SAWBLADES,
+          SPELL_FORTRESS_BLAST };
     always_use_static_spell_targeters = false;
 
     force_ability_targeter =

@@ -146,11 +146,17 @@ public:
 
     const monsterentry *find_monsterentry() const;
 
-    void mark_summoned(int longevity, bool mark_items_summoned,
-                       int summon_type = 0, bool abj = true);
-    bool is_summoned(int* duration = nullptr, int* summon_type = nullptr) const
-        override;
-    bool is_perm_summoned() const override;
+    void mark_summoned(int summon_type = 0, int longevity = 0,
+                       bool mark_items_summoned = true,
+                       bool make_abjurable = false);
+    bool is_summoned() const override;
+    bool was_created_by(int summon_type) const override;
+    bool was_created_by(const actor& summoner,
+                        int summon_type = SPELL_NO_SPELL) const override;
+    bool is_abjurable() const;
+    bool is_unrewarding() const;
+    bool is_firewood() const override;
+    bool is_peripheral() const override;
     bool has_action_energy() const;
     void drain_action_energy();
     bool matches_player_speed() const;
@@ -163,9 +169,10 @@ public:
     void self_destruct() override;
 
     void set_position(const coord_def &c) override;
-    void moveto(const coord_def& c, bool clear_net = true) override;
+    void moveto(const coord_def& c, bool clear_net = true,
+                bool clear_constrict = true) override;
     bool move_to_pos(const coord_def &newpos, bool clear_net = true,
-                     bool force = false) override;
+                     bool force = false, bool clear_constrict = true) override;
     bool swap_with(monster* other);
     bool blink_to(const coord_def& c, bool quiet = false) override;
     bool blink_to(const coord_def& c, bool quiet, bool jump);
@@ -239,7 +246,6 @@ public:
     void set_ghost(const ghost_demon &ghost);
     void ghost_init(bool need_pos = true);
     void ghost_demon_init();
-    void inugami_init();
     void uglything_init(bool only_mutate = false);
     void uglything_mutate(colour_t force_colour = COLOUR_UNDEF);
     void destroy_inventory();
@@ -267,7 +273,7 @@ public:
     bool     can_pass_through_feat(dungeon_feature_type grid) const override;
     bool     can_burrow() const override;
     bool     can_burrow_through(dungeon_feature_type feat) const;
-    bool     is_habitable_feat(dungeon_feature_type actual_grid) const override;
+    bool     is_habitable_feat(dungeon_feature_type feat) const override;
     bool     shove(const char* name = "") override;
 
     size_type   body_size(size_part_type psize = PSIZE_TORSO,

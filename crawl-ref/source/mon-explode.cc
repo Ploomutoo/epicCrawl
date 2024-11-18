@@ -43,10 +43,16 @@ static void _setup_base_explosion(bolt & beam, const monster& origin)
     beam.target       = origin.pos();
     beam.explode_noise_msg = "You hear an explosion!";
 
-    if (!crawl_state.game_is_arena() && origin.attitude == ATT_FRIENDLY
-        && !origin.is_summoned())
+    if (!crawl_state.game_is_arena()
+        && origin.friendly() && origin.was_created_by(you))
     {
-        beam.thrower = KILL_YOU;
+        if (origin.is_abjurable())
+        {
+            beam.thrower = KILL_MON;
+            beam.source_id = ANON_FRIENDLY_MONSTER;
+        }
+        else
+            beam.thrower = KILL_YOU;
     }
     else
         beam.thrower = KILL_MON;
@@ -58,9 +64,9 @@ static void _setup_base_explosion(bolt & beam, const monster& origin)
     env.final_effect_monster_cache.push_back(origin);
 }
 
-static int _inferno_power(int /*hd*/)
+static int _inferno_power(int hd)
 {
-    return 100; // dubious
+    return min(hd * 10, 200);
 }
 
 static dice_def _inferno_damage(int hd)
@@ -100,7 +106,7 @@ static void _setup_blazeheart_core_explosion(bolt & beam, const monster& origin)
     beam.source_id    = MID_PLAYER;
 
     // This is so it places flame clouds under the explosion
-    beam.origin_spell = SPELL_SUMMON_BLAZEHEART_GOLEM;
+    beam.origin_spell = SPELL_FORGE_BLAZEHEART_GOLEM;
 }
 
 static dice_def _spore_damage(int hd)
@@ -135,9 +141,6 @@ static void _setup_lightning_explosion(bolt & beam, const monster& origin)
     beam.ex_size   = x_chance_in_y(origin.get_hit_dice(), 24) ? 3 : 2;
     if (origin.summoner)
         beam.origin_spell = SPELL_CONJURE_BALL_LIGHTNING;
-    // Don't credit the player for ally-summoned ball lightning explosions.
-    if (origin.summoner && origin.summoner != MID_PLAYER)
-        beam.thrower = KILL_MON;
 }
 
 dice_def prism_damage(int hd, bool fully_powered)
@@ -310,11 +313,10 @@ dice_def mon_explode_dam(monster_type mc, int hd)
     return it->second.damage(hd);
 }
 
-bool explode_monster(monster* mons, killer_type killer,
-                             bool pet_kill, bool wizard)
+bool explode_monster(monster* mons, killer_type killer, bool pet_kill)
 {
-    if (mons->hit_points > 0 || mons->hit_points <= -15 || wizard
-        || killer == KILL_RESET || killer == KILL_DISMISSED
+    if (mons->hit_points > 0 || mons->hit_points <= -15
+        || killer == KILL_RESET || killer == KILL_RESET_KEEP_ITEMS
         || killer == KILL_BANISHED)
     {
         if (killer != KILL_TIMEOUT)
@@ -327,6 +329,10 @@ bool explode_monster(monster* mons, killer_type killer,
     string boom_msg = make_stringf("%s explodes!", mons->full_name(DESC_THE).c_str());
     actor* agent = nullptr;
     bool inner_flame = false;
+
+    string poof_msg = "";
+    if (mons->is_abjurable())
+        poof_msg = "The " + mons->name(DESC_PLAIN) + " residue " + summoned_poof_msg(*mons) + ".";
 
     auto it = explosions.find(type);
     if (it != explosions.end())
@@ -345,6 +351,11 @@ bool explode_monster(monster* mons, killer_type killer,
     }
     else if (mons->has_ench(ENCH_INNER_FLAME))
     {
+        // Timeout is a valid reason for things like ball lightning to explode,
+        // but not inner flamed monsters.
+        if (killer == KILL_TIMEOUT)
+            return false;
+
         mon_enchant i_f = mons->get_ench(ENCH_INNER_FLAME);
         ASSERT(i_f.ench == ENCH_INNER_FLAME);
         agent = actor_by_mid(i_f.source);
@@ -413,7 +424,7 @@ bool explode_monster(monster* mons, killer_type killer,
     {
         const auto typ = inner_flame ? EXPLOSION_FINEFF_INNER_FLAME
                                      : EXPLOSION_FINEFF_GENERIC;
-        explosion_fineff::schedule(beam, boom_msg, sanct_msg, typ, agent);
+        explosion_fineff::schedule(beam, boom_msg, sanct_msg, typ, agent, poof_msg);
     }
 
     // Monster died in explosion, so don't re-attach it to the grid.

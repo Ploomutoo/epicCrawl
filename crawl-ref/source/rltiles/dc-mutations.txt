@@ -193,6 +193,7 @@ nightstalker_1 NIGHTSTALKER
 nightstalker_2
 nightstalker_3
 inhibited_regeneration INHIBITED_REGENERATION
+mertail MERTAIL
 no_drink NO_DRINK
 faith FAITH
 spit_poison_1 SPIT_POISON
@@ -232,6 +233,7 @@ no_stealth NO_STEALTH
 no_hexes_magic NO_HEXES_MAGIC
 no_summoning_magic NO_SUMMONING_MAGIC
 no_necromancy_magic NO_NECROMANCY_MAGIC
+no_forgecraft_magic NO_FORGECRAFT_MAGIC
 no_translocation_magic NO_TRANSLOCATION_MAGIC
 no_alchemy_magic NO_ALCHEMY_MAGIC
 no_ice_magic NO_ICE_MAGIC

@@ -295,19 +295,6 @@ int check_your_resists(int hurted, beam_type flavour, string source,
             you.strip_willpower(beam->agent(), random_range(8, 14));
         break;
 
-    case BEAM_CRYSTALLIZING:
-        if (doEffects)
-        {
-            if (x_chance_in_y(3, 4)) {
-                if (!you.duration[DUR_VITRIFIED])
-                    mpr("Your body becomes as fragile as glass!");
-                else
-                    mpr("You feel your fragility will last longer.");
-                you.increase_duration(DUR_VITRIFIED, random_range(8, 18), 50);
-            }
-        }
-        break;
-
     case BEAM_UMBRAL_TORCHLIGHT:
         if (you.holiness() & ~(MH_NATURAL | MH_DEMONIC | MH_HOLY)
             || beam->agent(true)->is_player())
@@ -322,6 +309,11 @@ int check_your_resists(int hurted, beam_type flavour, string source,
         {
             you.blink();
         }
+        break;
+
+    case BEAM_SEISMIC:
+        if (you.airborne())
+            hurted = hurted / 3;
         break;
 
     default:
@@ -595,10 +587,10 @@ static void _maybe_spawn_rats(int dam, kill_method_type death_type)
         return;
 
     mgen_data mg(mon, BEH_FRIENDLY, you.pos(), MHITYOU);
+    mg.set_summoned(&you, SPELL_NO_SPELL, summ_dur(3), false);
     mg.flags |= MG_FORCE_BEH; // don't mention how much it hates you before it appears
     if (monster *m = create_monster(mg))
     {
-        m->add_ench(mon_enchant(ENCH_FAKE_ABJURATION, 3));
         mprf("%s scurries out from under your cloak.", m->name(DESC_A).c_str());
         // We should return early in the case of no_love or no_allies,
         // so this is more a sanity check.
@@ -646,8 +638,7 @@ void _maybe_blood_hastes_allies()
         if (mi->alive() && mons_attitude(**mi) == ATT_FRIENDLY
             && !mi->berserk_or_frenzied() && you.can_see(**mi)
             && !mi->has_ench(ENCH_HASTE)
-            && !mons_is_tentacle_or_tentacle_segment(mi->type)
-            && !mons_is_firewood(**mi) && !mons_is_object(mi->type))
+            && !mi->is_peripheral())
         {
             targetable.emplace_back(*mi);
         }
@@ -717,8 +708,8 @@ static void _maybe_spawn_monsters(int dam, kill_method_type death_type,
         for (int i = 0; i < how_many; ++i)
         {
             const int mindex = damager->alive() ? damager->mindex() : MHITNOT;
-            mgen_data mg(mon, BEH_FRIENDLY, you.pos(), mindex);
-            mg.set_summoned(&you, 2, 0, you.religion);
+            mgen_data mg(mon, BEH_FRIENDLY, you.pos(), mindex, MG_NONE, you.religion);
+            mg.set_summoned(&you, 0, summ_dur(2));
 
             if (create_monster(mg))
                 count_created++;

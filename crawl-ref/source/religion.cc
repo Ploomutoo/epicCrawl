@@ -67,6 +67,7 @@
 #include "shopping.h"
 #include "skills.h"
 #include "spl-book.h"
+#include "spl-summoning.h"
 #include "sprint.h"
 #include "state.h"
 #include "stringutil.h"
@@ -1077,16 +1078,17 @@ bool yred_random_servant(unsigned int pow, bool force_hostile, int num)
     for (int i = 0; i < num; ++i)
     {
         mgen_data mg(mon_type, !force_hostile ? BEH_FRIENDLY : BEH_HOSTILE,
-                 you.pos(), MHITYOU, MG_AUTOFOE);
+                 you.pos(), MHITYOU, MG_AUTOFOE, GOD_YREDELEMNUL);
 
         if (force_hostile)
         {
-            mg.set_summoned(0, 0, 0, GOD_YREDELEMNUL);
+            mg.set_summoned(nullptr, MON_SUMM_WRATH);
             mg.non_actor_summoner = "the anger of Yredelemnul";
             mg.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
+            mg.set_range(2, you.current_vision);
         }
         else
-            mg.set_summoned(&you, 5, MON_SUMM_AID, GOD_YREDELEMNUL);
+            mg.set_summoned(&you, MON_SUMM_AID, summ_dur(5));
 
         if (create_monster(mg))
             created = true;
@@ -1101,11 +1103,14 @@ bool yred_reap_chance()
     int hd = 0;
     for (monster_iterator mi; mi; ++mi)
     {
-        if (!mi->friendly() || mi->is_summoned())
+        if (!mi->friendly())
             continue;
 
-        if (mi->type == MONS_ZOMBIE || mi->type == MONS_SPECTRAL_THING)
+        if ((mi->type == MONS_ZOMBIE || mi->type == MONS_SPECTRAL_THING)
+             && mi->was_created_by(you, MON_SUMM_REAPING))
+        {
             hd += mi->get_experience_level();
+        }
     }
 
     // Always reap if we have no minions. Otherwise, use a sliding scale based
@@ -1652,7 +1657,7 @@ bool is_follower(const monster& mon)
     else
     {
         return mon.alive() && mon.attitude == ATT_FRIENDLY
-               && !mons_is_conjured(mon.type);
+                           && !mon.is_summoned();
     }
 }
 
@@ -1736,8 +1741,8 @@ mgen_data hepliaklqana_ancestor_gen_data()
     const monster_type type = you.props.exists(HEPLIAKLQANA_ALLY_TYPE_KEY) ?
         (monster_type)you.props[HEPLIAKLQANA_ALLY_TYPE_KEY].get_int() :
         MONS_ANCESTOR;
-    mgen_data mg(type, BEH_FRIENDLY, you.pos(), MHITYOU, MG_AUTOFOE);
-    mg.set_summoned(&you, 0, 0, GOD_HEPLIAKLQANA);
+    mgen_data mg(type, BEH_FRIENDLY, you.pos(), MHITYOU, MG_AUTOFOE,
+                 GOD_HEPLIAKLQANA);
     mg.hd = _hepliaklqana_ally_hd();
     mg.hp = hepliaklqana_ally_hp();
     mg.extra_flags |= MF_NO_REWARD;
@@ -2982,7 +2987,10 @@ void excommunication(bool voluntary, god_type new_god)
         yred_end_blasphemy();
         for (monster_iterator mi; mi; ++mi)
             if (is_yred_undead_follower(**mi))
-                monster_die(**mi, KILL_DISMISSED, NON_MONSTER);
+            {
+                // Bound souls should still drop their equipment
+                monster_die(**mi, KILL_RESET_KEEP_ITEMS, NON_MONSTER);
+            }
         remove_all_companions(GOD_YREDELEMNUL);
         add_daction(DACT_OLD_CHARMD_SOULS_POOF);
         break;
@@ -3248,7 +3256,8 @@ bool god_hates_attacking_friend(god_type god, const monster& fr)
 
     monster_type species = fr.mons_species();
 
-    if (mons_is_object(species))
+    // Nobody minds you hurting inanimate objects
+    if ((fr.holiness() & MH_NONLIVING) && mons_intel(fr) == I_BRAINLESS)
         return false;
     switch (god)
     {
@@ -3368,6 +3377,18 @@ static void _god_welcome_handle_gear()
             mprf(MSGCH_GOD, "%s warns you to remove %s.",
                  uppercase_first(god_name(you.religion)).c_str(),
                  item->name(DESC_YOUR, false, false, false).c_str());
+        }
+    }
+
+    if (you.props.exists(PARAGON_WEAPON_KEY))
+    {
+        item_def wpn = you.props[PARAGON_WEAPON_KEY].get_item();
+        if (god_hates_item(wpn))
+        {
+            mprf(MSGCH_GOD, "%s removes the imprint of %s from your paragon.",
+                 god_name(you.religion).c_str(),
+                 wpn.name(DESC_THE).c_str());
+            you.props.erase(PARAGON_WEAPON_KEY);
         }
     }
 
@@ -3685,13 +3706,9 @@ static void _join_okawaru()
     bool needs_message = false;
     for (monster_iterator mi; mi; ++mi)
     {
-        if (mi->is_summoned()
-            && mi->summoner == MID_PLAYER
-            && mi->friendly())
+        if (mi->was_created_by(you))
         {
-            mon_enchant abj = mi->get_ench(ENCH_ABJ);
-            abj.duration = 0;
-            mi->update_ench(abj);
+            mi->del_ench(ENCH_SUMMON_TIMER);
             needs_message = true;
         }
     }
@@ -4093,13 +4110,6 @@ bool god_hates_your_god(god_type god, god_type your_god)
 bool god_hates_killing(god_type god, const monster& mon)
 {
     if (invalid_monster(&mon))
-        return false;
-    // Must be at least a creature of sorts. Smacking down an enchanted
-    // weapon or disrupting a lightning doesn't count. Technically, this
-    // might raise a concern about necromancy but zombies traditionally
-    // count as creatures and that's the average person's (even if not ours)
-    // intuition.
-    if (mons_is_object(mon.type))
         return false;
 
     // kill as many illusions as you want.
@@ -4529,7 +4539,7 @@ int get_monster_tension(const monster& mons, god_type god)
     // or bomb is offhand, but they should count for _some_ minimal tension.
     if (exper <= 0)
     {
-        if (mons_is_conjured(mons.type))
+        if (mons.is_peripheral())
             exper = 50;
         else
             return 0;
@@ -4709,7 +4719,15 @@ int get_tension(god_type god)
     // Other effects are listed from highest influence to lowest to help with
     // rounding on more minor effects.
     if (you.confused())
-        tension *= 2;
+    {
+        // Later on, one only stays confused if the fight doesn't matter
+        // or if they can't cure it, so scale this slowly with XL and
+        // acknowledge its badness specifically when it's uncurable.
+        if (player_in_branch(BRANCH_COCYTUS) || you.can_drink() == false)
+            tension = tension * 5 / 2;
+        else
+            tension = tension * (9 - (you.experience_level / 10)) / 4;
+    }
 
     if (you.caught())
         tension *= 2;

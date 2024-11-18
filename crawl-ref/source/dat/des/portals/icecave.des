@@ -9,6 +9,7 @@
 {{
 
 crawl_require("dlua/dungeon.lua")
+crawl_require('dlua/vault.lua')
 
 --[[
 Setup function for ice cave entry vaults. Create portal timer marker, determine
@@ -1158,11 +1159,8 @@ SUBST:   4 = 4:70 6, F = .12244
 SHUFFLE: fghi, defgh
 SUBST:   d = d*, e = e*, f = f*, g = g*, h = h*
 # A little extra decor opportunity...
-KFEAT:   S = metal_statue
 SUBST:   S : SSG
-COLOUR:  S = ice
-TILE:    S = icy_conduit
-:   set_feature_name("metal_statue", "icy conduit")
+: vault_metal_statue_setup(_G, "S", "fiery conduit")
 : ice_cave_appearance(_G)
 MAP
       xxxxx
