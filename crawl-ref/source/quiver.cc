@@ -23,6 +23,7 @@
 #include "items.h"
 #include "macro.h"
 #include "message.h"
+#include "mon-death.h"
 #include "movement.h"
 #include "options.h"
 #include "player.h"
@@ -31,6 +32,7 @@
 #include "religion.h"
 #include "sound.h"
 #include "spl-damage.h"
+#include "spl-monench.h"
 #include "spl-transloc.h"
 #include "stringutil.h"
 #include "tags.h"
@@ -682,7 +684,7 @@ namespace quiver
                 bool success = true;
                 monster *midmons;
                 if ((midmons = monster_at(middle))
-                    && !god_protects(&you, *midmons, true)
+                    && !never_harm_monster(&you, *midmons)
                     && (midmons->type != MONS_SPECTRAL_WEAPON
                         || !midmons->wont_attack())
                     && coinflip())
@@ -729,6 +731,14 @@ namespace quiver
             }
             else
             {
+                if (is_valid_tempering_target(*mons, you) && !you.confused())
+                {
+                    mprf("You deconstruct %s.", mons->name(DESC_THE).c_str());
+                    monster_die(*mons, KILL_RESET, NON_MONSTER);
+                    you.turn_is_over = true;
+                    return;
+                }
+
                 // something to attack, let's do it:
                 you.turn_is_over = true;
                 if (!fight_melee(&you, mons) && targ_mid)

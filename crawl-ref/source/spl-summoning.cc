@@ -694,7 +694,6 @@ bool tukima_affects(const actor &target)
            && !target.is_player()
            && !is_special_unrandom_artefact(*wpn)
            && !mons_class_is_animated_weapon(target.type)
-           // XX use god_protects here. But, need to know the caster too...
            && !mons_is_hepliaklqana_ancestor(target.type)
            && !(target.is_monster() && target.as_monster()->type == MONS_ORC_APOSTLE);
 }
@@ -1818,7 +1817,11 @@ static void _fire_battlesphere(monster* battlesphere, bolt& beam)
     battlesphere->foe = actor_at(beam.target)->mindex();
     battlesphere->target = beam.target;
 
-    simple_monster_message(*battlesphere, " fires at %s!");
+    if (you.can_see(*battlesphere))
+    {
+        mprf("%s fires at %s!", battlesphere->name(DESC_THE).c_str(),
+                                actor_at(beam.target)->name(DESC_THE).c_str());
+    }
     beam.fire();
 
     // Decrement # of volleys left and possibly expire the battlesphere.
@@ -3300,9 +3303,19 @@ bool clockwork_bee_recharge(monster& bee)
     // Nothing around for it to attack.
     if (!targ)
     {
-        mpr("You see no target in range to command your bee to attack.");
+        mpr("You need a visible target to rewind your bee! "
+            "(Use ctrl+direction or * direction to deconstruct it instead.)");
         return false;
     }
+
+    if (!enough_mp(1, true))
+    {
+        mpr("You lack sufficient magical power to recharge your bee.");
+        return false;
+    }
+
+    pay_mp(1);
+    finalize_mp_cost();
 
     mprf("You wind your clockwork bee back up and it locks its sights upon %s!",
          targ->name(DESC_THE).c_str());
@@ -3313,7 +3326,7 @@ bool clockwork_bee_recharge(monster& bee)
     bee.set_hit_dice(old_hd);
     bee.max_hit_points = old_max_hp;
     bee.hit_points = old_hp;
-    bee.heal(roll_dice(2, 10));
+    bee.heal(roll_dice(3, 5));
     bee.add_ench(mon_enchant(ENCH_SUMMON_TIMER, 0, &you, random_range(400, 500)));
     bee.add_ench(mon_enchant(ENCH_HAUNTING, 0, targ, INFINITE_DURATION));
     bee.number = 3 + div_rand_round(calc_spell_power(SPELL_CLOCKWORK_BEE), 15);
@@ -3980,7 +3993,7 @@ bool monarch_deploy_bomblet(monster& original, const coord_def& target,
                                                 : BEH_HOSTILE,
                              target, MG_AUTOFOE);
     mg.set_summoned(actor_by_mid(original.summoner),
-                    SPELL_MONARCH_BOMB, summ_dur(3), false);
+                    SPELL_MONARCH_BOMB, random_range(90, 160), false);
     mg.set_range(0, 2);
     if (create_monster(mg))
     {

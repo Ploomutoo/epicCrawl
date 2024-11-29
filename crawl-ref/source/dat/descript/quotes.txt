@@ -596,6 +596,12 @@ Mass Confusion spell
  upon the face of all the earth: and they left off to build the city.”
     -KJV Bible, Genesis 11:7-8.
 %%%%
+Maxwell's Portable Piledriver spell
+
+While originally designed for use in industrial construction, enterprising
+copycats were quick to discover a multitude of other problems that could be
+solved by moving one object into another, very, very quickly.
+%%%%
 Mephitic Cloud spell
 
 “Seit mehreren Jahren schon hatte die indische Cholera eine verstärkte
@@ -2646,6 +2652,18 @@ adder
 ADDER, n. A species of snake. So called from its habit of adding funeral outlays
 to the other expenses of living.
     -Ambrose Bierce, _The Devil's Dictionary_, 1906.
+%%%%
+alderking
+
+““My father, my father, he seizes me fast,
+ Full sorely the Erl-King has hurt me at last.”
+
+ The father now gallops, with terror half wild,
+ He grasps in his arms the poor shuddering child;
+ He reaches his courtyard with toil and with dread,
+ The child in his arms finds he motionless, dead.”
+    -Johann Wolfgang von Goethe, _Erlkönig_, 1782.
+    trans. Edgar Alfred Bowring, 1853.
 %%%%
 alligator
 

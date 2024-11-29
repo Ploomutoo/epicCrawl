@@ -403,6 +403,9 @@ static int _skill_power(spell_type spell)
  */
 int raw_spell_fail(spell_type spell)
 {
+    if (spell == SPELL_NO_SPELL)
+        return 10000;
+
     int chance = 60;
 
     // Don't cap power for failure rate purposes.
@@ -1261,12 +1264,7 @@ unique_ptr<targeter> find_spell_targeter(spell_type spell, int pow, int range)
         return make_unique<targeter_multiposition>(&you, plasma_paths, a);
     }
     case SPELL_PILEDRIVER:
-    {
-        auto piledriver_targets = possible_piledriver_targets(false);
-        auto piledriver_paths = piledriver_beam_paths(piledriver_targets, false);
-        const aff_type a = piledriver_targets.size() == 1 ? AFF_YES : AFF_MAYBE;
-        return make_unique<targeter_multiposition>(&you, piledriver_paths, a);
-    }
+        return make_unique<targeter_piledriver>();
     case SPELL_CHAIN_LIGHTNING:
         return make_unique<targeter_chain_lightning>();
     case SPELL_MAXWELLS_COUPLING:
@@ -1280,6 +1278,8 @@ unique_ptr<targeter> find_spell_targeter(spell_type spell, int pow, int range)
                                                   0, 1);
     case SPELL_INNER_FLAME:
         return make_unique<targeter_inner_flame>(&you, range);
+    case SPELL_TELEPORT_OTHER:
+        return make_unique<targeter_teleport_other>(&you, range);
     case SPELL_SOUL_SPLINTER:
         return make_unique<targeter_soul_splinter>(&you, range);
     case SPELL_SIMULACRUM:
@@ -1415,7 +1415,9 @@ unique_ptr<targeter> find_spell_targeter(spell_type spell, int pow, int range)
     case SPELL_PERMAFROST_ERUPTION:
         return make_unique<targeter_permafrost>(you, pow);
     case SPELL_PETRIFY:
-        return make_unique<targeter_petrify>(&you, range);
+        return make_unique<targeter_chain>(&you, range, ZAP_PETRIFY);
+    case SPELL_RIMEBLIGHT:
+        return make_unique<targeter_chain>(&you, range, ZAP_RIMEBLIGHT);
     case SPELL_COMBUSTION_BREATH:
         return make_unique<targeter_explosive_beam>(&you, pow, range);
     case SPELL_NOXIOUS_BREATH:
@@ -2610,6 +2612,9 @@ static spret _do_cast(spell_type spell, int powc, const dist& spd,
     case SPELL_INNER_FLAME:
         return cast_inner_flame(spd.target, powc, fail);
 
+    case SPELL_TELEPORT_OTHER:
+        return cast_teleport_other(spd.target, powc, fail);
+
     case SPELL_SIMULACRUM:
         return cast_simulacrum(spd.target, powc, fail);
 
@@ -2653,7 +2658,7 @@ static spret _do_cast(spell_type spell, int powc, const dist& spd,
         return cast_permafrost_eruption(you, powc, fail);
 
     case SPELL_PILEDRIVER:
-        return cast_piledriver(powc, fail);
+        return cast_piledriver(beam.target, powc, fail);
 
     // Just to do extra messaging; spell is handled by default zapping
     case SPELL_COMBUSTION_BREATH:

@@ -397,6 +397,7 @@ static map<jewellery_type, vector<jewellery_fake_artp>> jewellery_artps = {
     { AMU_REGENERATION, { { ARTP_REGENERATION, 1 } } },
     { AMU_MANA_REGENERATION, { { ARTP_MANA_REGENERATION, 1} } },
     { AMU_REFLECTION, { { ARTP_SHIELDING, AMU_REFLECT_SH / 2} } },
+    { AMU_ACROBAT, { { ARTP_ACROBAT, 1 } } },
 
     { RING_MAGICAL_POWER, { { ARTP_MAGICAL_POWER, 9 } } },
     { RING_WIZARDRY, { { ARTP_WIZARDRY, 1} } },
@@ -411,8 +412,8 @@ static map<jewellery_type, vector<jewellery_fake_artp>> jewellery_artps = {
     { RING_WILLPOWER, { { ARTP_WILLPOWER, 1 } } },
     { RING_RESIST_CORROSION, { { ARTP_RCORR, 1 } } },
 
-    { RING_FIRE, { { ARTP_FIRE, 1 }, { ARTP_COLD, -1 } } },
-    { RING_ICE, { { ARTP_COLD, 1 }, { ARTP_FIRE, -1 } } },
+    { RING_FIRE, { { ARTP_FIRE, 1 }, { ARTP_COLD, -1 }, { ARTP_ENHANCE_FIRE, 1} } },
+    { RING_ICE, { { ARTP_COLD, 1 }, { ARTP_FIRE, -1 }, { ARTP_ENHANCE_ICE, 1} } },
 
     { RING_STRENGTH, { { ARTP_STRENGTH, 0 } } },
     { RING_INTELLIGENCE, { { ARTP_INTELLIGENCE, 0 } } },
@@ -867,7 +868,7 @@ static const artefact_prop_data artp_data[] =
         []() {return 1;}, nullptr, 0, 0},
     { "Earth", ARTP_VAL_BOOL, 20, // ARTP_ENHANCE_EARTH,
         []() {return 1;}, nullptr, 0, 0},
-    { "Alchemy", ARTP_VAL_BOOL, 20, // ARTP_ENHANCE_ALCHEMY,
+    { "Alch", ARTP_VAL_BOOL, 20, // ARTP_ENHANCE_ALCHEMY,
         []() {return 1;}, nullptr, 0, 0},
 
     { "Acrobat", ARTP_VAL_BOOL, 0, // ARTP_ACROBAT,
@@ -1028,15 +1029,6 @@ static void _add_good_randart_prop(artefact_prop_type prop,
  *
  * @param item          The item to apply properties to.
  * @param item_props    The properties of that item.
-<<<<<<< HEAD
- * @param quality       How high quality the randart will be, measured in number
-                        of rolls for good property boosts.
- * @param max_bad_props The maximum number of bad properties this artefact can
-                        be given.
- * @param lucky         Lucky players should get sligtly better than average
-                        randarts. Currently this is "+1 quality".
-=======
->>>>>>> 648c01eb48a7f6ef76dd2e9b01b7d7ccb6cf2377
  */
 static void _get_randart_properties(const item_def &item,
                                     artefact_properties_t &item_props, bool lucky = false)

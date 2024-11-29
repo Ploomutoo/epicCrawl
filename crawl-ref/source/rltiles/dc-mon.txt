@@ -743,6 +743,7 @@ occultist MONS_OCCULTIST
 vault_guard MONS_VAULT_GUARD
 vault_warden MONS_VAULT_WARDEN
 vault_sentinel MONS_VAULT_SENTINEL
+ironbound_beastmaster MONS_IRONBOUND_BEASTMASTER
 ironbound_convoker MONS_IRONBOUND_CONVOKER
 ironbound_preserver MONS_IRONBOUND_PRESERVER
 ironbound_frostheart MONS_IRONBOUND_FROSTHEART
@@ -1056,6 +1057,8 @@ starflower_2
 %rim 0
 thorn_hunter MONS_THORN_HUNTER
 treant MONS_TREANT
+alderking0 MONS_ALDERKING
+alderking1
 briar_patch MONS_BRIAR_PATCH
 %rim 1
 vine_stalker MONS_VINE_STALKER

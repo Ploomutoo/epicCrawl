@@ -492,7 +492,7 @@ NSUBST:  0 = 1:. / *:0, % = 4:% / *:.
 MONS:    orb spider perm_ench:glowing_shapeshifter / \
          swamp worm perm_ench:glowing_shapeshifter
 MONS:    spriggan rider, spark wasp
-MONS:    spriggan berserker / lich
+MONS:    spriggan berserker / lich / alderking w:2
 NSUBST:  10 = 2:3 / 1:2, % = 1:| / 1:* / 1:d / * = *%%
 : end
 ITEM:    throwing net q:1 no_pickup / rapier ego:venom no_pickup / \
@@ -1579,7 +1579,7 @@ ENDMAP
 NAME:   minmay_unpleasant_kobolds
 TAGS:   transparent
 DEPTH:  D:6-
-MONS:   kobold ; dart ego:dispersal q:2 / w:3 kobold brigand ; dart ego:dispersal q:4
+MONS:   kobold ; dart ego:disjunction q:2 / w:3 kobold brigand ; dart ego:disjunction q:4
 MONS:   kobold ; boomerang q:2 / w:3 kobold brigand ; boomerang q:4
 MONS:   kobold ; dart ego:curare q:1 / \
         w:3 kobold brigand ; dart ego:curare q:2
@@ -2390,7 +2390,7 @@ ENDMAP
 NAME:   marbit_kobold_abyssish
 TAGS:   no_monster_gen
 DEPTH:  D:11-
-MONS:   kobold brigand ; dart ego:dispersal, kobold demonologist
+MONS:   kobold brigand ; dart ego:disjunction, kobold demonologist
 KFEAT:  _ = altar_lugonu
 KPROP:  1 = no_tele_into
 MAP
@@ -2586,7 +2586,7 @@ MONS:   deep elf master archer; longbow good_item | longbow randart \
             . chain mail good_item | quicksilver dragon scales
 MONS:   deep elf blademaster; lajatang good_item | lajatang randart \
             . shadow dragon scales good_item | shadow dragon scales randart
-MONS:   hellephant, shadow dragon
+MONS:   hellephant, alderking w:5 / shadow dragon
 SUBST:  56 = -
 : end
 : if you.in_branch("Crypt") then
@@ -9883,9 +9883,17 @@ NAME:   nicolae_beast_mode
 TAGS:   transparent
 DEPTH:  D:7-11
 KITEM:  D = box of beasts
-KMONS:  D = juvenile mutant beast
+# Even on juveniles, blinkbolt can be overwhelming, especially if you roll more
+# than one shock beast. Explicitly specify beast facets here to avoid rolling
+# any shock ones for the juveniles. The larval one, being the "boss" here, can
+# still roll shock for now.
+KMONS:  D = juvenile bat-sting mutant beast / juvenile fire-bat mutant beast / \
+        juvenile bat-weird mutant beast / juvenile ox-bat mutant beast / \
+        juvenile sting-fire mutant beast / juvenile weird-sting mutant beast / \
+        juvenile sting-ox mutant beast / juvenile fire-weird mutant beast / \
+        juvenile ox-fire mutant beast / juvenile weird-ox mutant beast
 KMONS:  L = larval mutant beast
-NSUBST: D = D / L / ., L = 3=L / 3=-L / -
+NSUBST: D = D / L / ., L = 2=L / 3=-L / -
 SUBST:  - = .x, ` = x_
 CLEAR:  _
 veto {{

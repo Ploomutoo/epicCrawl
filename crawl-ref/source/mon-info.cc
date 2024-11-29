@@ -141,6 +141,7 @@ static map<enchant_type, monster_info_flags> trivial_ench_mb_mappings = {
     { ENCH_DOUBLED_VIGOUR,  MB_DOUBLED_VIGOUR },
     { ENCH_KINETIC_GRAPNEL, MB_KINETIC_GRAPNEL },
     { ENCH_TEMPERED,        MB_TEMPERED },
+    { ENCH_BLINKITIS,       MB_BLINKITIS },
 };
 
 static monster_info_flags ench_to_mb(const monster& mons, enchant_type ench)
@@ -740,6 +741,9 @@ monster_info::monster_info(const monster* m, int milev)
 
     if (m->has_spell_of_type(spschool::necromancy))
         props[NECROMANCER_KEY] = true;
+
+    if (m->no_tele())
+        mb.set(MB_NO_TELE);
 
     // assumes spell hd modifying effects are always public
     const int spellhd = m->spell_hd();
@@ -2148,4 +2152,20 @@ string description_for_ench(enchant_type type)
             return name.long_singular;
 
     return "";
+}
+
+monster* monster_info::get_known_summoner() const
+{
+    monster* summoner = monster_by_mid(summoner_id);
+
+    // Don't leak information about invisible summoners.
+    if (!summoner || !you.can_see(*summoner))
+        return nullptr;
+
+    // Don't leak the real Mara, if this happened to be made by them.
+    // (Note: the fake ones never make illusions)
+    if (summoner->type == MONS_MARA)
+        return nullptr;
+
+    return summoner;
 }

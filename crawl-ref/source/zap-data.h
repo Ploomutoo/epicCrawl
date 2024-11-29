@@ -21,6 +21,8 @@ struct zap_info
     dungeon_char_type glyph;
     bool can_beam;
     bool is_explosion;
+    tileidx_t tile_beam;
+    tileidx_t tile_explode;
 }
 */
 
@@ -111,6 +113,7 @@ static const zap_info zap_data[] =
     DCHAR_FIRED_ZAP,
     false,
     false,
+    TILE_BOLT_METAL_SPLINTERS,
 },
 
 {
@@ -127,6 +130,7 @@ static const zap_info zap_data[] =
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_CRYSTAL_SPEAR,
 },
 
 {
@@ -143,6 +147,7 @@ static const zap_info zap_data[] =
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_SPLINTERSPRAY,
 },
 
 {
@@ -159,6 +164,7 @@ static const zap_info zap_data[] =
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_SPLINTERSPRAY,
 },
 
 {
@@ -207,6 +213,7 @@ static const zap_info zap_data[] =
     DCHAR_FIRED_ZAP,
     false,
     true,
+    TILE_BOLT_DAMNATION,
 },
 
 {
@@ -271,6 +278,7 @@ static const zap_info zap_data[] =
     DCHAR_FIRED_ZAP,
     false,
     true,
+    TILE_BOLT_GHOSTLY_FIREBALL,
 },
 
 {
@@ -351,6 +359,7 @@ static const zap_info zap_data[] =
     DCHAR_FIRED_ZAP,
     false,
     false,
+    TILE_BOLT_MAGMA,
 },
 
 {
@@ -463,6 +472,7 @@ static const zap_info zap_data[] =
     DCHAR_FIRED_ZAP,
     false,
     false,
+    TILE_BOLT_FLAME,
 },
 
 {
@@ -479,6 +489,7 @@ static const zap_info zap_data[] =
     DCHAR_FIRED_ZAP,
     false,
     false,
+    TILE_BOLT_FROST,
 },
 
 {
@@ -559,6 +570,7 @@ static const zap_info zap_data[] =
     DCHAR_FIRED_ZAP,
     false,
     false,
+    TILE_BOLT_MAGIC_DART,
 },
 
 _mon_hex_zap(ZAP_PARALYSE, BEAM_PARALYSIS),
@@ -695,6 +707,8 @@ _mon_hex_zap(ZAP_TUKIMAS_DANCE, BEAM_TUKIMAS_DANCE, 100),
     DCHAR_FIRED_ZAP,
     false,
     true,
+    TILE_BOLT_FLAME,
+    TILE_BOLT_DEFAULT_RED,
 },
 
 {
@@ -810,6 +824,7 @@ _mon_hex_zap(ZAP_POLYMORPH, BEAM_POLYMORPH),
     DCHAR_FIRED_ZAP,
     true,
     false,
+    TILE_BOLT_DRAIN,
 },
 
 {
@@ -842,6 +857,7 @@ _mon_hex_zap(ZAP_POLYMORPH, BEAM_POLYMORPH),
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_CRYSTAL_SPEAR,
 },
 
 _mon_hex_zap(ZAP_CHARMING, BEAM_CHARM),
@@ -943,6 +959,7 @@ _mon_hex_zap(ZAP_BANISHMENT, BEAM_BANISH, 150),
     DCHAR_FIRED_ZAP,
     false,
     false,
+    TILE_BOLT_STING,
 },
 
 {
@@ -959,6 +976,7 @@ _mon_hex_zap(ZAP_BANISHMENT, BEAM_BANISH, 150),
     DCHAR_FIRED_ZAP,
     false,
     true,
+    TILE_BOLT_DAMNATION,
 },
 
 {
@@ -975,6 +993,7 @@ _mon_hex_zap(ZAP_BANISHMENT, BEAM_BANISH, 150),
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_IRON_SHOT,
 },
 
 {
@@ -1007,6 +1026,7 @@ _mon_hex_zap(ZAP_BANISHMENT, BEAM_BANISH, 150),
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_STONE_ARROW,
 },
 
 {
@@ -1023,6 +1043,7 @@ _mon_hex_zap(ZAP_BANISHMENT, BEAM_BANISH, 150),
     DCHAR_FIRED_ZAP,
     true,
     false,
+    TILE_BOLT_ZAP,
 },
 
 {
@@ -1263,6 +1284,7 @@ _mon_hex_zap(ZAP_BANISHMENT, BEAM_BANISH, 150),
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_ICICLE,
 },
 
 {
@@ -1298,6 +1320,7 @@ _mon_hex_zap(ZAP_HIBERNATION, BEAM_HIBERNATION),
     DCHAR_FIRED_BOLT,
     false,
     false,
+    TILE_BOLT_SANDBLAST,
 },
 
 {
@@ -1314,6 +1337,7 @@ _mon_hex_zap(ZAP_HIBERNATION, BEAM_HIBERNATION),
     DCHAR_FIRED_ZAP,
     true,
     false,
+    TILE_BOLT_MAGMA,
 },
 
 {
@@ -1346,6 +1370,7 @@ _mon_hex_zap(ZAP_HIBERNATION, BEAM_HIBERNATION),
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_POISON_ARROW,
 },
 
 _mon_hex_zap(ZAP_PETRIFY, BEAM_PETRIFY),
@@ -1415,6 +1440,7 @@ _mon_hex_zap(ZAP_SLEEP, BEAM_SLEEP),
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_FORCE_LANCE,
 },
 
 {
@@ -1431,6 +1457,7 @@ _mon_hex_zap(ZAP_SLEEP, BEAM_SLEEP),
     DCHAR_FIRED_ZAP,
     true,
     false,
+    TILE_BOLT_SEARING_RAY,
 },
 
 {
@@ -1512,6 +1539,7 @@ _mon_hex_zap(ZAP_SLEEP, BEAM_SLEEP),
     DCHAR_FIRED_ZAP,
     true,
     false,
+    TILE_BOLT_LIGHT,
 },
 
 {
@@ -1528,6 +1556,7 @@ _mon_hex_zap(ZAP_SLEEP, BEAM_SLEEP),
     NUM_DCHAR_TYPES,
     false,
     false,
+    TILE_BOLT_IRRADIATE,
 },
 
 {
@@ -1544,6 +1573,8 @@ _mon_hex_zap(ZAP_SLEEP, BEAM_SLEEP),
     DCHAR_FIRED_MISSILE,
     false,
     true,
+    TILE_BOLT_ICICLE,
+    TILE_BOLT_ICEBLAST,
 },
 
 {
@@ -1560,6 +1591,7 @@ _mon_hex_zap(ZAP_SLEEP, BEAM_SLEEP),
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_STONE_ARROW,
 },
 
 {
@@ -1624,6 +1656,24 @@ _mon_hex_zap(ZAP_SLEEP, BEAM_SLEEP),
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_HARPOON_SHOT,
+},
+
+{
+    ZAP_BOLAS,
+    "whirling bolas",
+    50,
+    nullptr,
+    nullptr,
+    new dicedef_calculator<2, 5, 1, 20>,
+    new tohit_calculator<20, 1, 20>,
+    BROWN,
+    false,
+    BEAM_BOLAS,
+    DCHAR_FIRED_MISSILE,
+    false,
+    false,
+    TILE_BOLT_BOLAS,
 },
 
 _mon_hex_zap(ZAP_DIMENSION_ANCHOR, BEAM_DIMENSION_ANCHOR),
@@ -1664,6 +1714,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_ZAP,
     false,
     true,
+    TILE_BOLT_FIRE_STORM,
 },
 
 {
@@ -1760,6 +1811,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_PIE,
 },
 
 {
@@ -1952,6 +2004,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_ZAP,
     false,
     true,
+    TILE_BOLT_UMBRAL_TORCHLIGHT,
 },
 
 {
@@ -1968,6 +2021,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_ZAP,
     false,
     true,
+    TILE_BOLT_WARP_SPACE,
 },
 
 {
@@ -2048,6 +2102,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_ZAP,
     true,
     false,
+    TILE_BOLT_LIGHT,
 },
 
 {
@@ -2144,6 +2199,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_ICICLE,
 },
 
 {
@@ -2159,7 +2215,9 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     BEAM_ICE,
     DCHAR_FIRED_MISSILE,
     false,
-    true
+    true,
+    TILE_BOLT_ICICLE,
+    TILE_BOLT_ICEBLAST,
 },
 
 {
@@ -2192,6 +2250,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_MISSILE,
     false,
     false,
+    TILE_BOLT_PHANTOM_BLITZ,
 },
 
 {
@@ -2208,6 +2267,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_ZAP,
     false,
     false,
+    TILE_BOLT_SHADOW_SHARD,
 },
 
 {
@@ -2224,6 +2284,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_ZAP,
     true,
     false,
+    TILE_BOLT_SHADOW_BEAM,
 },
 
 {
@@ -2240,6 +2301,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_ZAP,
     false,
     true,
+    TILE_BOLT_SHADOW_BLAST,
 },
 
 {
@@ -2256,6 +2318,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_ZAP,
     false,
     false,
+    TILE_BOLT_SHADOW_BLAST,
 },
 
 {
@@ -2320,6 +2383,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_ZAP,
     false,
     false,
+    TILE_BOLT_SHADOW_SHOT,
 },
 
 {
@@ -2384,6 +2448,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_ZAP,
     false,
     false,
+    TILE_BOLT_BLOOD_ARROW,
 },
 
 {
@@ -2472,7 +2537,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     200,
     nullptr,
     nullptr,
-    new dicedef_calculator<2, 5, 1, 12>,
+    new dicedef_calculator<2, 3, 1, 30>,
     new tohit_calculator<14, 1, 35>,
     WHITE,
     false,
@@ -2496,6 +2561,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_ZAP,
     true,
     false,
+    TILE_BOLT_ICICLE_SALVO,
 },
 
 {
@@ -2528,6 +2594,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_ZAP,
     false,
     true,
+    TILE_BOLT_FORTRESS_BLAST,
 },
 
 {
@@ -2576,6 +2643,7 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     DCHAR_FIRED_ZAP,
     true,
     false,
+    TILE_BOLT_MAGMA,
 },
 
 };

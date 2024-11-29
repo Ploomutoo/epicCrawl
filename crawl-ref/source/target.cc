@@ -414,7 +414,11 @@ bool targeter_smite::valid_aim(coord_def a)
         // Scrying/glass/tree/grate.
         if (agent && agent->see_cell(a))
             return notify_fail("There's something in the way.");
-        return notify_fail("You cannot see that place.");
+        else if (agent && agent->is_player())
+            return notify_fail("You cannot see that place.");
+        // When aiming something from a different actor's perspective
+        else
+            return notify_fail("Out of range.");
     }
     if ((origin - a).rdist() > range)
         return notify_fail("Out of range.");
@@ -769,10 +773,9 @@ bool targeter_unravelling::valid_aim(coord_def a)
     }
 
     if (mons && you.can_see(*mons) && _unravelling_explodes_at(a)
-        && god_protects(&you, mons))
+        && never_harm_monster(&you, mons))
     {
-        return notify_fail(mons->name(DESC_THE) + " is protected by " +
-                           god_name(you.religion) + ".");
+        return notify_fail("You cannot do harm to " + mons->name(DESC_THE));
     }
 
     return true;
@@ -1395,7 +1398,7 @@ aff_type targeter_refrig::is_affected(coord_def loc)
     const actor* act = actor_at(loc);
     if (!act || act == agent || !agent->can_see(*act))
         return AFF_NO;
-    if (god_protects(agent, act->as_monster(), true))
+    if (never_harm_monster(agent, act->as_monster()))
         return AFF_NO;
     switch (adjacent_huddlers(loc, true))
     {
@@ -2035,12 +2038,12 @@ aff_type targeter_boulder::is_affected(coord_def loc)
     return AFF_NO;
 }
 
-targeter_petrify::targeter_petrify(const actor* caster, int r)
-    : targeter_beam(caster, r, ZAP_PETRIFY, 0, 0, 0)
+targeter_chain::targeter_chain(const actor* caster, int r, zap_type ztype)
+    : targeter_beam(caster, r, ztype, 0, 0, 0)
 {
 }
 
-bool targeter_petrify::set_aim(coord_def a)
+bool targeter_chain::set_aim(coord_def a)
 {
     if (!targeter::set_aim(a))
         return false;
@@ -2061,12 +2064,12 @@ bool targeter_petrify::set_aim(coord_def a)
         return true;
 
     vector<coord_def> chain_targs;
-    fill_petrify_chain_targets(tempbeam, pos, chain_targs, false);
+    fill_chain_targets(tempbeam, pos, chain_targs, false);
     chain_targ.insert(chain_targs.begin(), chain_targs.end());
     return true;
 }
 
-aff_type targeter_petrify::is_affected(coord_def loc)
+aff_type targeter_chain::is_affected(coord_def loc)
 {
     for (auto pc : path_taken)
     {
@@ -2587,6 +2590,84 @@ bool targeter_tempering::valid_aim(coord_def a)
 
     if (!is_valid_tempering_target(*mons, *agent))
         return notify_fail("You can only target your own Forgecraft constructs.");
+
+    return true;
+}
+
+targeter_piledriver::targeter_piledriver()
+    : targeter_smite(&you, 1)
+{
+    // Cache length of piledriver line in all directions
+    for (int i = 0; i < 8; ++i)
+        piledriver_lengths[i] = piledriver_path_distance(you.pos() + Compass[i], false);
+}
+
+bool targeter_piledriver::valid_aim(coord_def a)
+{
+    if (!targeter_smite::valid_aim(a))
+        return false;
+
+    coord_def delta = (a - you.pos());
+    for (int i = 0; i < 8; ++i)
+    {
+        if (Compass[i] == delta)
+        {
+            if (piledriver_lengths[i] > 0)
+                return true;
+            else
+                return notify_fail("You see nothing there you can launch.");
+        }
+    }
+
+    return false;
+}
+
+bool targeter_piledriver::set_aim(coord_def a)
+{
+    spots.clear();
+
+    coord_def delta = (a - you.pos());
+    for (int i = 0; i < 8; ++i)
+    {
+        if (Compass[i] == delta)
+        {
+            for (int j = 1; j < piledriver_lengths[i] + 2; ++j)
+                spots.push_back(agent->pos() + delta * j);
+        }
+    }
+
+    return true;
+}
+
+aff_type targeter_piledriver::is_affected(coord_def loc)
+{
+    for (coord_def p : spots)
+        if (loc == p)
+            return AFF_YES;
+
+    return AFF_NO;
+}
+
+targeter_teleport_other::targeter_teleport_other(const actor* act, int r) :
+    targeter_smite(act, r, 0, 0, false)
+{
+}
+
+bool targeter_teleport_other::valid_aim(coord_def a)
+{
+    if (!targeter_smite::valid_aim(a))
+        return false;
+
+    const monster_info* mi = env.map_knowledge(a).monsterinfo();
+
+    if (!mi)
+        return false;
+
+    if (mi->is(MB_NO_TELE))
+        return notify_fail("That cannot be teleported.");
+
+    if (mi->willpower() == WILL_INVULN)
+        return false;
 
     return true;
 }

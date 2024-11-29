@@ -248,17 +248,10 @@ const char* jewellery_base_ability_string(int subtype)
     {
 #if TAG_MAJOR_VERSION == 34
     case RING_SUSTAIN_ATTRIBUTES: return "SustAt";
-#endif
-    case RING_FIRE:               return "Fire";
-    case RING_ICE:                return "Ice";
-#if TAG_MAJOR_VERSION == 34
     case RING_TELEPORTATION:      return "*Tele";
     case RING_TELEPORT_CONTROL:   return "+cTele";
     case AMU_HARM:                return "Harm";
     case AMU_THE_GOURMAND:        return "Gourm";
-#endif
-    case AMU_ACROBAT:             return "Acrobat";
-#if TAG_MAJOR_VERSION == 34
     case AMU_CONSERVATION:        return "Cons";
     case AMU_CONTROLLED_FLIGHT:   return "cFly";
 #endif
@@ -297,8 +290,6 @@ struct property_descriptor
 // structure?
 static const vector<property_descriptor> & _get_all_artp_desc_data()
 {
-    // order here determines order of long form descriptions
-    // TODO: why not just use the same order as annotations?
     static vector<property_descriptor> data =
     {
         { ARTP_AC,
@@ -488,6 +479,76 @@ static string _randart_prop_abbrev(artefact_prop_type prop, int val)
     return "buggy";
 }
 
+static const vector<artefact_prop_type> artprop_annotation_order =
+{
+    // (Generally) negative attributes
+    // These come first, so they don't get chopped off!
+    ARTP_PREVENT_SPELLCASTING,
+    ARTP_PREVENT_TELEPORTATION,
+    ARTP_CONTAM,
+    ARTP_ANGRY,
+    ARTP_TROG_MESMERISE,
+    ARTP_TROG_RAGE,
+    ARTP_TROG_LOUD,
+    ARTP_NOISE,
+    ARTP_HARM,
+    ARTP_RAMPAGING,
+    ARTP_ACROBAT,
+    ARTP_CORRODE,
+    ARTP_DRAIN,
+    ARTP_SLOW,
+    ARTP_FRAGILE,
+
+    // Evokable abilities come second
+    ARTP_BLINK,
+    ARTP_INVISIBLE,
+    ARTP_FLY,
+
+    // Resists, also really important
+    ARTP_ELECTRICITY,
+    ARTP_POISON,
+    ARTP_FIRE,
+    ARTP_COLD,
+    ARTP_NEGATIVE_ENERGY,
+    ARTP_WILLPOWER,
+    ARTP_REGENERATION,
+    ARTP_MANA_REGENERATION,
+    ARTP_RMUT,
+    ARTP_RCORR,
+
+    // Quantitative attributes
+    ARTP_HP,
+    ARTP_MAGICAL_POWER,
+    ARTP_WIZARDRY,
+    ARTP_AC,
+    ARTP_EVASION,
+    ARTP_STRENGTH,
+    ARTP_INTELLIGENCE,
+    ARTP_DEXTERITY,
+    ARTP_SLAYING,
+    ARTP_SHIELDING,
+
+    // Qualitative attributes (and Stealth)
+    ARTP_SEE_INVISIBLE,
+    ARTP_STEALTH,
+    ARTP_CLARITY,
+    ARTP_RMSL,
+
+    // spell enhancers
+    ARTP_ARCHMAGI,
+    ARTP_ENHANCE_CONJ,
+    ARTP_ENHANCE_HEXES,
+    ARTP_ENHANCE_SUMM,
+    ARTP_ENHANCE_NECRO,
+    ARTP_ENHANCE_FORGECRAFT,
+    ARTP_ENHANCE_TLOC,
+    ARTP_ENHANCE_FIRE,
+    ARTP_ENHANCE_ICE,
+    ARTP_ENHANCE_AIR,
+    ARTP_ENHANCE_EARTH,
+    ARTP_ENHANCE_ALCHEMY,
+};
+
 static vector<string> _randart_propnames(const item_def& item,
                                          bool no_comma = false)
 {
@@ -496,76 +557,6 @@ static vector<string> _randart_propnames(const item_def& item,
     artefact_desc_properties(item, proprt, known);
 
     vector<string> propnames;
-
-    static const vector<artefact_prop_type> annotation_order =
-    {
-        // (Generally) negative attributes
-        // These come first, so they don't get chopped off!
-        ARTP_PREVENT_SPELLCASTING,
-        ARTP_PREVENT_TELEPORTATION,
-        ARTP_CONTAM,
-        ARTP_ANGRY,
-        ARTP_TROG_MESMERISE,
-        ARTP_TROG_RAGE,
-        ARTP_TROG_LOUD,
-        ARTP_NOISE,
-        ARTP_HARM,
-        ARTP_RAMPAGING,
-        ARTP_ACROBAT,
-        ARTP_CORRODE,
-        ARTP_DRAIN,
-        ARTP_SLOW,
-        ARTP_FRAGILE,
-
-        // Evokable abilities come second
-        ARTP_BLINK,
-        ARTP_INVISIBLE,
-        ARTP_FLY,
-
-        // Resists, also really important
-        ARTP_ELECTRICITY,
-        ARTP_POISON,
-        ARTP_FIRE,
-        ARTP_COLD,
-        ARTP_NEGATIVE_ENERGY,
-        ARTP_WILLPOWER,
-        ARTP_REGENERATION,
-        ARTP_MANA_REGENERATION,
-        ARTP_RMUT,
-        ARTP_RCORR,
-
-        // Quantitative attributes
-        ARTP_HP,
-        ARTP_MAGICAL_POWER,
-        ARTP_WIZARDRY,
-        ARTP_AC,
-        ARTP_EVASION,
-        ARTP_STRENGTH,
-        ARTP_INTELLIGENCE,
-        ARTP_DEXTERITY,
-        ARTP_SLAYING,
-        ARTP_SHIELDING,
-
-        // Qualitative attributes (and Stealth)
-        ARTP_SEE_INVISIBLE,
-        ARTP_STEALTH,
-        ARTP_CLARITY,
-        ARTP_RMSL,
-
-        // spell enhancers
-        ARTP_ARCHMAGI,
-        ARTP_ENHANCE_CONJ,
-        ARTP_ENHANCE_HEXES,
-        ARTP_ENHANCE_SUMM,
-        ARTP_ENHANCE_NECRO,
-        ARTP_ENHANCE_FORGECRAFT,
-        ARTP_ENHANCE_TLOC,
-        ARTP_ENHANCE_FIRE,
-        ARTP_ENHANCE_ICE,
-        ARTP_ENHANCE_AIR,
-        ARTP_ENHANCE_EARTH,
-        ARTP_ENHANCE_ALCHEMY,
-    };
 
     const unrandart_entry *entry = nullptr;
     if (is_unrandom_artefact(item))
@@ -600,7 +591,7 @@ static vector<string> _randart_propnames(const item_def& item,
         {
             // XXX: Ugly hack for adding a comma if needed.
             bool extra_props = false;
-            for (const artefact_prop_type &other_prop : annotation_order)
+            for (const artefact_prop_type &other_prop : artprop_annotation_order)
                 if (known_proprt(other_prop) && other_prop != ARTP_BRAND)
                 {
                     extra_props = true;
@@ -621,28 +612,11 @@ static vector<string> _randart_propnames(const item_def& item,
     if (is_unrandom_artefact(item) && entry && entry->inscrip != nullptr)
         propnames.push_back(entry->inscrip);
 
-    for (const artefact_prop_type &prop : annotation_order)
+    for (const artefact_prop_type &prop : artprop_annotation_order)
     {
         if (known_proprt(prop))
         {
             const int val = proprt[prop];
-
-            // Don't show rF+/rC- for =Fire, or vice versa for =Ice.
-            if (item.base_type == OBJ_JEWELLERY)
-            {
-                if (item.sub_type == RING_FIRE
-                    && (prop == ARTP_FIRE && val == 1
-                        || prop == ARTP_COLD && val == -1))
-                {
-                    continue;
-                }
-                if (item.sub_type == RING_ICE
-                    && (prop == ARTP_COLD && val == 1
-                        || prop == ARTP_FIRE && val == -1))
-                {
-                    continue;
-                }
-            }
 
             // Don't show the rF+ rC+ twice.
             if (get_armour_ego_type(item) == SPARM_RESISTANCE
@@ -693,14 +667,6 @@ static const char* _jewellery_base_ability_description(int subtype)
 #if TAG_MAJOR_VERSION == 34
     case RING_SUSTAIN_ATTRIBUTES:
         return "It sustains your strength, intelligence and dexterity.";
-#endif
-    case RING_WIZARDRY:
-        return "It improves your spell success rate.";
-    case RING_FIRE:
-        return "It enhances your fire magic.";
-    case RING_ICE:
-        return "It enhances your ice magic.";
-#if TAG_MAJOR_VERSION == 34
     case RING_TELEPORTATION:
         return "It may teleport you next to monsters.";
     case RING_TELEPORT_CONTROL:
@@ -709,12 +675,6 @@ static const char* _jewellery_base_ability_description(int subtype)
         return "It increases damage dealt and taken.";
     case AMU_THE_GOURMAND:
         return "It allows you to eat raw meat even when not hungry.";
-#endif
-    case AMU_MANA_REGENERATION:
-        return "It increases your rate of magic regeneration.";
-    case AMU_ACROBAT:
-        return "It increases your evasion while moving and waiting.";
-#if TAG_MAJOR_VERSION == 34
     case AMU_CONSERVATION:
         return "It protects your inventory from destruction.";
 #endif
@@ -769,15 +729,15 @@ void desc_randart_props(const item_def &item, vector<string> &lines)
     artefact_known_props_t known;
     artefact_desc_properties(item, proprt, known);
 
-    for (const property_descriptor &desc : _get_all_artp_desc_data())
+    for (artefact_prop_type prop : artprop_annotation_order)
     {
-        if (!known_proprt(desc.property)) // can this ever happen..?
+        if (!known_proprt(prop))
             continue;
 
-        const int stval = proprt[desc.property];
+        const int stval = proprt[prop];
 
         // these two have some custom string replacement
-        if (desc.property == ARTP_WILLPOWER)
+        if (prop == ARTP_WILLPOWER)
         {
             lines.push_back(make_stringf("%s It %s%s your willpower.",
                      _padded_artp_name(ARTP_WILLPOWER, stval).c_str(),
@@ -785,7 +745,7 @@ void desc_randart_props(const item_def &item, vector<string> &lines)
                      (stval < 0) ? "decreases" : "increases"));
             continue;
         }
-        else if (desc.property == ARTP_STEALTH)
+        else if (prop == ARTP_STEALTH)
         {
             lines.push_back(make_stringf("%s It makes you %s%s stealthy.",
                      _padded_artp_name(ARTP_STEALTH, stval).c_str(),
@@ -795,7 +755,7 @@ void desc_randart_props(const item_def &item, vector<string> &lines)
         }
 
         // otherwise, we use desc.desc in some form
-
+        const property_descriptor& desc = _get_artp_desc_data(prop);
         string sdesc = desc.desc;
 
         if (sdesc.find("%d") != string::npos)
@@ -1466,7 +1426,7 @@ string damage_rating(const item_def *item, int *rating_value)
     // This is just SPWPN_HEAVY.
     const int post_brand_dam = brand_adjust_weapon_damage(base_dam, brand, false);
     const int heavy_dam = post_brand_dam - base_dam;
-    const int extra_base_dam = thrown ? throwing_base_damage_bonus(*item) :
+    const int extra_base_dam = thrown ? throwing_base_damage_bonus(*item, false) :
                                !item ? unarmed_base_damage_bonus(false) :
                                     heavy_dam; // 0 for non-heavy weapons
     const skill_type skill = item ? _item_training_skill(*item) : SK_UNARMED_COMBAT;
@@ -1886,14 +1846,15 @@ static string _equipment_switchto_string(const item_def &item)
 
 /**
  * Describe how (un)equipping a piece of equipment might change the player's
- * AC/EV/SH stats. We don't include temporary buffs in this calculation.
+ * AC/EV/SH and spell failure. We don't include temporary buffs in this
+ * calculation.
  *
  * @param item    The item whose description we are writing.
  * @param remove  Whether the item is already equipped, and thus whether to
                   show the change solely from unequipping the item.
  * @return        The description.
  */
-static string _equipment_ac_ev_sh_change_description(const item_def &item,
+static string _equipment_property_change_description(const item_def &item,
                                                      bool remove = false)
 {
     // First, test if there is any AC/EV/SH change at all.
@@ -1901,16 +1862,38 @@ static string _equipment_ac_ev_sh_change_description(const item_def &item,
     const int cur_ev = you.evasion_scaled(100, true);
     const int cur_sh = player_displayed_shield_class(100, true);
     int new_ac, new_ev, new_sh;
+    FixedVector<int, MAX_KNOWN_SPELLS> cur_fail, new_fail;
+    for (int i = 0; i < MAX_KNOWN_SPELLS; ++i)
+        cur_fail[i] = raw_spell_fail(you.spells[i]);
 
     if (remove)
-        you.ac_ev_sh_without_specific_item(100, item, &new_ac, &new_ev, &new_sh);
+        you.preview_stats_without_specific_item(100, item, &new_ac, &new_ev, &new_sh, &new_fail);
     else
-        you.ac_ev_sh_with_specific_item(100, item, &new_ac, &new_ev, &new_sh);
+        you.preview_stats_with_specific_item(100, item, &new_ac, &new_ev, &new_sh, &new_fail);
+
+    // Check if any spell failures changed, and save the greatest magnitude that
+    // any of them changed.
+    int fail_change = 0;
+    int visible_fail_change = 0;
+    for (int i = 0; i < MAX_KNOWN_SPELLS; ++i)
+    {
+        if (cur_fail[i] != new_fail[i])
+        {
+            int new_fail_change = new_fail[i] - cur_fail[i];
+            int new_visible_fail_change = failure_rate_to_int(new_fail[i])
+                                            - failure_rate_to_int(cur_fail[i]);
+            if (abs(new_fail_change) > fail_change)
+                fail_change = new_fail_change;
+            if (abs(new_visible_fail_change) > visible_fail_change)
+                visible_fail_change = new_visible_fail_change;
+        }
+    }
 
     // If we're previewing non-armour and there is no AC/EV/SH change, print no
     // extra description at all (since almost all items of these types will
     // change nothing)
     if (cur_ac == new_ac && cur_ev == new_ev && cur_sh == new_sh
+        && fail_change == 0
         && (item.base_type != OBJ_ARMOUR || item.sub_type == ARM_ORB))
     {
         return "";
@@ -1959,7 +1942,122 @@ static string _equipment_ac_ev_sh_change_description(const item_def &item,
                        + _describe_point_diff(cur_sh, new_sh) + ".";
     }
 
+    if (fail_change != 0)
+    {
+        description += "\nYour spell failure would ";
+        description += (fail_change > 0) ? "worsen" : "improve";
+        if (visible_fail_change == 0)
+            description += " trivially.";
+        else
+        {
+            description += make_stringf(" by up to %d%% (press '!' for details).",
+                                    abs(visible_fail_change)).c_str();
+        }
+    }
+
     return description;
+}
+
+static string _spell_fail_change_description(const item_def &item,
+                                             bool remove = false)
+{
+    int dummy1, dummy2, dummy3;
+    FixedVector<int, MAX_KNOWN_SPELLS> cur_fail, new_fail;
+    for (int i = 0; i < MAX_KNOWN_SPELLS; ++i)
+        cur_fail[i] = raw_spell_fail(you.spells[i]);
+
+    if (remove)
+        you.preview_stats_without_specific_item(100, item, &dummy1, &dummy2, &dummy3, &new_fail);
+    else
+        you.preview_stats_with_specific_item(100, item, &dummy1, &dummy2, &dummy3, &new_fail);
+
+    // Check if any spell failures changed.
+    int fail_change = 0;
+    for (int i = 0; i < MAX_KNOWN_SPELLS; ++i)
+    {
+        if (cur_fail[i] != new_fail[i])
+        {
+            fail_change = new_fail[i] - cur_fail[i];
+            break;
+        }
+    }
+
+    // If nothing changed, generate no text
+    if (fail_change == 0)
+        return "";
+
+    // If they did, convert all failures into percentages to see whether any
+    // change was non-trivial
+    fail_change = 0;
+    for (int i = 0; i < MAX_KNOWN_SPELLS; ++i)
+    {
+        if (cur_fail[i] == new_fail[i])
+            continue;
+
+        cur_fail[i] = failure_rate_to_int(cur_fail[i]);
+        new_fail[i] = failure_rate_to_int(new_fail[i]);
+
+        if (cur_fail[i] != new_fail[i])
+            fail_change = cur_fail[i] - new_fail[i];
+    }
+
+    // If nothing changed *meaningfully*, generate no text
+    if (fail_change == 0)
+        return "";
+
+    // Otherwise, generate a complete list of all non-trivial changes
+    string desc;
+    desc = make_stringf("If you %s this item, your spell failure would %s:\n",
+                        remove ? "removed" : "equipped",
+                        fail_change < 0 ? "worsen" : "improve");
+
+    // Sort spells by degree of change in their fail rates (and then by
+    // absolute fail rate after that)
+    vector<pair<int, int>> spell_sort;
+    for (int i = 0; i < MAX_KNOWN_SPELLS; ++i)
+    {
+        if (cur_fail[i] == new_fail[i])
+            continue;
+
+        spell_sort.push_back({i, abs(cur_fail[i] - new_fail[i])});
+    }
+    sort(spell_sort.begin( ), spell_sort.end( ),
+            [cur_fail](pair<int, int>& a, pair<int, int>& b)
+                { return cur_fail[a.first] > cur_fail[b.first];});
+    sort(spell_sort.begin( ), spell_sort.end( ),
+            [](pair<int, int>& a, pair<int, int>& b)
+                { return a.second > b.second;});
+
+
+    // vector<string> entries;
+    for (size_t i = 0; i < spell_sort.size(); ++i)
+    {
+        int index = spell_sort[i].first;
+
+        int diff = new_fail[index] - cur_fail[index];
+        string colour;
+        if (diff > 20)
+            colour = "magenta";
+        else if (diff > 11)
+            colour = "lightred";
+        else if (diff > 5)
+            colour = "yellow";
+        else if (diff < -11)
+            colour = "lightblue";
+        else if (diff < -5)
+            colour = "white";
+        else
+            colour = "lightgrey";
+
+        string entry = make_stringf("<%s>%s%3d%%-> %3d%%</%s>\n",
+                colour.c_str(),
+                chop_string(spell_title(you.spells[index]), 32).c_str(),
+                cur_fail[index], new_fail[index], colour.c_str());
+
+        desc += entry;
+    }
+
+    return desc;
 }
 
 static bool _you_are_wearing_item(const item_def &item)
@@ -1967,14 +2065,14 @@ static bool _you_are_wearing_item(const item_def &item)
     return get_equip_slot(&item) != EQ_NONE;
 }
 
-static string _equipment_ac_ev_sh_change(const item_def &item)
+static string _equipment_property_change(const item_def &item)
 {
     string description;
 
     if (!_you_are_wearing_item(item))
-        description = _equipment_ac_ev_sh_change_description(item);
+        description = _equipment_property_change_description(item);
     else
-        description = _equipment_ac_ev_sh_change_description(item, true);
+        description = _equipment_property_change_description(item, true);
 
     return description;
 }
@@ -2011,8 +2109,11 @@ static string _describe_weapon(const item_def &item, bool verbose, bool monster)
     if (!art_desc.empty())
         description += "\n\n" + art_desc;
 
-    if (verbose && crawl_state.need_save && you.could_wield(item, true, true))
-        description += _equipment_ac_ev_sh_change(item);
+    if (verbose && crawl_state.need_save && you.could_wield(item, true, true)
+        && item_ident(item, ISFLAG_KNOW_PROPERTIES))
+    {
+        description += _equipment_property_change(item);
+    }
 
     if (verbose)
     {
@@ -2099,6 +2200,13 @@ static string _describe_ammo(const item_def &item)
                            "tendency towards blinking further away from the "
                            "one who threw it.";
             break;
+        case SPMSL_DISJUNCTION:
+            description += "It causes any target it hits to become temporarily "
+                           "untethered in space, blinking uncontrollably for "
+                           "several turns and taking minor damage each time it "
+                           "does so.";
+            break;
+
         case SPMSL_SILVER:
             description += "It deals increased damage compared to normal ammo "
                            "and substantially increased damage to chaotic "
@@ -2363,7 +2471,7 @@ static string _describe_armour(const item_def &item, bool verbose, bool monster)
         && can_wear_armour(item, false, true)
         && item_ident(item, ISFLAG_KNOW_PLUSES))
     {
-        description += _equipment_ac_ev_sh_change(item);
+        description += _equipment_property_change(item);
     }
 
     const int DELAY_SCALE = 100;
@@ -2645,7 +2753,7 @@ static string _describe_jewellery(const item_def &item, bool verbose)
                && item.sub_type != RING_EVASION
                && item.sub_type != AMU_REFLECTION))
     {
-        description += _equipment_ac_ev_sh_change(item);
+        description += _equipment_property_change(item);
     }
 
     return description;
@@ -2966,7 +3074,7 @@ string get_item_description(const item_def &item,
                 description << "\n\n" + art_desc;
 
             if (verbose && crawl_state.need_save && you.could_wield(item, true, true))
-                description << _equipment_ac_ev_sh_change(item);
+                description << _equipment_property_change(item);
         }
         description << "\n\nIt falls into the 'Staves' category. ";
         description << _handedness_string(item);
@@ -4160,6 +4268,7 @@ command_type describe_item_popup(const item_def &item,
     bool done = false;
     command_type action = CMD_NO_CMD;
     int lastch; // unused??
+    bool show_spell_success = false;
     popup->on_keydown_event([&](const KeyEvent& ev) {
         const auto key = ev.key() == '{' ? 'i' : ev.key();
         lastch = key;
@@ -4168,6 +4277,30 @@ command_type describe_item_popup(const item_def &item,
             done = true;
         else if (scroller->on_event(ev))
             return true;
+        else if (key == '!'
+                 && is_equippable_item(item)
+                 && item_ident(item, ISFLAG_KNOW_PROPERTIES))
+        {
+            string spell_success;
+            // Only switch tab if there's any spell rate changes.
+            if (!show_spell_success)
+            {
+                spell_success = _spell_fail_change_description(item, item_is_equipped(item));
+                if (spell_success.empty())
+                    return false;
+            }
+
+            show_spell_success = !show_spell_success;
+            if (show_spell_success)
+                text->set_text(formatted_string::parse_string(spell_success));
+            else
+                text->set_text(fs_desc.trim());
+#ifdef USE_TILE_WEB
+            tiles.json_open_object();
+            tiles.json_write_string("body", text->get_text().to_colour_string(LIGHTGREY));
+            tiles.ui_state_change("describe-spell-success", -1);
+#endif
+        }
 
         const vector<pair<spell_type,char>> spell_map = map_chars_to_spells(spells);
         auto entry = find_if(spell_map.begin(), spell_map.end(),
@@ -4455,8 +4588,11 @@ static string _miscast_damage_string(spell_type spell)
  */
 static string _player_spell_desc(spell_type spell)
 {
-    if (!crawl_state.need_save || (get_spell_flags(spell) & spflag::monster))
+    if (!crawl_state.need_save || (get_spell_flags(spell) & spflag::monster)
+        || !is_player_book_spell(spell))
+    {
         return ""; // all info is player-dependent
+    }
 
     ostringstream description;
 
@@ -4494,14 +4630,13 @@ static string _player_spell_desc(spell_type spell)
     }
     else if (spell == SPELL_PLATINUM_PARAGON)
     {
-        description << "Your paragon wields ";
-
         if (you.props.exists(PARAGON_WEAPON_KEY))
-            description << you.props[PARAGON_WEAPON_KEY].get_item().name(DESC_A, true).c_str();
-        else
-            description << "your current weapon";
-
-        description << ".\n";
+        {
+            description << "Your paragon wields "
+                        << you.props[PARAGON_WEAPON_KEY].get_item()
+                           .name(DESC_A, true).c_str()
+                        << ".\n";
+        }
     }
     else if (you.has_spell(SPELL_SPELLSPARK_SERVITOR) && spell_servitorable(spell))
     {
@@ -5441,6 +5576,8 @@ static void _attacks_table_row_throwing(const monster_info &mi,
         case SPMSL_DISPERSAL:
             bonus_desc = "Blink the defender away";
             break;
+        case SPMSL_DISJUNCTION:
+            bonus_desc = "Blink the defender repeatedly";
         default:
             break;
         }

@@ -952,7 +952,7 @@ bool player_unrand_bad_attempt(const item_def &weapon,
         return stop_attack_prompt(hitfunc, "attack",
                                   [](const actor *act)
                                   {
-                                      return !god_protects(act->as_monster());
+                                      return !never_harm_monster(&you, act->as_monster());
                                   }, nullptr, defender->as_monster(),
                                   check_only);
     }
@@ -965,7 +965,7 @@ bool player_unrand_bad_attempt(const item_def &weapon,
         return stop_attack_prompt(hitfunc, "attack",
                                [](const actor *act)
                                {
-                                   return !god_protects(act->as_monster());
+                                   return !never_harm_monster(&you, act->as_monster());
                                }, nullptr, defender->as_monster(),
                                check_only);
     }
@@ -977,7 +977,7 @@ bool player_unrand_bad_attempt(const item_def &weapon,
                                [] (const actor *m)
                                {
                                    return !m->res_torment()
-                                       && !god_protects(m->as_monster());
+                                       && !never_harm_monster(&you, m->as_monster());
                                },
                                   nullptr, defender->as_monster(),
                                 check_only);
@@ -996,7 +996,7 @@ bool player_unrand_bad_attempt(const item_def &weapon,
         return stop_attack_prompt(hitfunc, "attack",
                                [](const actor *act)
                                {
-                                   return !god_protects(act->as_monster());
+                                   return !never_harm_monster(&you, act->as_monster());
                                }, nullptr, defender->as_monster(),
                                check_only);
     }
@@ -1018,7 +1018,7 @@ bool dont_harm(const actor &attacker, const actor &defender)
         return true;
 
     if (defender.is_monster())
-        return god_protects(&attacker, defender.as_monster(), false);
+        return never_harm_monster(&attacker, defender.as_monster(), true);
 
     if (defender.is_player())
         return attacker.wont_attack();
@@ -1278,7 +1278,7 @@ bool bad_attack(const monster *mon, string& adj, string& suffix,
             return false;
 
         // If we cannot hurt an ally anyway, don't bother warning as if we could
-        if (god_protects(mon))
+        if (never_harm_monster(&you, mon))
             return false;
 
         if (god_hates_attacking_friend(you.religion, *mon))
@@ -1483,6 +1483,8 @@ string stop_summoning_reason(resists_t resists, monclass_flags_t flags)
         return "noxious bog";
     if (you.duration[DUR_VORTEX])
         return "polar vortex";
+    if (you.duration[DUR_FUSILLADE])
+        return "fulsome fusillade";
     return "";
 }
 
@@ -1499,11 +1501,8 @@ bool warn_about_bad_targets(const char* source_name, vector<coord_def> targets,
     for (coord_def p : targets)
     {
         const monster* mon = monster_at(p);
-        if (!mon || god_protects(&you, *mon)
-            || always_shoot_through_monster(&you, *mon))
-        {
+        if (!mon || never_harm_monster(&you, mon))
             continue;
-        }
 
         if (should_ignore && should_ignore(*mon))
             continue;
@@ -1672,11 +1671,13 @@ int apply_fighting_skill(int damage, bool aux, bool random)
     return damage;
 }
 
-int throwing_base_damage_bonus(const item_def &proj)
+int throwing_base_damage_bonus(const item_def &proj, bool random)
 {
     // Stones get half bonus; everything else gets full bonus.
-    return div_rand_round(you.skill_rdiv(SK_THROWING)
-                          * min(4, property(proj, PWPN_DAMAGE)), 4);
+    int damage_mult = min(4, property(proj, PWPN_DAMAGE));
+    if (random)
+        return div_rand_round(you.skill_rdiv(SK_THROWING) * damage_mult, 4);
+    return (you.skill(SK_THROWING) * damage_mult) / 4;
 }
 
 int brand_adjust_weapon_damage(int base_dam, int brand, bool random)

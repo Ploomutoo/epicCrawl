@@ -563,10 +563,10 @@ private:
     map<coord_def, aff_type> boulder_sim;
 };
 
-class targeter_petrify : public targeter_beam
+class targeter_chain : public targeter_beam
 {
 public:
-    targeter_petrify(const actor *act, int r);
+    targeter_chain(const actor *act, int r, zap_type ztype);
     bool set_aim(coord_def a) override;
     aff_type is_affected(coord_def loc) override;
 
@@ -694,5 +694,25 @@ class targeter_tempering : public targeter_smite
 {
 public:
     targeter_tempering();
+    bool valid_aim(coord_def a) override;
+};
+
+class targeter_piledriver : public targeter_smite
+{
+public:
+    targeter_piledriver();
+    bool valid_aim(coord_def a) override;
+    bool set_aim(coord_def a) override;
+    aff_type is_affected(coord_def loc) override;
+
+private:
+    int piledriver_lengths[8];
+    vector<coord_def> spots;
+};
+
+class targeter_teleport_other : public targeter_smite
+{
+public:
+    targeter_teleport_other(const actor *act, int range);
     bool valid_aim(coord_def a) override;
 };

@@ -2276,7 +2276,7 @@ SUBST:  fg = |*, h = *, i = $%, j= -
 # blademasters, but reduce the monster count.
 NSUBST: - = 1 / 2=1- / 2=L / 3=2- / -
 : elseif you.in_branch("Vaults") then
-MONS:   deep troll w:5 / vault guard
+MONS:   deep troll w:5 / vault guard w:5 / ironbound beastmaster w:5
 MONS:   ettin / stone giant
 SUBST:  fgh = |*, i = *, j= %$
 NSUBST: - = 2=1 / 1- / 4=2 / 4=2- / 3 / 2=3- / EF / EF-- / -
@@ -2331,7 +2331,7 @@ ORIENT: float
 KMASK:  -DEFHNOQRdeqrsyuz1234|*%$^ = opaque
 KITEM:  N = scroll of teleportation q:3 ident:all w:20 \
             / scroll of blinking ident:all w:20 \
-            / dart ego:dispersal ident:all \
+            / dart ego:disjunction ident:all \
             / book of spatial translocations \
             / book of the warp \
             / there-and-back book \

@@ -356,8 +356,7 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_TELEPORT_OTHER, "Teleport Other",
     spschool::translocation,
-    spflag::dir_or_target | spflag::not_self | spflag::escape
-        | spflag::needs_tracer | spflag::WL_check,
+    spflag::target | spflag::not_self | spflag::escape | spflag::WL_check,
     3,
     100,
     LOS_RADIUS, LOS_RADIUS,
@@ -498,7 +497,7 @@ static const struct spell_desc spelldata[] =
     200,
     LOS_RADIUS, LOS_RADIUS,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_CALL_DOWN_LIGHTNING,
 },
 
 {
@@ -998,6 +997,17 @@ static const struct spell_desc spelldata[] =
     -1, -1,
     0,
     TILEG_SYMBOL_OF_TORMENT,
+},
+
+{
+    SPELL_SIPHON_ESSENCE, "Siphon Essence",
+    spschool::necromancy,
+    spflag::area | spflag::monster,
+    7,
+    0,
+    2, 2,
+    0,
+    TILEG_SIPHON_ESSENCE,
 },
 
 {
@@ -1769,7 +1779,7 @@ static const struct spell_desc spelldata[] =
     200,
     6, 6,
     25,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_PRIMAL_WAVE,
 },
 
 {
@@ -1939,7 +1949,7 @@ static const struct spell_desc spelldata[] =
     200,
     5, 5,
     2,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_HOLY_BREATH,
 },
 
 {
@@ -2197,7 +2207,7 @@ static const struct spell_desc spelldata[] =
     200,
     -1, -1,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_CALL_LOST_SOULS,
 },
 
 {
@@ -2264,7 +2274,7 @@ static const struct spell_desc spelldata[] =
     200,
     LOS_RADIUS, LOS_RADIUS,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_WATERSTRIKE,
 },
 
 {
@@ -2275,7 +2285,7 @@ static const struct spell_desc spelldata[] =
     200,
     LOS_RADIUS, LOS_RADIUS,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_WIND_BLAST,
 },
 
 {
@@ -2400,7 +2410,7 @@ static const struct spell_desc spelldata[] =
     200,
     LOS_RADIUS, LOS_RADIUS,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_CREEPING_FROST,
 },
 
 {
@@ -2763,7 +2773,7 @@ static const struct spell_desc spelldata[] =
     0,
     5, 5,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_THROW_BARBS,
 },
 
 {
@@ -2884,7 +2894,7 @@ static const struct spell_desc spelldata[] =
     200,
     LOS_RADIUS, LOS_RADIUS,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_PARALYSIS_GAZE,
 },
 
 {
@@ -2928,7 +2938,7 @@ static const struct spell_desc spelldata[] =
     0,
     LOS_RADIUS, LOS_RADIUS,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_MOURNING_WAIL,
 },
 
 {
@@ -2939,7 +2949,7 @@ static const struct spell_desc spelldata[] =
     0,
     LOS_RADIUS, LOS_RADIUS,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_DEATH_RATTLE,
 },
 
 {
@@ -2950,7 +2960,7 @@ static const struct spell_desc spelldata[] =
     0,
     LOS_RADIUS, LOS_RADIUS,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_MARCH_OF_SORROWS,
 },
 
 {
@@ -3127,7 +3137,7 @@ static const struct spell_desc spelldata[] =
     200,
     -1, -1,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_STILL_WINDS,
 },
 
 {
@@ -3262,6 +3272,18 @@ static const struct spell_desc spelldata[] =
     0,
     TILEG_GRASPING_ROOTS,
 },
+
+{
+    SPELL_THROW_BOLAS, "Throw Bolas",
+    spschool::conjuration,
+    spflag::dir_or_target | spflag::needs_tracer | spflag::monster,
+    4,
+    200,
+    6, 6,
+    0,
+    TILEG_THROW_BOLAS,
+},
+
 
 {
     SPELL_THROW_PIE, "Throw Klown Pie",
@@ -3415,7 +3437,7 @@ static const struct spell_desc spelldata[] =
     200,
     5, 5,
     0,
-    TILEG_GENERIC_MONSTER_SPELL
+    TILEG_HURL_SLUDGE
 },
 
 {
@@ -3493,7 +3515,7 @@ static const struct spell_desc spelldata[] =
     200,
     LOS_RADIUS, LOS_RADIUS,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_PYROCLASTIC_SURGE,
 },
 
 {
@@ -3864,7 +3886,7 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_PILEDRIVER, "Maxwell's Portable Piledriver",
     spschool::translocation,
-    spflag::none,
+    spflag::target,
     3,
     100,
     5, 5,
@@ -3937,7 +3959,7 @@ static const struct spell_desc spelldata[] =
     200,
     4, 4,
     8,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_SEISMIC_STOMP,
 },
 
 {
@@ -4173,7 +4195,7 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_KINETIC_GRAPNEL, "Kinetic Grapnel",
     spschool::forgecraft,
-    spflag::dir_or_target | spflag::needs_tracer,
+    spflag::dir_or_target | spflag::needs_tracer | spflag::destructive,
     1,
     25,
     4, 4,
@@ -4258,7 +4280,7 @@ static const struct spell_desc spelldata[] =
     200,
     4, 4,
     0,
-    TILEG_CALL_DOWN_DAMNATION,
+    TILEG_LAUNCH_BOMBLET,
 },
 
 {

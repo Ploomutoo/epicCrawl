@@ -4988,11 +4988,8 @@ bool monster::can_go_frenzy() const
         return false;
 
     // These allies have a special loyalty
-    if (god_protects(*this)
-        || testbits(flags, MF_DEMONIC_GUARDIAN))
-    {
+    if (never_harm_monster(&you, this))
         return false;
-    }
 
     return true;
 }
@@ -6450,7 +6447,7 @@ bool monster::is_jumpy() const
 }
 
 // HD for spellcasting purposes.
-// Currently only used for Aura of Brilliance and Hep ancestors.
+// Currently only used for Brilliance buffs and Hep ancestors.
 int monster::spell_hd(spell_type spell) const
 {
     UNUSED(spell);
@@ -6518,8 +6515,8 @@ bool monster::angered_by_attacks() const
             && !is_divine_companion()
             && !testbits(flags, MF_DEMONIC_GUARDIAN)
             && !((holiness() & MH_NONLIVING) && mons_intel(*this) == I_BRAINLESS)
-            // allied fed plants, hep ancestor:
-            && !god_protects(*this);
+            // XXX: Is this relevant if we can't harm them in the first place?
+            && !never_harm_monster(&you, *this);
 }
 
 bool monster::is_band_follower_of(const monster& leader) const

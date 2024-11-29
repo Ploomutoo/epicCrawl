@@ -1471,15 +1471,15 @@ string spell_uselessness_reason(spell_type spell, bool temp, bool prevent,
 
     case SPELL_PILEDRIVER:
         if (you.stasis())
-            return "your stasis prevents you from slingshotting yourself.";
+            return "your stasis prevents you from launching yourself.";
         if (temp)
         {
             if (!you.is_motile())
-                return "you cannot slingshot yourself while unable to move.";
+                return "you cannot launch yourself while unable to move.";
             if (you.no_tele(true))
                 return lowercase_first(you.no_tele_reason(true));
-            if (possible_piledriver_targets(false).empty())
-                return "you cannot see anything nearby that you can slingshot.";
+            if (!piledriver_target_exists())
+                return "you cannot see anything nearby that you can launch.";
         }
         break;
 
@@ -1868,11 +1868,11 @@ static const mutation_type arcana_sacrifice_map[] = {
     MUT_NO_ICE_MAGIC,
     MUT_NO_NECROMANCY_MAGIC,
     MUT_NO_SUMMONING_MAGIC,
-    MUT_NO_FORGECRAFT_MAGIC,
     MUT_NO_TRANSLOCATION_MAGIC,
     MUT_NO_ALCHEMY_MAGIC,
     MUT_NO_EARTH_MAGIC,
-    MUT_NO_AIR_MAGIC
+    MUT_NO_AIR_MAGIC,
+    MUT_NO_FORGECRAFT_MAGIC,
 };
 
 /**

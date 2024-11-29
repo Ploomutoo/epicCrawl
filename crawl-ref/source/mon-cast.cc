@@ -179,6 +179,9 @@ static bool _mons_cast_hellfire_mortar(monster& caster, actor& foe, int pow, boo
 static ai_action::goodness _hoarfrost_cannonade_goodness(const monster &caster);
 static void _cast_wall_burst(monster &caster, bolt &beam, int radius = LOS_RADIUS);
 static bool _cast_seismic_stomp(const monster& caster, bolt& beam, bool check_only = false);
+static ai_action::goodness _foe_siphon_essence_goodness(const monster &caster);
+static vector<actor*> _siphon_essence_victims (const actor& caster);
+static void _cast_siphon_essence(monster &caster, mon_spell_slot, bolt&);
 
 enum spell_logic_flag
 {
@@ -885,6 +888,8 @@ static const map<spell_type, mons_spell_logic> spell_to_logic = {
             _cast_seismic_stomp(caster, beam);
         },
         _zap_setup(SPELL_SEISMIC_STOMP) } },
+    { SPELL_SIPHON_ESSENCE, { _foe_siphon_essence_goodness,
+                              _cast_siphon_essence } },
     { SPELL_SOUL_SPLINTER, _hex_logic(SPELL_SOUL_SPLINTER, _foe_soul_splinter_goodness) },
 };
 
@@ -1100,6 +1105,12 @@ static ai_action::goodness _foe_soul_splinter_goodness(const monster &caster)
     return ai_action::good_or_impossible(!!(foe->holiness() & (MH_NATURAL | MH_DEMONIC | MH_HOLY)));
 }
 
+static ai_action::goodness _foe_siphon_essence_goodness(const monster &caster)
+{
+    vector<actor*> victims = _siphon_essence_victims(caster);
+    return ai_action::good_or_impossible(!victims.empty());
+}
+
 /**
  * Build a function to set up a beam to buff the caster.
  *
@@ -1292,7 +1303,6 @@ static void _cast_grasping_roots(monster &caster, mon_spell_slot, bolt&)
     const int turns = 1 + random_range(div_rand_round(pow, 20),
                                        div_rand_round(pow, 12) + 1);
     dprf("Grasping roots turns: %d", turns);
-    mpr("Roots burst forth from the earth!");
     start_ranged_constriction(caster, *foe, turns, CONSTRICT_ROOTS);
 }
 
@@ -1405,6 +1415,54 @@ static bool _cast_seismic_stomp(const monster& caster, bolt& beam, bool check_on
     }
 
     return true;
+}
+
+static vector<actor*> _siphon_essence_victims (const actor& caster) {
+
+    vector<actor*> victims;
+
+    for (actor_near_iterator acti(caster.pos(), LOS_NO_TRANS); acti; ++acti)
+    {
+        if (grid_distance(caster.pos(), acti->pos()) <= siphon_essence_range()
+            && !acti->res_torment() && !acti->is_peripheral()
+            && !mons_aligned(&caster, *acti))
+        {
+            victims.push_back(*acti);
+        }
+    }
+
+    return victims;
+}
+
+// XXX: Unite with siphon_essence in ability.cc?
+static void _cast_siphon_essence(monster &caster, mon_spell_slot, bolt&)
+{
+    int damage = 0;
+    bool seen = false;
+
+    if (you.see_cell(caster.pos()))
+    {
+        targeter_radius hitfunc(&caster, LOS_SOLID, 2);
+        flash_view_delay(UA_MONSTER, DARKGREY, 200, &hitfunc);
+        seen = true;
+    }
+
+    vector<actor*> victims = _siphon_essence_victims(caster);
+
+    for (actor* victim : victims)
+        damage += torment_cell(victim->pos(), &caster, TORMENT_SPELL);
+
+    if (caster.hit_points != caster.max_hit_points && damage > 0)
+    {
+        int cap = 19 + caster.spell_hd(SPELL_SIPHON_ESSENCE) * 1.5;
+        int heal = div_rand_round(min(damage, cap) * 2, 3);
+        caster.heal(heal);
+
+        if (seen)
+            mprf("Stolen life floods into %s!", caster.name(DESC_THE).c_str());
+        else
+            mpr("Stolen life floods into an unseen void!");
+    }
 }
 
 /// Is the given full-LOS attack spell worth casting for the given monster?
@@ -1705,7 +1763,6 @@ static int _mons_power_hd_factor(spell_type spell)
         case SPELL_FREEZE:
         case SPELL_FULMINANT_PRISM:
         case SPELL_IGNITE_POISON:
-        case SPELL_HELLFIRE_MORTAR:
             return 8;
 
         case SPELL_MONSTROUS_MENAGERIE:
@@ -1719,6 +1776,7 @@ static int _mons_power_hd_factor(spell_type spell)
         case SPELL_SUMMON_DRAGON:
         case SPELL_SUMMON_HYDRA:
         case SPELL_MARTYRS_KNELL:
+        case SPELL_HELLFIRE_MORTAR:
             return 5;
 
         case SPELL_CHAIN_OF_CHAOS:
@@ -1959,6 +2017,7 @@ bolt mons_spell_beam(const monster* mons, spell_type spell_cast, int power,
     case SPELL_STEAM_BALL:
     case SPELL_TELEPORT_OTHER:
     case SPELL_SANDBLAST:
+    case SPELL_THROW_BOLAS:
     case SPELL_HARPOON_SHOT:
     case SPELL_THROW_PIE:
     case SPELL_NOXIOUS_CLOUD:
@@ -2421,10 +2480,8 @@ bool setup_mons_cast(const monster* mons, bolt &pbolt, spell_type spell_cast,
         pbolt.target = theBeam.target;
     pbolt.source = mons->pos();
     pbolt.is_tracer = false;
-    if (!pbolt.is_enchantment())
+    if (pbolt.aux_source.empty() && !pbolt.is_enchantment())
         pbolt.aux_source = pbolt.name;
-    else
-        pbolt.aux_source.clear();
 
     return true;
 }
@@ -4161,7 +4218,8 @@ static coord_def _mons_bomblet_target(const monster& caster)
     vector<coord_def> targs;
     for (actor_near_iterator ai(caster.pos()); ai; ++ai)
     {
-        if (!mons_aligned(&caster, *ai)
+        if (!ai->is_peripheral()
+            && !mons_aligned(&caster, *ai)
             && grid_distance(caster.pos(), ai->pos()) > 1
             && grid_distance(caster.pos(), ai->pos()) <= spell_range(SPELL_DEPLOY_BOMBLET, 0)
             && caster.can_see(**ai)
@@ -6236,9 +6294,6 @@ static void _mons_upheaval(monster& mons, actor& /*foe*/, bool randomize)
     beam.hit         = AUTOMATIC_HIT;
     beam.glyph       = dchar_glyph(DCHAR_EXPLOSION);
     beam.loudness    = 10;
-#ifdef USE_TILE
-    beam.tile_beam   = -1;
-#endif
     beam.draw_delay  = 0;
     beam.target = mons.target;
     string message = "";

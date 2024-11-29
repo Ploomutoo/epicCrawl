@@ -202,6 +202,14 @@ static const mon_spellbook mspell_list[] =
       }
     },
 
+    {  MST_ALDERKING,
+      {
+       { SPELL_GRASPING_ROOTS, 30, MON_SPELL_NATURAL },
+       { SPELL_SIPHON_ESSENCE, 25, MON_SPELL_MAGICAL },
+       { SPELL_DISPEL_UNDEAD, 15, MON_SPELL_MAGICAL },
+      }
+    },
+
     // ('g') Small humanoids.
     {  MST_BOUDA,
       {
@@ -470,6 +478,12 @@ static const mon_spellbook mspell_list[] =
       {
        { SPELL_INJURY_BOND, 21, MON_SPELL_WIZARD },
        { SPELL_MINOR_HEALING, 41, MON_SPELL_WIZARD },
+      }
+    },
+
+    {  MST_IRONBOUND_BEASTMASTER,
+      {
+       { SPELL_THROW_BOLAS, 40, MON_SPELL_WIZARD },
       }
     },
 

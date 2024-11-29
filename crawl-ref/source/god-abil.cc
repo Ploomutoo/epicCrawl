@@ -3959,9 +3959,6 @@ spret qazlal_upheaval(coord_def target, bool quiet, bool fail, dist *player_targ
     beam.hit         = AUTOMATIC_HIT;
     beam.glyph       = dchar_glyph(DCHAR_EXPLOSION);
     beam.loudness    = 10;
-#ifdef USE_TILE
-    beam.tile_beam = -1;
-#endif
 
     if (target.origin())
     {
@@ -5767,8 +5764,7 @@ bool ru_apocalypse()
 
 static bool _mons_stompable(const monster &mons)
 {
-    // Don't hurt your own demonic guardians
-    return !testbits(mons.flags, MF_DEMONIC_GUARDIAN) || !mons.friendly();
+    return !never_harm_monster(&you, &mons) || !mons.friendly();
 }
 
 dice_def uskayaw_stomp_extra_damage(bool allow_random)
@@ -6205,7 +6201,7 @@ static void _transfer_drain_nearby(coord_def destination)
     for (adjacent_iterator it(destination); it; ++it)
     {
         monster* mon = monster_at(*it);
-        if (!mon || mon->is_firewood() || god_protects(*mon))
+        if (!mon || mon->is_firewood() || never_harm_monster(&you, *mon))
             continue;
 
         const int dur = random_range(60, 150);

@@ -1810,6 +1810,29 @@ static bool _god_will_bless_follower(monster* victim)
            && random2(you.piety) >= piety_breakpoint(0);
 }
 
+static bool should_blame_you_for_kill(int killer_index, bool pet_kill) noexcept
+{
+    if (killer_index == YOU_FAULTLESS)
+        return false;
+
+    if (pet_kill && !invalid_monster_index(killer_index))
+    {
+        const monster& m = env.mons[killer_index];
+
+        // always blame the player for marionette kills
+        if (m.attitude == ATT_MARIONETTE)
+            return true;
+
+        const mon_enchant ench = m.get_ench(ENCH_CONFUSION);
+        bool confused_by_non_ally = ench.ench == ENCH_CONFUSION
+            && (ench.who != KC_YOU && ench.who != KC_FRIENDLY);
+        if (confused_by_non_ally)
+            return false;
+    }
+
+    return true;
+}
+
 /**
  * Trigger the appropriate god conducts for a monster's death.
  *
@@ -1833,9 +1856,10 @@ static void _fire_kill_conducts(const monster &mons, killer_type killer,
     if (!your_kill && !pet_kill)
         return;
 
-    // player gets credit for reflection kills, but not blame
+    // player gets credit for reflection and confused ally kills, but not blame
     const bool blameworthy = god_hates_killing(you.religion, mons)
-                             && killer_index != YOU_FAULTLESS;
+                             && should_blame_you_for_kill(killer_index,
+                                 pet_kill);
 
     // if you can't get piety for it & your god won't give penance/-piety for
     // it, no one cares
@@ -3012,31 +3036,20 @@ item_def* monster_die(monster& mons, killer_type killer,
 
     if (mons.has_ench(ENCH_RIMEBLIGHT) && !was_banished && !mons_reset)
     {
-        // Potentially infect everyone around the dead monster
-        bool did_spread_message = false;
-        for (adjacent_iterator ai(mons.pos()); ai; ++ai)
+        if (you.can_see(mons))
+            mprf("Plague seeps from the dead %s.", mons.name(DESC_PLAIN).c_str());
+
+        // Potentially infect everyone around the dead monster.
+        // (100% chance at range 1, 50% chance at range 2)
+        for (radius_iterator ri(mons.pos(), 2, C_SQUARE, LOS_NO_TRANS); ri; ++ri)
         {
-            monster* victim = monster_at(*ai);
+            monster* victim = monster_at(*ri);
             if (victim && !victim->friendly())
             {
-                // We only 'test' for spread here, and then manually apply later
-                // on, so that we only print the message about the plague
-                // spreading if it *does* spread, but still print it before other
-                // things get infected by it.
-                if (maybe_spread_rimeblight(*victim,
-                                            mons.props[RIMEBLIGHT_POWER_KEY].get_int(),
-                                            true))
+                if (grid_distance(*ri, mons.pos()) == 1 || coinflip())
                 {
-                    if (!did_spread_message)
-                    {
-                        if (you.can_see(mons))
-                        {
-                            mprf("Plague seeps from the dead %s.",
-                                 mons.name(DESC_PLAIN).c_str());
-                        }
-                        did_spread_message = true;
-                    }
-                    apply_rimeblight(*victim, mons.props[RIMEBLIGHT_POWER_KEY].get_int());
+                    maybe_spread_rimeblight(*victim,
+                                            mons.props[RIMEBLIGHT_POWER_KEY].get_int());
                 }
             }
         }
