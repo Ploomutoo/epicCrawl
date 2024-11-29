@@ -193,6 +193,23 @@ static const map<job_type, job_def> job_data =
 } },
 
 
+{ JOB_FORGEWRIGHT, {
+    "Fw", "Forgewright",
+    2, 7, 3,
+    {     { SP_MOUNTAIN_DWARF, SP_COGLIN, SP_BARACHI, SP_HUMAN, SP_VINE_STALKER, SP_MERFOLK } },
+    {
+        SPELL_KINETIC_GRAPNEL,
+        SPELL_SPIKE_LAUNCHER,
+        SPELL_CLOCKWORK_BEE,
+        SPELL_FORGE_BLAZEHEART_GOLEM,
+        SPELL_FORGE_LIGHTNING_SPIRE
+    },
+    { "robe", "potion of magic", "mace tile:wpn_hammer wtile:hammer itemname:hammer" },
+    weapon_choice::none,
+    { { SK_DODGING, 2 }, { SK_FORGECRAFT, 4 }, { SK_SPELLCASTING, 2 }, { SK_STEALTH, 2 } },
+} },
+
+
 { JOB_GLADIATOR, {
     "Gl", "Gladiator",
     6, 0, 6,
@@ -300,7 +317,8 @@ static const map<job_type, job_def> job_data =
     {
         SPELL_KISS_OF_DEATH,
         SPELL_MOMENTUM_STRIKE,
-        SPELL_HAILSTORM
+        SPELL_HAILSTORM,
+        SPELL_RENDING_BLADE
     },
     { "leather armour" },
     weapon_choice::plain,
@@ -322,13 +340,13 @@ static const map<job_type, job_def> job_data =
 { JOB_SUMMONER, {
     "Su", "Summoner",
     0, 7, 5,
-    {     { SP_DEEP_ELF, SP_MOUNTAIN_DWARF, SP_VINE_STALKER, SP_MERFOLK, SP_TENGU, SP_VAMPIRE } },
+    {     { SP_DEEP_ELF, SP_ONI, SP_VINE_STALKER, SP_MERFOLK, SP_TENGU, SP_VAMPIRE } },
     {
         SPELL_SUMMON_SMALL_MAMMAL,
         SPELL_CALL_IMP,
         SPELL_CALL_CANINE_FAMILIAR,
-        SPELL_SUMMON_BLAZEHEART_GOLEM,
-        SPELL_SUMMON_LIGHTNING_SPIRE
+        SPELL_SURPRISING_CROCODILE,
+        SPELL_SUMMON_SEISMOSAURUS_EGG
     },
     { "robe", "potion of magic" },
     weapon_choice::none,
@@ -358,7 +376,7 @@ static const map<job_type, job_def> job_data =
         SPELL_PILEDRIVER,
         SPELL_ELECTRIC_CHARGE
     },
-    { "leather armour", "scroll of blinking", "dart ego:dispersal q:7" },
+    { "leather armour", "scroll of blinking", "dart ego:disjunction q:4" },
     weapon_choice::plain,
     { { SK_ARMOUR, 1 }, { SK_DODGING, 2 }, { SK_FIGHTING, 2 }, { SK_SPELLCASTING, 2 }, { SK_THROWING, 1 }, { SK_TRANSLOCATIONS, 3 }, { SK_WEAPON, 2 } },
 } },
