@@ -780,7 +780,7 @@ monster_info::monster_info(const monster* m, int milev)
             // Monsters have unlimited ammo for wands and for non-net throwing.
             if (i == MSLOT_WAND)
                 inv[i]->charges = 0;
-            if (i == MSLOT_MISSILE && inv[i]->sub_type != MI_THROWING_NET)
+            if (i == MSLOT_MISSILE && inv[i]->sub_type != MI_THROWING_NET && inv[i]->sub_type != MI_BOMB)
                 inv[i]->quantity = 1;
         }
     }

@@ -1379,6 +1379,18 @@ void bolt::do_fire()
                 finish_beam();
             }
         }
+        /*else if (flavour == BEAM_MISSILE && item->sub_type == MI_BOMB)
+        {
+            if (cell_is_solid(pos()))
+                affect_wall();
+            const actor *victim = actor_at(pos());
+            if (victim
+                && !ignores_monster(victim->as_monster())
+                && (!is_tracer || agent()->can_see(*victim)))
+            {
+                finish_beam();
+            }
+        }*/
         else if (!affects_nothing)
             affect_cell();
 
@@ -7094,7 +7106,9 @@ bool bolt::explode(bool show_more, bool hole_in_the_middle)
     // Run DFS to determine which cells are influenced
     explosion_map exp_map;
     exp_map.init(INT_MAX);
-    determine_affected_cells(exp_map, coord_def(), 0, r, true, true);
+    bool stop_at_walls = true;
+    if (flavour == BEAM_BOMB) stop_at_walls = false;
+    determine_affected_cells(exp_map, coord_def(), 0, r, true, stop_at_walls);
 
     // We get a bit fancy, drawing all radius 0 effects, then radius
     // 1, radius 2, etc. It looks a bit better that way.

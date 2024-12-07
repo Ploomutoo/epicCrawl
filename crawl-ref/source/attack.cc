@@ -142,7 +142,7 @@ bool attack::handle_phase_killed()
         && you.scan_artefacts(ARTP_TROG_MESMERISE)
         && defender->is_monster()
         && defender->type != MONS_NO_MONSTER
-        && !mons_is_firewood(*mon));
+        && defender->is_firewood());
 
     if (!invalid_monster(mon))
     {

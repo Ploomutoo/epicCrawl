@@ -87,3 +87,9 @@ end)
 
 tile_water_anim = true
 tile_realtime_anim = true
+drop_disables_autopickup = true
+autofight_caught = true
+
+food_snacking_frequency = 100
+fountain_line_frequency = 100
+launcher_autoquiver = false

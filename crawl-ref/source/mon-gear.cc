@@ -1470,11 +1470,6 @@ static void _give_ammo(monster* mon, int level, bool mons_summoned)
             brand = SPMSL_POISONED;
             break;
         }
-        if (one_chance_in(30) && level > 3)
-        {
-            weap_type = MI_BOMB;
-            qty = 1;
-        } 
         else if (x_chance_in_y(2, 5))
         {
             weap_type  = MI_STONE;

@@ -495,7 +495,9 @@ static void _setup_missile_beam(const actor *agent, bolt &beam,
         return;
     }
     if (item.sub_type == MI_BOMB)
-    {
+    {   
+        beam.aimed_at_spot = true;
+        //beam.is_explosion = true;
         bolt *expl = new bolt(beam);
 
         expl->is_explosion = true;

@@ -557,6 +557,7 @@ static special_missile_type _determine_missile_brand(const item_def& item,
     case MI_THROWING_NET:
     case MI_STONE:
     case MI_LARGE_ROCK:
+    case MI_BOMB:
         rc = SPMSL_NORMAL;
         break;
     case MI_BOOMERANG:
@@ -578,11 +579,6 @@ static special_missile_type _determine_missile_brand(const item_def& item,
     case MI_JAVELIN:
         rc = random_choose_weighted(90, SPMSL_SILVER,
                                     nw, SPMSL_NORMAL);
-        break;
-    case MI_BOMB:
-        rc = random_choose_weighted(10, SPMSL_STICKY_FLAME,
-                                    10, SPMSL_CONFUSION,
-                                    80, SPMSL_NORMAL);
         break;
     }
 
