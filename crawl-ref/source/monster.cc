@@ -3551,6 +3551,7 @@ int monster::known_chaos(bool check_spells_god) const
         || type == MONS_VERY_UGLY_THING
         || type == MONS_ABOMINATION_SMALL
         || type == MONS_ABOMINATION_LARGE
+        || type == MONS_MUTANT_BEAST
         || type == MONS_WRETCHED_STAR
         || type == MONS_KILLER_KLOWN      // For their random attacks.
         || type == MONS_TIAMAT            // For her colour-changing.
@@ -5619,6 +5620,10 @@ void monster::put_to_sleep(actor */*attacker*/, int /*strength*/, bool hibernate
 
 void monster::weaken(const actor *attacker, int pow)
 {
+    // Don't weaken monsters where it wouldn't do anything.
+    if (!mons_has_attacks(*this, false))
+        return;
+
     if (!has_ench(ENCH_WEAK))
         simple_monster_message(*this, " looks weaker.");
     else

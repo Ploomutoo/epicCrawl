@@ -715,6 +715,7 @@ static inline int get_resistible_fraction(beam_type flavour)
     case BEAM_LAVA:
         return 50;
     case BEAM_POISON_ARROW:
+    case BEAM_MERCURY:
         return 70;
     default:
         return 100;
@@ -750,6 +751,7 @@ static int _beam_to_resist(const actor* defender, beam_type flavour)
             return defender->res_acid();
         case BEAM_POISON:
         case BEAM_POISON_ARROW:
+        case BEAM_MERCURY:
             return defender->res_poison();
         case BEAM_HOLY:
             return defender->res_holy_energy();
@@ -801,6 +803,7 @@ int resist_adjust_damage(const actor* defender, beam_type flavour, int rawdamage
                                      || flavour == BEAM_FOUL_FLAME
                                      || flavour == BEAM_POISON
                                      // just the resistible part
+                                     || flavour == BEAM_MERCURY
                                      || flavour == BEAM_POISON_ARROW;
 
         if (immune_at_3_res && res >= 3 || res > 3)
@@ -946,7 +949,7 @@ bool player_unrand_bad_attempt(const item_def &weapon,
     if (is_unrandom_artefact(weapon, UNRAND_DEVASTATOR))
     {
 
-        targeter_smite hitfunc(&you, 1, 1, 1, false);
+        targeter_smite hitfunc(&you, 1, 1, 1);
         hitfunc.set_aim(defender->pos());
 
         return stop_attack_prompt(hitfunc, "attack",

@@ -1931,6 +1931,7 @@ bool trigger_battlesphere(actor* agent)
         battlesphere->check_redraw(old_pos);
         battlesphere->speed_increment -= 30;
 
+        beam.source = fallback_pos;
         _fire_battlesphere(battlesphere, beam);
         battlesphere->apply_location_effects(old_pos);
         return true;
@@ -3166,8 +3167,17 @@ bool make_soul_wisp(const actor& agent, actor& victim)
     return false;
 }
 
-static monster* _get_clockwork_bee_target()
+static monster* _get_clockwork_bee_target(const monster* bee = nullptr)
 {
+    // Try to resume targeting the last thing we were targeting before going
+    // dormant (if it's still around and valid).
+    if (bee && bee->props.exists(CLOCKWORK_BEE_TARGET))
+    {
+        monster* targ = monster_by_mid(bee->props[CLOCKWORK_BEE_TARGET].get_int());
+        if (targ && targ->alive() && !targ->wont_attack() && you.can_see(*targ))
+            return targ;
+    }
+
     monster* targ = nullptr;
     int num_seen = 0;
     for (monster_near_iterator mi(you.pos(), LOS_NO_TRANS); mi; ++mi)
@@ -3208,9 +3218,16 @@ void handle_clockwork_bee_spell(int turn)
                                         random_range(80, 120),
                                      SPELL_CLOCKWORK_BEE, false).set_range(1, 2);
             mg.hd = 5 + div_rand_round(calc_spell_power(SPELL_CLOCKWORK_BEE), 20);
-            if (create_monster(mg))
+            if (monster* bee = create_monster(mg))
             {
                 mprf("Without a target, your clockwork bee falls to the ground.");
+
+                // Still remember our original target, just in case it merely
+                // ducked out of sight for a moment and the player wants to
+                // reactivate us.
+                if (targ)
+                    bee->props[CLOCKWORK_BEE_TARGET].get_int() = targ->mid;
+
                 return;
             }
         }
@@ -3230,6 +3247,7 @@ void handle_clockwork_bee_spell(int turn)
              targ->name(DESC_THE).c_str());
 
         bee->speed_increment = 80;
+        bee->props[CLOCKWORK_BEE_TARGET].get_int() = targ->mid;
     }
     else
         mpr("Your bee fails to deploy!");
@@ -3298,7 +3316,7 @@ void clockwork_bee_go_dormant(monster& bee)
 // Returns false if we lacked the MP to do so or there was no valid target for it.
 bool clockwork_bee_recharge(monster& bee)
 {
-    monster* targ = _get_clockwork_bee_target();
+    monster* targ = _get_clockwork_bee_target(&bee);
 
     // Nothing around for it to attack.
     if (!targ)
@@ -3346,6 +3364,7 @@ void clockwork_bee_pick_new_target(monster& bee)
     {
         mprf("Your clockwork bee locks its sights upon %s.", targ->name(DESC_THE).c_str());
         bee.add_ench(mon_enchant(ENCH_HAUNTING, 0, targ, INFINITE_DURATION));
+        bee.props[CLOCKWORK_BEE_TARGET].get_int() = targ->mid;
     }
 }
 

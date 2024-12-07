@@ -84,7 +84,7 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_DIG, "Dig",
     spschool::earth,
-    spflag::dir_or_target | spflag::not_self | spflag::neutral
+    spflag::dir_or_target | spflag::not_self | spflag::aim_at_space
         | spflag::utility,
     4,
     200,
@@ -797,7 +797,7 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_STING, "Sting",
     spschool::conjuration | spschool::alchemy,
-    spflag::dir_or_target | spflag::needs_tracer,
+    spflag::dir_or_target | spflag::needs_tracer | spflag::monster,
     1,
     25,
     4, 4,
@@ -1282,7 +1282,7 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_GOLUBRIAS_PASSAGE, "Passage of Golubria",
     spschool::translocation,
-    spflag::target | spflag::neutral | spflag::escape | spflag::selfench,
+    spflag::target | spflag::aim_at_space | spflag::escape | spflag::selfench,
     4,
     100,
     2, LOS_RADIUS,
@@ -3197,14 +3197,25 @@ static const struct spell_desc spelldata[] =
 },
 
 {
-    SPELL_MERCURY_VAPOURS, "Mercury Vapours",
-    spschool::alchemy | spschool::air,
-    spflag::target | spflag::destructive,
+    SPELL_MERCURY_ARROW, "Mercury Arrow",
+    spschool::alchemy | spschool::conjuration,
+    spflag::dir_or_target | spflag::needs_tracer,
     2,
     50,
+    4, 4,
+    0,
+    TILEG_STING,
+},
+
+{
+    SPELL_POISONOUS_VAPOURS, "Poisonous Vapours",
+    spschool::alchemy | spschool::air,
+    spflag::target | spflag::destructive | spflag::not_self,
+    1,
+    25,
     3, 3,
     0,
-    TILEG_MERCURY_VAPOURS,
+    TILEG_POISONOUS_CLOUD,
 },
 
 {
@@ -3686,7 +3697,7 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_JINXBITE, "Jinxbite",
     spschool::hexes,
-    spflag::neutral | spflag::selfench,
+    spflag::selfench,
     2,
     50,
     -1, -1,
@@ -3897,7 +3908,7 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_GELLS_GAVOTTE, "Gell's Gavotte",
     spschool::translocation,
-    spflag::target,
+    spflag::target | spflag::aim_at_space,
     6,
     200,
     1, 1,
@@ -4200,7 +4211,7 @@ static const struct spell_desc spelldata[] =
     25,
     4, 4,
     0,
-    TILEG_KINETIC_DISCUS,
+    TILEG_KINETIC_GRAPNEL,
 },
 
 {

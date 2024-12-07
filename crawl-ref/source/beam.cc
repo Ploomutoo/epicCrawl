@@ -1144,6 +1144,7 @@ void bolt::affect_cell()
     if (hit_player && can_affect_actor(&you))
     {
         const int prev_reflections = reflections;
+        const coord_def old_pos = pos();
         affect_player();
         if (reflections != prev_reflections)
             return;
@@ -1152,7 +1153,7 @@ void bolt::affect_cell()
         // XXX: If an ally stopped a piercing beam short to avoid hitting the
         //      player on this cell, don't attempt to hit a monster on the
         //      cell immediately before them again.
-        if (extra_range_used >= BEAM_STOP)
+        if (pos() != old_pos)
             return;
     }
 
@@ -1641,6 +1642,43 @@ int mons_adjust_flavoured(monster* mons, bolt &pbolt, int hurted,
         else if (doFlavouredEffects)
             poison_monster(mons, pbolt.agent(), stacks, true);
 
+        break;
+    }
+
+    case BEAM_MERCURY:
+    {
+        hurted = resist_adjust_damage(mons, pbolt.flavour, hurted);
+        if (doFlavouredEffects)
+        {
+            int chance = get_mercury_weaken_chance(mons->get_hit_dice(), pbolt.ench_power);
+            if (x_chance_in_y(chance, 100))
+                mons->weaken(pbolt.agent(), 5);
+
+            // Splash to adjacent actors.
+            bool did_splash_msg = false;
+            for (adjacent_iterator ai(mons->pos()); ai; ++ai)
+            {
+                if (actor* act = actor_at(*ai))
+                {
+                    if (act == pbolt.agent()
+                        || never_harm_monster(pbolt.agent(), act->as_monster()))
+                    {
+                        continue;
+                    }
+
+                    if (!did_splash_msg)
+                    {
+                        if (you.see_cell(mons->pos()))
+                            mprf("The mercury splashes!");
+                        did_splash_msg = true;
+                    }
+
+                    chance = get_mercury_weaken_chance(act->get_hit_dice(), pbolt.ench_power);
+                    if (x_chance_in_y(chance, 100))
+                        act->weaken(pbolt.agent(), 5);
+                }
+            }
+        }
         break;
     }
 
@@ -2433,6 +2471,10 @@ static void _unravelling_explode(bolt &beam)
 
 bool bolt::is_bouncy(dungeon_feature_type feat) const
 {
+    // Beams with no directionality will assert if we try to bounce them.
+    if (aimed_at_feet)
+        return false;
+
     // Don't bounce off open sea.
     if (feat_is_endless(feat))
         return false;
@@ -7497,7 +7539,21 @@ actor* bolt::agent(bool ignore_reflection) const
     if (YOU_KILL(nominal_ktype))
         return &you;
     else
-        return actor_by_mid(nominal_source);
+    {
+        actor* act = actor_by_mid(nominal_source);
+        if (act)
+            return act;
+        // If this is an explosion caused by a dead friendly monster, set its
+        // agent to MID_ANON_FRIEND, so that the player gets XP attribution for
+        // the damage.
+        else if (monster* mon = cached_monster_copy_by_mid(nominal_source))
+        {
+            if (mon->friendly())
+                return monster_by_mid(MID_ANON_FRIEND);
+        }
+
+        return nullptr;
+    }
 }
 
 bool bolt::is_enchantment() const
@@ -7650,6 +7706,7 @@ static string _beam_type_name(beam_type type)
     case BEAM_DOUBLE_VIGOUR:         return "vigour-doubling";
     case BEAM_SEISMIC:               return "seismic shockwave";
     case BEAM_BOLAS:                 return "entwining bolas";
+    case BEAM_MERCURY:               return "mercury";
 
     case NUM_BEAMS:                  die("invalid beam type");
     }

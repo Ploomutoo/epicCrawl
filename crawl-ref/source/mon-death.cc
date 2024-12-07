@@ -2310,9 +2310,9 @@ item_def* monster_die(monster& mons, killer_type killer,
         mons.props[MAKHLEB_HAEMOCLASM_KEY] = true;
     }
 
-    if (you.prev_targ == monster_killed)
+    if (you.prev_targ == mons.mid)
     {
-        you.prev_targ = MHITNOT;
+        you.prev_targ = MID_NOBODY;
         crawl_state.cancel_cmd_repeat();
     }
 
@@ -2510,7 +2510,8 @@ item_def* monster_die(monster& mons, killer_type killer,
         }
         death_spawn_fineff::schedule(MONS_PILLAR_OF_RIME,
                                     mons.pos(),
-                                    random_range(3, 11) * BASELINE_DELAY);
+                                    random_range(4, 14) * BASELINE_DELAY,
+                                    SPELL_RIMEBLIGHT);
     }
 
     if (monster_explodes(mons))

@@ -3436,8 +3436,7 @@ KITEM:  R = earthy gem
 MONS:   yak, death yak, manticore
 KMONS:  4C = patrolling catoblepas
 # These are still living plants for all intents and purposes...
-KMONS:  P = plant perm_ench:petrified dbname:petrified_plant \
-            col:lightgrey tile:mons_withered_plant
+KMONS:  P = withered plant perm_ench:petrified
 SUBST:  P = P.
 NSUBST: 0 = 3:1 / 1:2 / * = 1112
 NSUBST: 9 = 1:C / 2:2 / 3:3 / * = 11222
@@ -3542,10 +3541,10 @@ KITEM:   % = any
 KITEM:   * = star_item
 KITEM:   | = superb_item
 : kitem("d = " .. dgn.loot_potions)
-KITEM:   e = throwing net q:3 / rapier good_item / captain's cutlass w:2 \
-         / trident randart / trident of the octopus king w:2 \
-         / demon trident w:5 / phial of floods / ring of the octopus king w:2, \
-         earthy gem
+KITEM:   e = throwing net q:3 / rapier good_item / captain's cutlass w:2 / \
+             trident randart w:8 / trident of the octopus king w:2 / \
+             partisan good_item w:2 / demon trident w:5 / phial of floods / \
+             ring of the octopus king w:2, earthy gem
 KMONS:   p = plant
 KMONS:   1 = hornet / wyvern / blink frog / cane toad / steam dragon
 KMONS:   2 = elephant / komodo dragon / polar bear / rime drake

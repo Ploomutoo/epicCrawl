@@ -448,7 +448,7 @@ bool spell_harms_target(spell_type spell)
 {
     const spell_flags flags = _seekspell(spell)->flags;
 
-    if (flags & (spflag::helpful | spflag::neutral))
+    if (flags & (spflag::helpful | spflag::aim_at_space))
         return false;
 
     if (flags & spflag::targeting_mask)
@@ -463,7 +463,7 @@ bool spell_harms_area(spell_type spell)
 {
     const spell_flags flags = _seekspell(spell)->flags;
 
-    if (flags & (spflag::helpful | spflag::neutral))
+    if (flags & (spflag::helpful | spflag::aim_at_space))
     {
         // XXX: This is a 'helpful' spell that also does area damage, so monster
         //      logic should account for this, regarding Sanctuary.
@@ -1539,10 +1539,10 @@ string spell_uselessness_reason(spell_type spell, bool temp, bool prevent,
             break;
 
         for (adjacent_iterator ai(you.pos()); ai; ++ai)
-            if (env.grid(*ai) == DNGN_ROCK_WALL)
+            if (feat_is_wall(env.grid(*ai)))
                 return "";
 
-        return "there are no nearby rock walls to construct a spike launcher in.";
+        return "there are no nearby walls to construct a spike launcher in.";
     }
 
     case SPELL_DIAMOND_SAWBLADES:
@@ -1725,11 +1725,6 @@ bool spell_no_hostile_in_range(spell_type spell)
         }
         return true;
 
-    // Check slightly beyond our target range, in case someone wants to catch
-    // something in the AoE at the edge of range.
-    case SPELL_MERCURY_VAPOURS:
-        return find_near_hostiles(range + 1, false, you).empty();
-
     case SPELL_SCORCH:
         return find_near_hostiles(range, false, you).empty();
 
@@ -1768,8 +1763,7 @@ bool spell_no_hostile_in_range(spell_type spell)
     // For choosing default targets and prompting we don't treat Inner Flame as
     // neutral, since the seeping flames trigger conducts and harm the monster
     // before it explodes.
-    const bool allow_friends = testbits(flags, spflag::neutral)
-                               || spell == SPELL_INNER_FLAME;
+    const bool allow_friends = spell == SPELL_INNER_FLAME;
 
     bolt beam;
     beam.flavour = BEAM_VISUAL;
