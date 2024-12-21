@@ -192,10 +192,9 @@ unsigned int item_value(item_def item, bool ident)
 {
     // Note that we pass item in by value, since we want a local
     // copy to mangle as necessary.
-    item.flags = (ident) ? (item.flags | ISFLAG_IDENT_MASK) : (item.flags);
+    item.flags = (ident) ? (item.flags | ISFLAG_IDENTIFIED) : (item.flags);
 
-    if (is_unrandom_artefact(item)
-        && item_ident(item, ISFLAG_KNOW_PROPERTIES))
+    if (is_unrandom_artefact(item))
     {
         const unrandart_entry *entry = get_unrand_entry(item.unrand_idx);
         if (entry->value != 0)
@@ -209,7 +208,7 @@ unsigned int item_value(item_def item, bool ident)
     case OBJ_WEAPONS:
         valued += weapon_base_price((weapon_type)item.sub_type);
 
-        if (item_type_known(item))
+        if (item.is_identified())
         {
             switch (get_weapon_brand(item))
             {
@@ -252,33 +251,30 @@ unsigned int item_value(item_def item, bool ident)
             valued /= 10;
         }
 
-        if (item_ident(item, ISFLAG_KNOW_PLUSES))
+        if (item.is_identified())
             valued += 50 * item.plus;
 
         if (is_artefact(item))
         {
-            if (item_type_known(item))
+            if (item.is_identified())
                 valued += (7 * artefact_value(item));
             else
                 valued += 50;
         }
-        else if (item_type_known(item)
+        else if (item.is_identified()
                  && get_equip_desc(item) != 0) // ???
         {
             valued += 20;
         }
-        else if (!(item.flags & ISFLAG_IDENT_MASK)
-                 && (get_equip_desc(item) != 0))
-        {
+        else if (!item.is_identified() && (get_equip_desc(item) != 0))
             valued += 30; // un-id'd "glowing" - arbitrary added cost
-        }
 
         break;
 
     case OBJ_MISSILES:          // ammunition
         valued += missile_base_price((missile_type)item.sub_type);
 
-        if (item_type_known(item))
+        if (item.is_identified())
         {
             switch (get_ammo_brand(item))
             {
@@ -326,7 +322,7 @@ unsigned int item_value(item_def item, bool ident)
     case OBJ_ARMOUR:
         valued += armour_base_price((armour_type)item.sub_type);
 
-        if (item_type_known(item))
+        if (item.is_identified())
         {
             const int sparm = get_armour_ego_type(item);
             switch (sparm)
@@ -375,28 +371,25 @@ unsigned int item_value(item_def item, bool ident)
             }
         }
 
-        if (item_ident(item, ISFLAG_KNOW_PLUSES))
+        if (item.is_identified())
             valued += 50 * item.plus;
 
         if (is_artefact(item))
         {
-            if (item_type_known(item))
+            if (item.is_identified())
                 valued += (7 * artefact_value(item));
             else
                 valued += 50;
         }
-        else if (item_type_known(item) && get_equip_desc(item) != 0)
+        else if (item.is_identified() && get_equip_desc(item) != 0)
             valued += 20;  // ???
-        else if (!(item.flags & ISFLAG_IDENT_MASK)
-                 && (get_equip_desc(item) != 0))
-        {
+        else if (!item.is_identified() && (get_equip_desc(item) != 0))
             valued += 30; // un-id'd "glowing" - arbitrary added cost
-        }
 
         break;
 
     case OBJ_WANDS:
-        if (!item_type_known(item))
+        if (!item.is_identified())
             valued += 40;
         else
         {
@@ -434,7 +427,7 @@ unsigned int item_value(item_def item, bool ident)
         break;
 
     case OBJ_POTIONS:
-        if (!item_type_known(item))
+        if (!item.is_identified())
             valued += 9;
         else
         {
@@ -484,7 +477,7 @@ unsigned int item_value(item_def item, bool ident)
         break;
 
     case OBJ_SCROLLS:
-        if (!item_type_known(item))
+        if (!item.is_identified())
             valued += 10;
         else
         {
@@ -540,7 +533,7 @@ unsigned int item_value(item_def item, bool ident)
         break;
 
     case OBJ_JEWELLERY:
-        if (!item_type_known(item))
+        if (!item.is_identified())
             valued += 50;
         else
         {
@@ -692,7 +685,7 @@ unsigned int item_value(item_def item, bool ident)
         if (is_artefact(item))
         {
             // XXX placeholder
-            if (item_type_known(item))
+            if (item.is_identified())
                 valued += artefact_value(item) * (valued / 10);
             else
                 valued += valued / 16;
@@ -720,11 +713,11 @@ unsigned int item_value(item_def item, bool ident)
     }
 
     case OBJ_STAVES:
-        valued = item_type_known(item) ? 250 : 120;
+        valued = item.is_identified() ? 250 : 120;
         if (is_artefact(item))
         {
             // XX placeholder
-            if (item_type_known(item))
+            if (item.is_identified())
                 valued += (7 * artefact_value(item));
             else
                 valued += 50;
@@ -816,7 +809,7 @@ static bool _purchase(shop_struct& shop, const level_pos& pos, int index)
     // But take no further similar notes.
     item.flags |= ISFLAG_NOTED_GET;
 
-    if (fully_identified(item))
+    if (item.is_identified())
         item.flags |= ISFLAG_NOTED_ID;
 
     // Record milestones for purchasing especially notable items (runes,
@@ -829,12 +822,16 @@ static bool _purchase(shop_struct& shop, const level_pos& pos, int index)
 
     origin_purchased(item);
 
-    if (shoptype_identifies_stock(shop.type)
-        || item_type_is_equipment(item.base_type)
-        || item.base_type == OBJ_TALISMANS)
+    // Unidentified potions/scrolls are the only shop items that don't become
+    // auto-ID'd when the player purchases them. (But identified potions/scrolls
+    // should still be re-identified, so the player can potentially learn their
+    // type.)
+    if ((item.base_type != OBJ_POTIONS && item.base_type != OBJ_SCROLLS)
+         || item.is_identified())
+
     {
-        // Identify the item and its type.
-        // This also takes the ID note if necessary.
+        // (Re-)identify the item. This also takes the ID note if necessary.
+        item.flags &= ~ISFLAG_IDENTIFIED;
         identify_item(item);
     }
 
@@ -1257,7 +1254,7 @@ void ShopMenu::resort()
         for (const auto entry : items)
         {
             const auto item = dynamic_cast<ShopEntry*>(entry)->item;
-            if (is_known_artefact(*item))
+            if (is_artefact(*item) && item->is_identified())
                 list.insert({item->name(DESC_QUALNAME, false, id), entry});
             else
             {
@@ -1306,7 +1303,7 @@ bool ShopMenu::examine_index(int i)
         items[i])->item));
     if (shoptype_identifies_stock(shop.type))
     {
-        item.flags |= (ISFLAG_IDENT_MASK | ISFLAG_NOTED_ID
+        item.flags |= (ISFLAG_IDENTIFIED | ISFLAG_NOTED_ID
                        | ISFLAG_NOTED_GET);
     }
     describe_item_popup(item);
@@ -1606,11 +1603,13 @@ bool shoptype_identifies_stock(shop_type type)
            && type != SHOP_GENERAL_ANTIQUE;
 }
 
+// Returns whether the type of an identified item in a shop is otherwise
+// unknown to the player (and it should be marked "(unknown)").
 bool shop_item_unknown(const item_def &item)
 {
     return item_type_has_ids(item.base_type)
-           && item_type_known(item)
-           && !get_ident_type(item)
+           && !item_type_known(item)
+           && item.is_identified()
            && !is_artefact(item);
 }
 
@@ -1836,7 +1835,7 @@ bool ShoppingList::cull_identical_items(const item_def& item, int cost)
         return 0;
     }
 
-    if (!item_type_known(item) || is_artefact(item))
+    if (!item.is_identified() || is_artefact(item))
         return 0;
 
     // Ignore stat-modification rings which reduce a stat, since they're
@@ -1874,7 +1873,7 @@ bool ShoppingList::cull_identical_items(const item_def& item, int cost)
             continue;
         }
 
-        if (!item_type_known(list_item) || is_artefact(list_item))
+        if (!item.is_identified() || is_artefact(list_item))
             continue;
 
         // Don't prompt to remove rings with strictly better pluses
@@ -1885,22 +1884,17 @@ bool ShoppingList::cull_identical_items(const item_def& item, int cost)
             const bool has_plus = jewellery_has_pluses(item);
             const int delta_p = item.plus - list_item.plus;
             if (has_plus
-                && item_ident(list_item, ISFLAG_KNOW_PLUSES)
-                && (!item_ident(item, ISFLAG_KNOW_PLUSES)
-                     || delta_p < 0))
+                && list_item.is_identified()
+                && (!item.is_identified() || delta_p < 0))
             {
                 continue;
             }
         }
 
-        // Don't prompt to remove known manuals when the new one is unknown
-        // or for a different skill.
-        if (item.is_type(OBJ_BOOKS, BOOK_MANUAL)
-            && item_type_known(list_item)
-            && (!item_type_known(item) || item.plus != list_item.plus))
-        {
+        // Don't prompt to remove known manuals when the new one is for a
+        // different skill.
+        if (item.is_type(OBJ_BOOKS, BOOK_MANUAL) && item.plus != list_item.plus)
             continue;
-        }
 
         list_pair listed(list_item, thing_pos(thing));
 

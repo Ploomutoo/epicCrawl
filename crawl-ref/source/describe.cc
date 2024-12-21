@@ -265,8 +265,6 @@ const char* jewellery_base_ability_string(int subtype)
     return "";
 }
 
-#define known_proprt(prop) (proprt[(prop)] && known[(prop)])
-
 /// How to display props of a given type?
 enum class prop_note
 {
@@ -552,11 +550,13 @@ static const vector<artefact_prop_type> artprop_annotation_order =
 static vector<string> _randart_propnames(const item_def& item,
                                          bool no_comma = false)
 {
-    artefact_properties_t  proprt;
-    artefact_known_props_t known;
-    artefact_desc_properties(item, proprt, known);
-
     vector<string> propnames;
+
+    if (!item.is_identified())
+        return propnames;
+
+    artefact_properties_t  proprt;
+    artefact_desc_properties(item, proprt);
 
     const unrandart_entry *entry = nullptr;
     if (is_unrandom_artefact(item))
@@ -570,15 +570,13 @@ static vector<string> _randart_propnames(const item_def& item,
 
     // For randart jewellery, note the base jewellery type if it's not
     // covered by artefact_desc_properties()
-    if (item.base_type == OBJ_JEWELLERY
-        && (item_ident(item, ISFLAG_KNOW_PROPERTIES)) && !skip_ego)
+    if (item.base_type == OBJ_JEWELLERY && item.is_identified() && !skip_ego)
     {
         const char* type = jewellery_base_ability_string(item.sub_type);
         if (*type)
             propnames.push_back(type);
     }
-    else if (item_brand_known(item)
-             && !skip_ego)
+    else if (!skip_ego)
     {
         string ego;
         if (item.base_type == OBJ_WEAPONS)
@@ -592,7 +590,7 @@ static vector<string> _randart_propnames(const item_def& item,
             // XXX: Ugly hack for adding a comma if needed.
             bool extra_props = false;
             for (const artefact_prop_type &other_prop : artprop_annotation_order)
-                if (known_proprt(other_prop) && other_prop != ARTP_BRAND)
+                if (other_prop != ARTP_BRAND)
                 {
                     extra_props = true;
                     break;
@@ -614,20 +612,19 @@ static vector<string> _randart_propnames(const item_def& item,
 
     for (const artefact_prop_type &prop : artprop_annotation_order)
     {
-        if (known_proprt(prop))
+        const int val = proprt[prop];
+        if (val == 0)
+            continue;
+
+        // Don't show the rF+ rC+ twice.
+        if (get_armour_ego_type(item) == SPARM_RESISTANCE
+            && (prop == ARTP_COLD && val == 1
+                || prop == ARTP_FIRE && val == 1))
         {
-            const int val = proprt[prop];
-
-            // Don't show the rF+ rC+ twice.
-            if (get_armour_ego_type(item) == SPARM_RESISTANCE
-                && (prop == ARTP_COLD && val == 1
-                    || prop == ARTP_FIRE && val == 1))
-            {
-                continue;
-            }
-
-            propnames.push_back(_randart_prop_abbrev(prop, val));
+            continue;
         }
+
+        propnames.push_back(_randart_prop_abbrev(prop, val));
     }
 
     return propnames;
@@ -726,15 +723,16 @@ static string _padded_artp_name(artefact_prop_type prop, int val)
 void desc_randart_props(const item_def &item, vector<string> &lines)
 {
     artefact_properties_t  proprt;
-    artefact_known_props_t known;
-    artefact_desc_properties(item, proprt, known);
+    artefact_desc_properties(item, proprt);
+
+    if (!item.is_identified())
+        return;
 
     for (artefact_prop_type prop : artprop_annotation_order)
     {
-        if (!known_proprt(prop))
-            continue;
-
         const int stval = proprt[prop];
+        if (stval == 0)
+            continue;
 
         // these two have some custom string replacement
         if (prop == ARTP_WILLPOWER)
@@ -813,7 +811,7 @@ static string _randart_descrip(const item_def &item)
 
     // Give a short description of the base type, for base types with no
     // corresponding ARTP.
-    if (item.base_type == OBJ_JEWELLERY && item_ident(item, ISFLAG_KNOW_TYPE))
+    if (item.base_type == OBJ_JEWELLERY && item.is_identified())
     {
         const string jewel_desc = _desc_randart_jewel(item);
         if (!jewel_desc.empty())
@@ -823,7 +821,6 @@ static string _randart_descrip(const item_def &item)
     desc_randart_props(item, lines);
     return join_strings(lines.begin(), lines.end(), "\n");
 }
-#undef known_proprt
 
 static string _format_dbrand(string dbrand)
 {
@@ -880,10 +877,6 @@ static string _artefact_descrip(const item_def &item)
     }
     else
         out << _randart_descrip(item);
-
-    // XXX: Can't happen, right?
-    if (!item_ident(item, ISFLAG_KNOW_PROPERTIES) && item_type_known(item))
-        out << "\nIt may have some hidden properties.";
 
     return out.str();
 }
@@ -1374,7 +1367,13 @@ static int _get_delay(const item_def &item)
 static string _desc_attack_delay(const item_def &item)
 {
     const int base_delay = property(item, PWPN_SPEED);
-    const int cur_delay = _get_delay(get_item_known_info(item));
+
+    // Hide speed/heavy brand from unidentified weapons.
+    item_def dummy = item;
+    if (!item.is_identified())
+        dummy.brand = SPWPN_NORMAL;
+
+    const int cur_delay = _get_delay(dummy);
     if (weapon_adjust_delay(item, base_delay, false) == cur_delay)
         return "";
     return make_stringf("\n    Current attack delay: %.1f.", (float)cur_delay / 10);
@@ -1417,7 +1416,7 @@ string damage_rating(const item_def *item, int *rating_value)
     brand_type brand = SPWPN_NORMAL;
     if (!item)
         brand = get_form()->get_uc_brand();
-    else if (item_type_known(*item) && !thrown)
+    else if (item->is_identified() && !thrown)
         brand = get_weapon_brand(*item);
 
     // Would be great to have a breakdown of UC damage by skill, form, claws etc.
@@ -1439,7 +1438,7 @@ string damage_rating(const item_def *item, int *rating_value)
     const int skill_mult = apply_fighting_skill(weapon_skill_mult, false, false);
 
     const int slaying = slaying_bonus(thrown, false);
-    const int ench = item && item_ident(*item, ISFLAG_KNOW_PLUSES) ? item->plus : 0;
+    const int ench = item && item->is_identified() ? item->plus : 0;
     const int plusses = slaying + ench;
 
     const int DAM_RATE_SCALE = 100;
@@ -1498,7 +1497,7 @@ static void _append_weapon_stats(string &description, const item_def &item)
         && in_inventory(item) && !you.has_mutation(MUT_DISTRIBUTED_TRAINING);
 
     if (item.base_type == OBJ_STAVES
-        && item_type_known(item)
+        && item.is_identified()
         && staff_skill(static_cast<stave_type>(item.sub_type)) != SK_NONE
         && is_useless_skill(staff_skill(static_cast<stave_type>(item.sub_type))))
     {
@@ -1528,7 +1527,7 @@ static void _append_weapon_stats(string &description, const item_def &item)
         "Base attack delay: %.1f\n"
         "This weapon's minimum attack delay (%.1f) is reached at skill level %d.",
             (float) property(item, PWPN_SPEED) / 10,
-            (float) weapon_min_delay(item, item_brand_known(item)) / 10,
+            (float) weapon_min_delay(item, item.is_identified()) / 10,
             mindelay_skill / 10);
 
     const bool want_player_stats = !is_useless_item(item) && crawl_state.need_save;
@@ -1695,7 +1694,7 @@ static string _describe_weapon_brand(const item_def &item)
             return ""; // XXX FIXME
     }
 
-    if (!item_type_known(item))
+    if (!item.is_identified())
         return "";
 
     const brand_type brand = get_weapon_brand(item);
@@ -2092,25 +2091,12 @@ static string _describe_weapon(const item_def &item, bool verbose, bool monster)
         _append_weapon_stats(description, item);
     }
 
-    // ident known & no brand but still glowing
-    // TODO: deduplicate this with the code in item-name.cc
-    if (verbose
-        && item_type_known(item)
-        && get_weapon_brand(item) == SPWPN_NORMAL
-        && get_equip_desc(item)
-        && !item_ident(item, ISFLAG_KNOW_PLUSES))
-    {
-        description += "\n\nIt has no special brand (it is not flaming, "
-            "freezing, etc), but is still enchanted in some way - "
-            "positive or negative.";
-     }
-
     string art_desc = _artefact_descrip(item);
     if (!art_desc.empty())
         description += "\n\n" + art_desc;
 
     if (verbose && crawl_state.need_save && you.could_wield(item, true, true)
-        && item_ident(item, ISFLAG_KNOW_PROPERTIES))
+        && item.is_identified())
     {
         description += _equipment_property_change(item);
     }
@@ -2130,7 +2116,7 @@ static string _describe_weapon(const item_def &item, bool verbose, bool monster)
 
     if (!is_artefact(item) && !monster)
     {
-        if (item_ident(item, ISFLAG_KNOW_PLUSES) && item.plus >= MAX_WPN_ENCHANT)
+        if (item.is_identified() && item.plus >= MAX_WPN_ENCHANT)
             description += "\nIt cannot be enchanted further.";
         else
         {
@@ -2148,7 +2134,7 @@ static string _describe_ammo(const item_def &item)
 
     description.reserve(64);
 
-    if (item.brand && item_type_known(item))
+    if (item.brand && item.is_identified())
     {
         description += "\n\n";
         switch (item.brand)
@@ -2335,8 +2321,8 @@ static const char* _item_ego_desc(special_armour_type ego)
     case SPARM_RAMPAGING:
         return "its wearer takes one free step when moving towards enemies.";
     case SPARM_INFUSION:
-        return "it empowers each of its wearer's blows with a small part of "
-               "their magic.";
+        return "it empowers each of its wearer's melee hits with a small part "
+               "of their magic.";
     case SPARM_LIGHT:
         return "it surrounds the wearer with a glowing halo, revealing "
                "invisible creatures, increasing accuracy against all within "
@@ -2417,7 +2403,7 @@ static string _describe_armour(const item_def &item, bool verbose, bool monster)
                           && entry && (entry->flags & UNRAND_FLAG_SKIP_EGO);
 
     // Only give a description for armour with a known ego.
-    if (ego != SPARM_NORMAL && item_type_known(item) && verbose && !skip_ego)
+    if (ego != SPARM_NORMAL && item.is_identified() && verbose && !skip_ego)
     {
         description += "\n\n";
 
@@ -2453,7 +2439,7 @@ static string _describe_armour(const item_def &item, bool verbose, bool monster)
         const int max_ench = armour_max_enchant(item);
         if (max_ench > 0)
         {
-            if (item.plus < max_ench || !item_ident(item, ISFLAG_KNOW_PLUSES))
+            if (item.plus < max_ench || !item.is_identified())
             {
                 description += "\n\nIt can be maximally enchanted to +"
                                + to_string(max_ench) + ".";
@@ -2469,7 +2455,7 @@ static string _describe_armour(const item_def &item, bool verbose, bool monster)
     if (verbose
         && crawl_state.need_save
         && can_wear_armour(item, false, true)
-        && item_ident(item, ISFLAG_KNOW_PLUSES))
+        && item.is_identified())
     {
         description += _equipment_property_change(item);
     }
@@ -2689,8 +2675,7 @@ static string _describe_jewellery(const item_def &item, bool verbose)
 
     description.reserve(200);
 
-    if (verbose && !is_artefact(item)
-        && item_ident(item, ISFLAG_KNOW_PLUSES))
+    if (verbose && !is_artefact(item) && item.is_identified())
     {
         // Explicit description of ring or amulet power.
         if (item.sub_type == AMU_REFLECTION)
@@ -2746,8 +2731,8 @@ static string _describe_jewellery(const item_def &item, bool verbose)
 
     if (verbose
         && crawl_state.need_save
+        && item.is_identified()
         && !you.has_mutation(MUT_NO_JEWELLERY)
-        && item_ident(item, ISFLAG_KNOW_PROPERTIES)
         && (is_artefact(item)
             || item.sub_type != RING_PROTECTION
                && item.sub_type != RING_EVASION
@@ -2821,7 +2806,7 @@ static string _describe_gizmo(const item_def &item)
 
 bool is_dumpable_artefact(const item_def &item)
 {
-    return is_known_artefact(item) && item_ident(item, ISFLAG_KNOW_PROPERTIES);
+    return is_artefact(item) && item.is_identified();
 }
 
 static string &_trogsafe_lowercase(string &s)
@@ -2848,7 +2833,7 @@ static string _cannot_use_reason(const item_def &item, bool temp=true)
 
 static void _uselessness_desc(ostringstream &description, const item_def &item)
 {
-    if (!item_type_known(item))
+    if (!item.is_identified())
         return;
     if (is_useless_item(item, true))
     {
@@ -2929,7 +2914,7 @@ string get_item_description(const item_def &item,
                     << " link: " << item.link
                     << " slot: " << item.slot
                     << " ident_type: "
-                    << get_ident_type(item)
+                    << type_is_identified(item)
                     << " value: " << item_value(item, true)
                     << "\nannotate: "
                     << stash_annotate_item(STASH_LUA_SEARCH_ANNOTATE, &item);
@@ -2952,7 +2937,7 @@ string get_item_description(const item_def &item,
                         << "]";
             need_base_desc = false;
         }
-        else if (is_unrandom_artefact(item) && item_type_known(item))
+        else if (is_unrandom_artefact(item) && item.is_identified())
         {
             const string desc = getLongDescription(get_artefact_name(item));
             if (!desc.empty())
@@ -2965,7 +2950,7 @@ string get_item_description(const item_def &item,
         }
         // Randart jewellery properties will be listed later,
         // just describe artefact status here.
-        else if (is_artefact(item) && item_type_known(item)
+        else if (is_artefact(item) && item.is_identified()
                  && item.base_type == OBJ_JEWELLERY)
         {
             description << "It is an ancient artefact.";
@@ -2987,7 +2972,7 @@ string get_item_description(const item_def &item,
             {
                 if (item_type_removed(item.base_type, item.sub_type))
                     description << "This item has been removed.\n";
-                else if (item_type_known(item))
+                else if (item.is_identified())
                 {
                     description << "[ERROR: no desc for item name '" << db_name
                                 << "']. Perhaps this item has been removed?\n";
@@ -3127,7 +3112,7 @@ string get_item_description(const item_def &item,
         break;
 
     case OBJ_POTIONS:
-        if (item_type_known(item))
+        if (item.is_identified())
         {
             if (verbose)
             {
@@ -3153,7 +3138,7 @@ string get_item_description(const item_def &item,
         break;
 
     case OBJ_WANDS:
-        if (item_type_known(item))
+        if (item.is_identified())
         {
             description << "\n";
 
@@ -3171,7 +3156,7 @@ string get_item_description(const item_def &item,
         break;
 
     case OBJ_SCROLLS:
-        if (item_type_known(item))
+        if (item.is_identified())
         {
             if (verbose)
                 _uselessness_desc(description, item);
@@ -3225,15 +3210,15 @@ string get_item_description(const item_def &item,
             if (item.base_type == OBJ_ARMOUR
                 || item.base_type == OBJ_WEAPONS)
             {
-                if (!item_ident(item, ISFLAG_KNOW_PLUSES))
-                    description << "\nIt is an ancient artefact.";
-                else if (you.has_mutation(MUT_ARTEFACT_ENCHANTING))
+                if (you.has_mutation(MUT_ARTEFACT_ENCHANTING))
                 {
-                    if (is_unrandom_artefact(item)
-                        || (item.base_type == OBJ_ARMOUR
-                            && item.plus >= armour_max_enchant(item))
-                        || (item.base_type == OBJ_WEAPONS
-                            && item.plus >= MAX_WPN_ENCHANT))
+                    if (!item.is_identified())
+                        description << "\nIt is an ancient artefact.";
+                    else if (is_unrandom_artefact(item)
+                             || (item.base_type == OBJ_ARMOUR
+                                 && item.plus >= armour_max_enchant(item))
+                             || (item.base_type == OBJ_WEAPONS
+                                 && item.plus >= MAX_WPN_ENCHANT))
                     {
                         description << "\nEnchanting this artefact any further "
                             "is beyond even your skills.";
@@ -3248,7 +3233,7 @@ string get_item_description(const item_def &item,
             // Randart jewellery has already displayed this line.
             // And gizmos really shouldn't (you just made them!)
             else if (item.base_type != OBJ_JEWELLERY && item.base_type != OBJ_GIZMOS
-                     || (item_type_known(item) && is_unrandom_artefact(item)))
+                     || (item.is_identified() && is_unrandom_artefact(item)))
             {
                 description << "\nIt is an ancient artefact.";
             }
@@ -4187,7 +4172,7 @@ command_type describe_item_popup(const item_def &item,
     desc += get_item_description(item);
 
     string quote;
-    if (is_unrandom_artefact(item) && item_type_known(item))
+    if (is_unrandom_artefact(item) && item.is_identified())
         quote = getQuoteString(get_artefact_name(item));
     else
         quote = getQuoteString(item.name(DESC_DBNAME, true, false, false));
@@ -4285,7 +4270,7 @@ command_type describe_item_popup(const item_def &item,
             return true;
         else if (key == '!'
                  && is_equippable_item(item)
-                 && item_ident(item, ISFLAG_KNOW_PROPERTIES))
+                 && item.is_identified())
         {
             string spell_success;
             // Only switch tab if there's any spell rate changes.
@@ -5159,6 +5144,7 @@ static string _flavour_base_desc(attack_flavour flavour)
         { AF_SWARM,             "summon more of itself" },
         { AF_ALEMBIC,           "vent poison clouds" },
         { AF_BOMBLET,           "deploy bomblets" },
+        { AF_AIRSTRIKE,         "open air damage" },
         { AF_PLAIN,             "" },
     };
 

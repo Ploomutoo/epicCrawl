@@ -91,8 +91,8 @@ function zot_entry_setup(e)
   e.kitem("R = midnight gem")
   e.kfeat("O = enter_zot")
   e.mons("patrolling base draconian")
-  e.mons("fire dragon / ice dragon / storm dragon / \
-          shadow dragon / bone dragon / golden dragon")
+  e.mons("fire dragon w:12 / ice dragon w:12 / storm dragon / \
+          shadow dragon / golden dragon w:12 / wyrmhole w:4")
   e.mons("patrolling nonbase draconian")
   e.kmons("0 = ettin / rakshasa / glowing shapeshifter w:5 / \
               stone giant w:12 / spriggan berserker w:8 / hell knight w:5")
@@ -323,8 +323,8 @@ function index_vaults_room_themes (e, set, hard)
     e.tile('c = wall_studio')
   elseif set == 'icebox' then
     e.tags('no_wall_fixup')
-    local f = 'ego:freezing ident:type'
-    local c = 'ego:cold_resistance ident:type'
+    local f = 'ego:freezing pre_id'
+    local c = 'ego:cold_resistance pre_id'
     e.mons('white ugly thing w:' .. 8 - d * 2 .. ' / ' ..
            'redback simulacrum w:' .. 8 - d * 2 .. ' / ' ..
            'freezing wraith w:2 / sphinx simulacrum w:' .. d - 1)

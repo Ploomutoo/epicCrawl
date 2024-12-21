@@ -259,7 +259,7 @@ spret cast_awaken_armour(int pow, bool fail)
     item_def &fake_armour = env.item[mitm_slot];
     fake_armour.clear();
     fake_armour = *armour;
-    fake_armour.flags |= ISFLAG_SUMMONED | ISFLAG_KNOW_PLUSES;
+    fake_armour.flags |= ISFLAG_SUMMONED | ISFLAG_IDENTIFIED;
 
     spirit->pickup_item(fake_armour, false, true);
 
@@ -2392,7 +2392,7 @@ static void _overgrow_wall(const coord_def &pos)
                                                     4, MONS_WANDERING_MUSHROOM,
                                                     1, MONS_BALLISTOMYCETE,
                                                     1, MONS_OKLOB_PLANT);
-    mgen_data mgen(mon, BEH_FRIENDLY, pos, MHITYOU, MG_FORCE_PLACE);
+    mgen_data mgen(mon, BEH_FRIENDLY, pos, MHITYOU, MG_FORCE_PLACE, GOD_FEDHAS);
     mgen.hd = mons_class_hit_dice(mon) + you.skill_rdiv(SK_INVOCATIONS);
     mgen.set_summoned(&you, SPELL_NO_SPELL,
                         summ_dur(min(3 + you.skill_rdiv(SK_INVOCATIONS, 1, 5), 6)));
@@ -2463,7 +2463,7 @@ spret fedhas_grow_ballistomycete(const coord_def& target, bool fail)
     fail_check();
 
     mgen_data mgen(MONS_BALLISTOMYCETE, BEH_FRIENDLY, target, MHITYOU,
-            MG_FORCE_BEH | MG_FORCE_PLACE | MG_AUTOFOE);
+            MG_FORCE_BEH | MG_FORCE_PLACE | MG_AUTOFOE, GOD_FEDHAS);
     mgen.hd = mons_class_hit_dice(MONS_BALLISTOMYCETE) +
         you.skill_rdiv(SK_INVOCATIONS);
     mgen.set_summoned(&you, SPELL_NO_SPELL,
@@ -2510,7 +2510,7 @@ spret fedhas_grow_oklob(const coord_def& target, bool fail)
     fail_check();
 
     mgen_data mgen(MONS_OKLOB_PLANT, BEH_FRIENDLY, target, MHITYOU,
-            MG_FORCE_BEH | MG_FORCE_PLACE | MG_AUTOFOE);
+            MG_FORCE_BEH | MG_FORCE_PLACE | MG_AUTOFOE, GOD_FEDHAS);
     mgen.hd = mons_class_hit_dice(MONS_OKLOB_PLANT) +
         you.skill_rdiv(SK_INVOCATIONS);
     mgen.set_summoned(&you, SPELL_NO_SPELL,
@@ -3316,6 +3316,12 @@ void clockwork_bee_go_dormant(monster& bee)
 // Returns false if we lacked the MP to do so or there was no valid target for it.
 bool clockwork_bee_recharge(monster& bee)
 {
+    if (you.berserk())
+    {
+        mpr("If you tried to rewind gears in your present state, you'd only break them.");
+        return false;
+    }
+
     monster* targ = _get_clockwork_bee_target(&bee);
 
     // Nothing around for it to attack.
@@ -3604,6 +3610,8 @@ spret cast_surprising_crocodile(actor& agent, const coord_def& targ, int pow, bo
                                 TERRAIN_CHANGE_FLOOD);
         }
     }
+
+    agent.apply_location_effects(start_pos);
 
     return spret::success;
 }
@@ -4264,7 +4272,7 @@ spret cast_summon_seismosaurus_egg(const actor& agent, int pow, bool fail)
 
     mgen_data egg = _summon_data(agent, MONS_SEISMOSAURUS_EGG, summ_dur(3),
                                  SPELL_SUMMON_SEISMOSAURUS_EGG);
-    egg.hd = (7 + div_rand_round(pow, 22));
+    egg.hd = (7 + div_rand_round(pow, 20));
     egg.set_range(3, 3, 1);
 
     if (monster* mons = create_monster(egg))
