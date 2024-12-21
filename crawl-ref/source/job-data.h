@@ -36,8 +36,8 @@ static const map<job_type, job_def> job_data =
     0, 7, 5,
     {     { SP_DEEP_ELF, SP_SPRIGGAN, SP_NAGA, SP_MERFOLK, SP_OCTOPODE, SP_DJINNI, SP_DEMONSPAWN } },
     {
-        SPELL_STING,
-        SPELL_MERCURY_VAPOURS,
+        SPELL_POISONOUS_VAPOURS,
+        SPELL_MERCURY_ARROW,
         SPELL_MEPHITIC_CLOUD,
         SPELL_OLGREBS_TOXIC_RADIANCE,
         SPELL_STICKY_FLAME
