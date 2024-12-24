@@ -103,7 +103,7 @@ void artefact_properties(const item_def &item,
 
 int artefact_property(const item_def &item, artefact_prop_type prop);
 
-bool make_item_randart(item_def &item, bool force_mundane = false);
+bool make_item_randart(item_def &item, bool force_mundane = false, bool lucky=false);
 void make_ashenzari_randart(item_def &item);
 void make_trog_randart(item_def &item);
 bool make_item_unrandart(item_def &item, int unrand_index);

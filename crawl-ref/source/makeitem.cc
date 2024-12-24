@@ -246,7 +246,7 @@ static bool _try_make_weapon_artefact(item_def& item, int force_type,
         }
 
         // The rest are normal randarts.
-        make_item_randart(item, false, lucky);
+        make_item_randart(item, false);
 
         return true;
     }
@@ -778,7 +778,7 @@ static bool _try_make_armour_artefact(item_def& item, int force_type,
 
     // Needs to be done after the barding chance else we get randart
     // bardings named Boots of xy.
-    make_item_randart(item, false ,lucky);
+    make_item_randart(item, false);
 
     return true;
 }
