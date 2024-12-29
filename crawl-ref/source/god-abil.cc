@@ -3409,7 +3409,10 @@ bool gozag_potion_petition()
     you.attribute[ATTR_GOZAG_GOLD_USED] += prices[keyin];
 
     for (auto pot : *pots[keyin])
+    {
         potionlike_effect(static_cast<potion_type>(pot.get_int()), 40);
+        flash_tile(you.pos(), YELLOW, 120, TILE_BOLT_POTION_PETITION);
+    }
 
     for (int i = 0; i < GOZAG_MAX_POTIONS; i++)
     {
@@ -4007,17 +4010,19 @@ spret qazlal_upheaval(coord_def target, bool quiet, bool fail, dist *player_targ
     switch (random2(4))
     {
         case 0:
-            beam.name     = "blast of magma";
-            beam.flavour  = BEAM_LAVA;
-            beam.colour   = RED;
-            beam.hit_verb = "engulfs";
-            message       = "Magma suddenly erupts from the ground!";
+            beam.name      = "blast of magma";
+            beam.flavour   = BEAM_LAVA;
+            beam.colour    = RED;
+            beam.hit_verb  = "engulfs";
+            beam.tile_beam = TILE_BOLT_MAGMA;
+            message        = "Magma suddenly erupts from the ground!";
             break;
         case 1:
-            beam.name    = "blast of ice";
-            beam.flavour = BEAM_ICE;
-            beam.colour  = WHITE;
-            message      = "A blizzard blasts the area with ice!";
+            beam.name      = "blast of ice";
+            beam.flavour   = BEAM_ICE;
+            beam.colour    = WHITE;
+            beam.tile_beam = TILE_BOLT_ICEBLAST;
+            message        = "A blizzard blasts the area with ice!";
             break;
         case 2:
             beam.name    = "cutting wind";

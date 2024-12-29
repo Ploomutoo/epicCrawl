@@ -3452,11 +3452,12 @@ tileidx_t tileidx_cloud(const cloud_info &cl)
 }
 
 #ifdef USE_TILE
-tileidx_t vary_bolt_tile(tileidx_t tile, const coord_def& origin, const coord_def& target)
+tileidx_t vary_bolt_tile(tileidx_t tile, const coord_def& origin,
+                         const coord_def& target, const coord_def& pos)
 {
     const coord_def diff = target - origin;
     const int dir = _tile_bolt_dir(diff.x, diff.y);
-    const int dist = diff.rdist();
+    const int dist = (pos - origin).rdist();
 
     return vary_bolt_tile(tile, dir, dist);
 }
@@ -3489,12 +3490,15 @@ tileidx_t vary_bolt_tile(tileidx_t tile, int dir, int dist)
     case TILE_BOLT_MAGIC_DART:
     case TILE_BOLT_SANDBLAST:
     case TILE_BOLT_STING:
+    case TILE_BOLT_MEPHITIC_FLASK:
         return tile + (dist - 1) % tile_main_count(tile);
 
     case TILE_BOLT_FLAME:
     case TILE_BOLT_MAGMA:
     case TILE_BOLT_ICEBLAST:
+    case TILE_BOLT_ALEMBIC_POTION:
     case TILE_BOLT_IRRADIATE:
+    case TILE_BOLT_POTION_PETITION:
     case TILE_BOLT_SHADOW_BLAST:
     case TILE_BOLT_HAEMOCLASM:
     case TILE_BOLT_GHOSTLY_FIREBALL:
