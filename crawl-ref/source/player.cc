@@ -4165,7 +4165,8 @@ int get_real_hp(bool trans, bool drained)
                    you.get_mutation_level(MUT_RUGGED_BROWN_SCALES) * 2 + 1 : 0)
                 - (you.get_mutation_level(MUT_FRAIL) * 10)
                 - (hep_frail ? 10 : 0)
-                - (!you.vampire_alive ? 20 : 0);
+                - (!you.vampire_alive ? 20 : 0)
+                + (player_equip_unrand(UNRAND_FROG) ? 20 : 0);
 
     hitp /= 100;
 

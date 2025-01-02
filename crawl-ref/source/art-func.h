@@ -1808,3 +1808,18 @@ static void _CHARLATANS_ORB_unequip(item_def */*item*/, bool */*show_msgs*/)
     calc_hp(true);
     calc_mp(true);
 }
+
+///////////////////////////////////////////////////
+static void _FROG_equip(item_def */*item*/, bool */*show_msgs*/, bool /*unmeld*/)
+{
+    invalidate_agrid(true);
+    calc_hp(true);
+    calc_mp(true);
+}
+
+static void _FROG_unequip(item_def */*item*/, bool */*show_msgs*/)
+{
+    invalidate_agrid(true);
+    calc_hp(true);
+    calc_mp(true);
+}
