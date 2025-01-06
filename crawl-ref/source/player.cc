@@ -2507,7 +2507,7 @@ static void _recharge_xp_evokers(int exp)
 
     const int xp_by_xl = exp_needed(you.experience_level+1, 0)
                        - exp_needed(you.experience_level, 0);
-    const int skill_denom = 3 + you.skill_rdiv(SK_EVOCATIONS, 2, 13);
+    const int skill_denom = 3 + you.skill_rdiv(SK_EVOCATIONS, 1, 9);
     const int xp_factor = max(xp_by_xl / 5, 100) / skill_denom;
 
     if (you.wearing_ego(EQ_GIZMO, SPGIZMO_GADGETEER)
@@ -2526,8 +2526,9 @@ static void _recharge_xp_evokers(int exp)
         if (debt == 0)
             continue;
 
+        int plus_factor = div_rand_round(5 * xp_factor, 5 + evoker->plus);
         const int old_charges = evoker_charges(i);
-        debt = max(0, debt - div_rand_round(exp, xp_factor));
+        debt = max(0, debt - div_rand_round(exp, plus_factor));
         const int gained = evoker_charges(i) - old_charges;
         if (gained)
             print_xp_evoker_recharge(*evoker, gained, silenced(you.pos()));
@@ -5439,34 +5440,6 @@ int count_worn_ego(int which_ego)
     return result;
 }
 
-static int _apply_descent_debt(int gold)
-{
-    if (gold < 0)
-    {
-        // This is necessary because shop purchases are made individually in an
-        // unintuitive (for players) order. Stacking debt is prevented elsewhere.
-        if (!you.props.exists(DESCENT_DEBT_KEY))
-            you.props[DESCENT_DEBT_KEY] = 0;
-        you.props[DESCENT_DEBT_KEY].get_int() -= gold;
-        return 0;
-    }
-
-    if (you.props.exists(DESCENT_DEBT_KEY))
-    {
-        int &debt = you.props[DESCENT_DEBT_KEY].get_int();
-        if (gold >= debt)
-        {
-            gold = gold - debt;
-            you.props.erase(DESCENT_DEBT_KEY);
-            return gold;
-        }
-        debt -= gold;
-        return 0;
-    }
-
-    return gold;
-}
-
 player::player()
 {
     // warning: this constructor is called for `you` in an indeterminate order
@@ -8204,9 +8177,6 @@ void player::del_gold(int delta)
 
 void player::set_gold(int amount)
 {
-    if (crawl_state.game_is_descent())
-        amount = _apply_descent_debt(amount);
-
     ASSERT(amount >= 0);
 
     if (amount != gold)

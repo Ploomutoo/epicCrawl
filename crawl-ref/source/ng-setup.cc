@@ -181,9 +181,6 @@ item_def* newgame_make_item(object_class_type base,
     if (item.base_type == OBJ_MISSILES)
         _autopickup_ammo(static_cast<missile_type>(item.sub_type));
 
-    if (item.base_type == OBJ_MISCELLANY)
-        handle_generated_misc(static_cast<misc_item_type>(item.sub_type));
-
     origin_set_startequip(item);
     if (item.base_type == OBJ_WEAPONS && you.species == SP_COGLIN)
         name_weapon(item);
@@ -333,6 +330,9 @@ void give_items_skills(const newgame_def& ng)
         if (!you_worship(GOD_XOM))
             you.piety_max[you.religion] = you.piety;
     }
+
+    if (crawl_state.game_is_descent())
+        you.attribute[ATTR_VOUCHER] = 1;
 }
 
 static void _setup_tutorial_miscs()

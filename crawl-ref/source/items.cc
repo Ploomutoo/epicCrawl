@@ -647,8 +647,6 @@ void destroy_item(item_def &item, bool never_created)
     {
         if (is_unrandom_artefact(item))
             set_unique_item_status(item, UNIQ_NOT_EXISTS);
-        if (item.base_type == OBJ_MISCELLANY)
-            you.generated_misc.erase((misc_item_type)item.sub_type);
     }
 
     item.clear();
@@ -1554,7 +1552,8 @@ bool is_stackable_item(const item_def &item)
 #endif
             return true;
         case OBJ_MISCELLANY:
-            return item.sub_type == MISC_ZIGGURAT;
+            return item.sub_type == MISC_ZIGGURAT
+                    || item.sub_type == MISC_SHOP_VOUCHER;
         default:
             break;
     }
@@ -1868,6 +1867,16 @@ static void _get_book(item_def& it)
     you.skills_to_show.insert(sk);
 }
 
+static void _get_voucher(item_def& it)
+{
+    if (it.sub_type != MISC_SHOP_VOUCHER)
+        return;
+
+    you.attribute[ATTR_VOUCHER]++;
+
+    taken_new_item(it.base_type);
+}
+
 // Adds all books in the player's inventory to library.
 // Declared here for use by tags to load old saves.
 void add_held_books_to_library()
@@ -2055,6 +2064,45 @@ static bool _merge_stackable_item_into_inv(const item_def &it, int quant_got,
     return false;
 }
 
+static bool _merge_evokers(const item_def &it, int &inv_slot, bool quiet)
+{
+    for (inv_slot = 0; inv_slot < ENDOFPACK; inv_slot++)
+    {
+        if (you.inv[inv_slot].base_type != OBJ_MISCELLANY
+            || you.inv[inv_slot].sub_type != it.sub_type)
+        {
+            continue;
+        }
+
+        bool improved = evoker_plus(it.sub_type) < MAX_EVOKER_ENCHANT;
+
+        if (improved)
+            evoker_plus(it.sub_type)++;
+
+        if (!quiet && improved)
+        {
+#ifdef USE_SOUND
+            parse_sound(PICKUP_SOUND);
+#endif
+            mprf_nocap("%s (improved by +1).",
+                        menu_colour_item_name(you.inv[inv_slot],
+                                                    DESC_INVENTORY).c_str());
+        }
+        else if (!quiet)
+        {
+            mprf_nocap("%s can't be improved any further.",
+                        menu_colour_item_name(you.inv[inv_slot],
+                                                    DESC_INVENTORY).c_str());
+        }
+
+        return true;
+    }
+
+    inv_slot = -1;
+    return false;
+}
+
+
 /**
  * Attempt to merge a wands charges into an existing wand of the same type in
  * inventory.
@@ -2238,6 +2286,11 @@ static bool _merge_items_into_inv(item_def &it, int quant_got,
         _get_book(it);
         return true;
     }
+    if (it.base_type == OBJ_MISCELLANY && it.sub_type == MISC_SHOP_VOUCHER)
+    {
+        _get_voucher(it);
+        return true;
+    }
     // Runes and gems are also massless.
     if (it.base_type == OBJ_RUNES)
     {
@@ -2266,6 +2319,14 @@ static bool _merge_items_into_inv(item_def &it, int quant_got,
     // attempt to merge into an existing stack, if possible
     if (it.base_type == OBJ_WANDS
         && _merge_wand_charges(it, inv_slot, quiet))
+    {
+        quant_got = 1;
+        return true;
+    }
+
+    // attempt to merge into an existing stack, if possible
+    if (is_xp_evoker(it)
+        && _merge_evokers(it, inv_slot, quiet))
     {
         quant_got = 1;
         return true;

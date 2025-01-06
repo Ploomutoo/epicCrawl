@@ -1021,6 +1021,7 @@ static string misc_type_name(int type)
     case MISC_TIN_OF_TREMORSTONES:       return "tin of tremorstones";
     case MISC_CONDENSER_VANE:            return "condenser vane";
     case MISC_GRAVITAMBOURINE:           return "Gell's gravitambourine";
+    case MISC_SHOP_VOUCHER:              return "shop voucher";
 
     default:
         return "buggy miscellaneous item";
@@ -1775,6 +1776,8 @@ string item_def::name_aux(description_level_type desc, bool terse, bool ident,
     {
         if (!dbname && item_typ == MISC_ZIGGURAT && you.zigs_completed > 0)
             buff << "+" << you.zigs_completed << " ";
+        else if (!dbname && is_xp_evoker(*this))
+            buff << "+" << evoker_plus(item_typ) << " ";
 
         buff << misc_type_name(item_typ);
 
