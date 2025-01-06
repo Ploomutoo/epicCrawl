@@ -386,7 +386,7 @@ Alistair's Walking Alembic spell
 
 Despite its unwieldy appearance, it is widely considered Alistair's most popular
 work; countless variations of this spell can be found in surface libraries,
-customized to prepare everything from floor polish to vegetable soup. In the
+customised to prepare everything from floor polish to vegetable soup. In the
 depths of the dungeon, however, most mages favor the combat utility of the
 classic iteration.
 %%%%
@@ -629,7 +629,7 @@ Mercury Arrow spell
 Nazja's Percussive Tempering spell
 
 Scholars long considered the hammer mere theatrics to mask the complex
-structual enhancement magics which must underpin this spell, and yet every
+structural enhancement magics which must underpin this spell, and yet every
 attempt to remove it from the incantation has caused the spell to lose its
 effectiveness. The implications of this remain hotly debated.
 %%%%
@@ -1572,7 +1572,11 @@ ring of slaying
 %%%%
 ring of stealth
 
-<ring>
+“Then as part of the game
+ She completely forgot where she'd hidden herself
+ And she spent the rest of her time
+ Trying to find the parts”
+    -Howard Jones, “Hide and Seek”. 1984.
 %%%%
 ring of strength
 

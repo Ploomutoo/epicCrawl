@@ -4590,6 +4590,11 @@ bool bolt::ignores_player() const
         return true;
     }
 
+    // XXX: Mostly to stop the targeter being weird with trying to keep you
+    //      out of splash damage.
+    if (origin_spell == SPELL_MERCURY_ARROW && agent() && agent()->is_player())
+        return true;
+
     if (origin_spell == SPELL_HOARFROST_BULLET && is_explosion
         && agent() && agent()->wont_attack())
     {
@@ -5750,7 +5755,8 @@ void bolt::affect_monster(monster* mon)
 
     int hit_margin = _test_beam_hit(beam_hit, rand_ev, r);
 
-    if (you.duration[DUR_BLIND] && agent() && agent()->is_player())
+    if (you.duration[DUR_BLIND] && beam_hit != AUTOMATIC_HIT && agent()
+        && agent()->is_player())
     {
         const int distance = you.pos().distance_from(mon->pos());
         if (x_chance_in_y(player_blind_miss_chance(distance), 100))
