@@ -576,6 +576,7 @@ static const zap_info zap_data[] =
 },
 
 _mon_hex_zap(ZAP_PARALYSE, BEAM_PARALYSIS),
+_mon_hex_zap(ZAP_VEX, BEAM_VEX),
 
 {
     ZAP_BOLT_OF_FIRE,
@@ -2682,6 +2683,22 @@ _mon_hex_zap(ZAP_VITRIFY, BEAM_VITRIFY),
     false,
     false,
     TILE_BOLT_STING,
+},
+
+{
+    ZAP_FREEZE,
+    "freeze",
+    25,
+    new dicedef_calculator<1, 3, 3, 10>,
+    new tohit_calculator<AUTOMATIC_HIT>,
+    new dicedef_calculator<1, 3, 3, 10>,
+    new tohit_calculator<AUTOMATIC_HIT>,
+    WHITE,
+    false,
+    BEAM_COLD,
+    NUM_DCHAR_TYPES,
+    false,
+    false,
 },
 
 };

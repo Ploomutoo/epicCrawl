@@ -771,7 +771,6 @@ void dgn_reset_player_data()
     you.runes.reset();
     you.obtainable_runes = 15;
     initialise_item_sets(true);
-    you.generated_misc.clear();
     you.unique_items.init(UNIQ_NOT_EXISTS);
     you.octopus_king_rings = 0x00;
     you.item_description.init(255); // random names need reset after this, e.g.
@@ -3551,7 +3550,16 @@ static bool _builder_normal()
 
 static void _place_traps()
 {
-    const int num_traps = random2avg(2 * trap_rate_for_place(), 2);
+
+    int num_traps = random2avg(2 * trap_rate_for_place(), 2);
+
+    // Snake and Vaults don't have a lot of unique terrain types or open
+    // themes compared to their adjacent branches, and have themed weaker
+    // trap options to fall back on, so they get extra traps.
+    if (player_in_branch(BRANCH_SNAKE))
+        num_traps += 2;
+    else if (player_in_branch(BRANCH_VAULTS))
+        num_traps += 1;
 
     ASSERT(num_traps >= 0);
     dprf("attempting to place %d traps", num_traps);
@@ -4796,7 +4804,6 @@ static bool _apply_item_props(item_def &item, const item_spec &spec,
         item.base_type = OBJ_MISCELLANY;
         const auto typ = get_misc_item_type(spec.sub_type, false);
         item.sub_type = typ;
-        you.generated_misc.insert(typ);
         item_colour(item);
         item_set_appearance(item);
         ASSERT(item.is_valid());

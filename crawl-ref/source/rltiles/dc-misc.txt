@@ -53,6 +53,13 @@ zap1
 zap2
 zap3
 
+weak_air0 BOLT_WEAK_AIR
+weak_air1
+medium_air0 BOLT_MEDIUM_AIR
+medium_air1
+strong_air0 BOLT_STRONG_AIR
+strong_air1
+
 # Earth bolts
 sandblast0 BOLT_SANDBLAST
 sandblast1
@@ -224,6 +231,9 @@ pie4
 pie5
 pie6
 pie7
+
+chaos_buff0 BOLT_CHAOS_BUFF
+chaos_buff1
 
 sap_magic BOLT_SAP_MAGIC
 

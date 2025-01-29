@@ -429,7 +429,8 @@ static bool _follows_orders(monster* mon)
     return mon->friendly()
            && !mon->berserk_or_frenzied()
            && !mon->is_peripheral()
-           && !mon->has_ench(ENCH_HAUNTING);
+           && !mon->has_ench(ENCH_HAUNTING)
+           && !mon->has_ench(ENCH_VEXED);
 }
 
 // Sets foe target of friendly monsters.
@@ -837,7 +838,7 @@ bool noisy(int original_loudness, const coord_def& where,
     {
         if (have_passive(passive_t::dampen_noise))
             adj_loudness = div_rand_round(adj_loudness, 2);
-        if (player_equip_unrand(UNRAND_THIEF))
+        if (you.unrand_equipped(UNRAND_THIEF))
             adj_loudness = div_rand_round(adj_loudness, 2);
     }
 

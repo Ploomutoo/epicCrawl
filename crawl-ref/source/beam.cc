@@ -3352,7 +3352,7 @@ bool bolt::harmless_to_player() const
     case BEAM_AGILITY:
     case BEAM_INVISIBILITY:
     case BEAM_RESISTANCE:
-    case BEAM_DOUBLE_VIGOUR:
+    case BEAM_DOUBLE_HEALTH:
         return true;
 
     case BEAM_HOLY:
@@ -3792,6 +3792,11 @@ void bolt::affect_player_enchantment(bool resistible)
         obvious_effect = true;
         break;
 
+    case BEAM_VEX:
+        you.vex(agent(), random_range(3, 6));
+        obvious_effect = true;
+        break;
+
     case BEAM_CONFUSION:
         confuse_player(5 + random2(3));
         obvious_effect = true;
@@ -4184,17 +4189,6 @@ static const vector<pie_effect> pie_effects = {
                 if (you.beheld())
                     you.update_beholders();
             }
-        },
-        10
-    },
-    {
-        "raspberry",
-        [](const actor &defender) {
-            return defender.is_player();
-        },
-        [](actor &/*defender*/, const bolt &/*beam*/) {
-            for (int i = 0; i < NUM_STATS; ++i)
-                lose_stat(static_cast<stat_type>(i), 1 + random2(3));
         },
         10
     },
@@ -6037,6 +6031,7 @@ bool ench_flavour_affects_monster(actor *agent, beam_type flavour,
 
     case BEAM_CONFUSION:
     case BEAM_IRRESISTIBLE_CONFUSION:
+    case BEAM_VEX:
         rc = !mon->clarity();
         break;
 
@@ -6435,11 +6430,11 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         }
         return MON_AFFECTED;
 
-    case BEAM_DOUBLE_VIGOUR:
-        if (!mon->has_ench(ENCH_DOUBLED_VIGOUR)
-            && mon->add_ench(ENCH_DOUBLED_VIGOUR))
+    case BEAM_DOUBLE_HEALTH:
+        if (!mon->has_ench(ENCH_DOUBLED_HEALTH)
+            && mon->add_ench(ENCH_DOUBLED_HEALTH))
         {
-            if (simple_monster_message(*mon, " surges with doubled vitality!"))
+            if (simple_monster_message(*mon, " surges with doubled health!"))
                 obvious_effect = true;
         }
         return MON_AFFECTED;
@@ -6491,6 +6486,12 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
 
         apply_bolt_petrify(mon);
         return MON_AFFECTED;
+
+    case BEAM_VEX:
+        if (mon->vex(agent(), random_range(3, 6)))
+            return MON_AFFECTED;
+        else
+            return MON_UNAFFECTED;
 
     case BEAM_SPORE:
     case BEAM_CONFUSION:
@@ -7452,7 +7453,7 @@ bool bolt::nice_to(const monster_info& mi) const
 
     if (flavour == BEAM_HASTE
         || flavour == BEAM_HEALING
-        || flavour == BEAM_DOUBLE_VIGOUR
+        || flavour == BEAM_DOUBLE_HEALTH
         || flavour == BEAM_MIGHT
         || flavour == BEAM_AGILITY
         || flavour == BEAM_INVISIBILITY
@@ -7722,7 +7723,8 @@ static string _beam_type_name(beam_type type)
     case BEAM_SHADOW_TORPOR:         return "shadow torpor";
     case BEAM_HAEMOCLASM:            return "gore";
     case BEAM_BLOODRITE:             return "blood";
-    case BEAM_DOUBLE_VIGOUR:         return "vigour-doubling";
+    case BEAM_DOUBLE_HEALTH:         return "health-doubling";
+    case BEAM_VEX:                   return "vexing";
     case BEAM_SEISMIC:               return "seismic shockwave";
     case BEAM_BOLAS:                 return "entwining bolas";
     case BEAM_MERCURY:               return "mercury";

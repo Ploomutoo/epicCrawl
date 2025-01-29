@@ -879,7 +879,10 @@ manticore MONS_MANTICORE
 %rim 1
 %sdir mon/demihumanoids
 harpy MONS_HARPY
-sphinx MONS_SPHINX
+%rim 0
+sphinx_marauder MONS_SPHINX_MARAUDER
+guardian_sphinx MONS_GUARDIAN_SPHINX
+%rim 1
 minotaur MONS_MINOTAUR
 %rim 0
 jorogumo MONS_JOROGUMO
@@ -968,6 +971,7 @@ acid_blob MONS_ACID_BLOB
 sonja MONS_SONJA
 %rim 0
 pikel MONS_PIKEL
+pikel_whipless MONS_PIKEL_WHIPLESS
 %sdir mon/humanoids
 kobold MONS_KOBOLD
 kobold_brigand MONS_KOBOLD_BRIGAND

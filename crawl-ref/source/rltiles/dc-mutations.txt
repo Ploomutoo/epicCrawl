@@ -153,7 +153,7 @@ time_warped_blood_2
 # Generic bad mutations
 berserk_1 BERSERK
 berserk_2
-deterioration_1 DETERIORATION
+deterioration_1 POOR_CONSTITUTION
 deterioration_2
 persistent_drain PERSISTENT_DRAIN
 scream_1 SCREAM
@@ -162,6 +162,9 @@ teleport_1 TELEPORT
 teleport_2
 
 # Demonspawn mutations
+demonic_touch1 DEMONIC_TOUCH
+demonic_touch2
+demonic_touch3
 icemail_1 ICEMAIL
 icemail_2
 condensation_shield CONDENSATION_SHIELD
@@ -253,8 +256,10 @@ gelatinous_body_1 GELATINOUS_BODY
 gelatinous_body_2
 gelatinous_body_3
 jelly_growth JELLY_GROWTH
+tendrils TENDRILS
 
 # Ru sacrifices
+missing_eye MISSING_EYE
 missing_hand MISSING_HAND
 no_armour_skill NO_ARMOUR_SKILL
 no_dodging NO_DODGING

@@ -2962,6 +2962,12 @@ commands:
 !d
   Prompt before dropping this item.
 
+!e
+  Prompt before equipping this item.
+
+!u
+  Prompt before unequipping this item.
+
 !q
   Prompt before quaffing this item.
 
@@ -3005,7 +3011,8 @@ commands:
   Prompt before explicitly quivering this item. Entails =F,=f.
 
 =R
-  Do not offer to swap out this ring if another one can be removed instead.
+  Do not offer to swap out this piece of equipment if another one could be
+  removed instead.
 
 !D
   Prompt before performing an action that might destroy this item. It won't

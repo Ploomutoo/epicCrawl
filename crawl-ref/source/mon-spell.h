@@ -1055,16 +1055,22 @@ static const mon_spellbook mspell_list[] =
       }
     },
 
-    {  MST_SPHINX,
+    {  MST_SPHINX_MARAUDER,
       {
-       { SPELL_CONFUSE, 10, MON_SPELL_WIZARD },
-       { SPELL_SLOW, 10, MON_SPELL_WIZARD },
-       { SPELL_PARALYSE, 10, MON_SPELL_WIZARD },
-       { SPELL_SMITING, 10, MON_SPELL_WIZARD },
+       { SPELL_CONFUSE, 14, MON_SPELL_WIZARD },
+       { SPELL_VEX, 22, MON_SPELL_WIZARD },
       }
     },
 
-    // ('H') Hybrids.
+    {  MST_GUARDIAN_SPHINX,
+      {
+       { SPELL_CONFUSE, 10, MON_SPELL_WIZARD },
+       { SPELL_SLOW, 14, MON_SPELL_WIZARD },
+       { SPELL_PARALYSE, 14, MON_SPELL_WIZARD },
+       { SPELL_SMITING, 14, MON_SPELL_WIZARD },
+      }
+    },
+
     {  MST_JOROGUMO,
       {
        { SPELL_BOLT_OF_DRAINING, 20, MON_SPELL_WIZARD },
@@ -1305,7 +1311,8 @@ static const mon_spellbook mspell_list[] =
       {
        { SPELL_BATTLESPHERE, 30, MON_SPELL_WIZARD },
        { SPELL_LIGHTNING_BOLT, 20, MON_SPELL_WIZARD },
-       { SPELL_FORCE_LANCE, 10, MON_SPELL_WIZARD | MON_SPELL_EMERGENCY },
+       { SPELL_FORCE_LANCE, 10, MON_SPELL_WIZARD },
+       { SPELL_FORCE_LANCE, 20, MON_SPELL_WIZARD | MON_SPELL_EMERGENCY },
       }
     },
 

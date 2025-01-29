@@ -267,53 +267,6 @@ bool player::possible_beholder(const monster* mon) const
             && !mon->berserk_or_frenzied()
             && !mons_is_fleeing(*mon)
             && !is_sanctuary(pos())
-          || player_equip_unrand(UNRAND_DEMON_AXE)
+          || you.unrand_equipped(UNRAND_DEMON_AXE);
           || scan_artefacts(ARTP_TROG_MESMERISE));
-}
-
-static monster* _find_nearest_possible_beholder()
-{
-    for (distance_iterator di(you.pos(), true, true, LOS_RADIUS); di; ++di)
-    {
-        monster *mon = monster_at(*di);
-        if (mon && you.can_see(*mon)
-            && you.possible_beholder(mon)
-            && mons_is_threatening(*mon))
-        {
-            return mon;
-        }
-    }
-
-    return nullptr;
-}
-
-// Used by obsidian axe and TrogMesm weapons.
-void player::become_mesmerised_by_nearest()
-{
-    monster* mon = _find_nearest_possible_beholder();
-
-    if (!mon)
-        return;
-
-    monster& closest = *mon;
-
-    if (!beheld_by(closest))
-    {
-        mprf("Visions of slaying %s flood into your mind.",
-             closest.name(DESC_THE).c_str());
-
-        // The monsters (if any) currently mesmerising the player do not include
-        // this monster. To avoid trapping the player, all other beholders
-        // are removed.
-
-        clear_beholders();
-    }
-
-    if (confused())
-    {
-        mpr("Your confusion fades away as the thirst for blood takes over your mind.");
-        you.duration[DUR_CONF] = 0;
-    }
-
-    add_beholder(closest, true);
 }

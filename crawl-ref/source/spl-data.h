@@ -2806,7 +2806,7 @@ static const struct spell_desc spelldata[] =
     0,
     -1, -1,
     0,
-    TILEG_GENERIC_MONSTER_SPELL,
+    TILEG_HUNTING_CALL,
 },
 
 {
@@ -4380,6 +4380,18 @@ static const struct spell_desc spelldata[] =
     5, 5,
     0,
     TILEG_MAGMA_BARRAGE,
+},
+
+{
+    SPELL_VEX, "Vex",
+    spschool::hexes,
+    spflag::dir_or_target | spflag::needs_tracer
+        | spflag::WL_check | spflag::monster,
+    4,
+    200,
+    LOS_RADIUS, LOS_RADIUS,
+    0,
+    TILEG_VEX,
 },
 
 {

@@ -120,6 +120,7 @@
 #include "spl-cast.h"
 #include "spl-clouds.h"
 #include "spl-damage.h"
+#include "spl-monench.h"
 #include "spl-summoning.h"
 #include "spl-transloc.h"
 #include "spl-util.h"
@@ -1115,11 +1116,14 @@ static void _input()
 
     hints_new_turn();
 
-    if (you.cannot_act())
+    if (you.duration[DUR_VEXED])
+        do_vexed_attack(you);
+
+    if (you.cannot_act() || you.duration[DUR_VEXED])
     {
         if (crawl_state.repeat_cmd != CMD_WIZARD)
         {
-            crawl_state.cancel_cmd_repeat("Cannot move, cancelling command "
+            crawl_state.cancel_cmd_repeat("Cannot control self, cancelling command "
                                           "repetition.");
         }
         world_reacts();
@@ -1344,6 +1348,11 @@ static bool _can_take_stairs(dungeon_feature_type ftype, bool down,
         canned_msg(MSG_CANNOT_MOVE);
         return false;
     }
+    else if (you.duration[DUR_VAINGLORY])
+    {
+        mpr("It simply wouldn't do to leave so soon after announcing yourself.");
+        return false;
+    }
 
     // ATTR_HELD is intentionally not tested here, it's handled in _take_stairs()
 
@@ -1529,8 +1538,11 @@ static bool _prompt_stairs(dungeon_feature_type ygrd, bool down, bool shaft)
         }
     }
 
-    if (ygrd != DNGN_TRANSPORTER && beogh_cancel_leaving_floor())
+    if (ygrd != DNGN_TRANSPORTER && ygrd != DNGN_PASSAGE_OF_GOLUBRIA
+        && beogh_cancel_leaving_floor())
+    {
         return false;
+    }
 
     if (Options.warn_hatches)
     {
