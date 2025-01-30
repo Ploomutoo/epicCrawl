@@ -1492,7 +1492,7 @@ void unequip_effect(int item_slot, bool meld, bool msg)
     {
         destroy_item(item);
     }
-    else if ((slot == EQ_WEAPON && you.species == SP_HUMAN))
+    else if ((item.base_type == OBJ_WEAPONS && you.species == SP_HUMAN))
     {   
         mprf("%s crumbles to dust! Oops!", item.name(DESC_THE).c_str());
         //dec_inv_item_quantity(item.link, 1);

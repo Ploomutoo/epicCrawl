@@ -267,6 +267,6 @@ bool player::possible_beholder(const monster* mon) const
             && !mon->berserk_or_frenzied()
             && !mons_is_fleeing(*mon)
             && !is_sanctuary(pos())
-          || you.unrand_equipped(UNRAND_DEMON_AXE);
+          || you.unrand_equipped(UNRAND_DEMON_AXE)
           || scan_artefacts(ARTP_TROG_MESMERISE));
 }

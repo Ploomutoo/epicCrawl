@@ -3871,7 +3871,7 @@ int get_real_hp(bool trans, bool drained)
                 - (you.get_mutation_level(MUT_FRAIL) * 10)
                 - (hep_frail ? 10 : 0)
                 - (!you.vampire_alive ? 20 : 0)
-                + (player_equip_unrand(UNRAND_FROG) ? 20 : 0);
+                + (you.unrand_equipped(UNRAND_FROG) ? 20 : 0);
 
     hitp /= 100;
 
@@ -3897,7 +3897,7 @@ int get_real_hp(bool trans, bool drained)
     if (trans)
         hitp = get_form()->mult_hp(hitp);
 
-    if (player_equip_unrand(UNRAND_BEAR_SPIRIT))
+    if (you.unrand_equipped(UNRAND_BEAR_SPIRIT))
         hitp += you.experience_level * 3;
 
     return max(1, hitp);
