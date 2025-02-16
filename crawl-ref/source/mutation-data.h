@@ -575,21 +575,21 @@ static const mutation_def mut_data[] =
   TILEG_MUT_BERSERK,
 },
 
-{ MUT_DETERIORATION, 10, 2, mutflag::bad, false,
-  "deterioration",
+{ MUT_POOR_CONSTITUTION, 10, 2, mutflag::bad, false,
+  "poor constitution",
 
-  {"Your body sometimes deteriorates upon taking damage.",
-   "Your body often deteriorates upon taking damage.",
+  {"Your body sometimes grows weak upon taking damage.",
+   "Your body sometimes grows weak and slow upon taking damage.",
    ""},
 
-  {"You feel yourself wasting away.",
-   "You feel your body start to fall apart.",
+  {"You feel your constitution weaken.",
+   "You feel your constitution grow even weaker.",
    ""},
 
-  {"You feel healthier.",
-   "You feel a little healthier.",
+  {"You feel your constitution return to normal.",
+   "You feel your constitution improve a little.",
    ""},
-  TILEG_MUT_DETERIORATION,
+  TILEG_MUT_POOR_CONSTITUTION,
 },
 
 #if TAG_MAJOR_VERSION == 34
@@ -2002,7 +2002,7 @@ static const mutation_def mut_data[] =
   {"You are covered in slimy tendrils that may disarm your opponents.", "", ""},
   {"Thin, slimy tendrils emerge from your body.", "", ""},
   {"Your tendrils retract into your body.", "", ""},
-  TILEG_MUT_GENERIC_JIYVA_MUTATION,
+  TILEG_MUT_TENDRILS,
 },
 
 { MUT_JELLY_GROWTH, 0, 1, mutflag::good | mutflag::jiyva, true,
@@ -2156,7 +2156,7 @@ static const mutation_def mut_data[] =
    "Your hands twist and begin to emit a powerful aura of unholy energy."},
 
   {"", "", ""},
-  TILEG_MUT_GENERIC_DEMONSPAWN_MUTATION,
+  TILEG_MUT_DEMONIC_TOUCH,
 },
 
 { MUT_COLD_BLOODED, 0, 1, mutflag::bad, true,
@@ -2510,6 +2510,7 @@ static const mutation_def mut_data[] =
   {"You are missing an eye, making it more difficult to aim.", "", ""},
   {"Your right eye vanishes! The world loses its depth.", "", ""},
   {"Your right eye suddenly reappears! The world regains its depth.", "", ""},
+  TILEG_MUT_MISSING_EYE,
 },
 
 { MUT_TEMPERATURE_SENSITIVITY, 0, 1, mutflag::bad, false,
@@ -2655,6 +2656,7 @@ static const mutation_def mut_data[] =
   {"Your arms no longer feel tentacular.", "", ""},
 },
 
+#if TAG_MAJOR_VERSION == 34
 { MUT_VAMPIRISM, 0, 2, mutflag::good, false,
   "vampiric",
 
@@ -2664,6 +2666,7 @@ static const mutation_def mut_data[] =
   0,
   {"", "You will be able to turn into a vampire bat when bloodless.", ""}
 },
+#endif
 
 { MUT_MERTAIL, 0, 1, mutflag::good, true,
   "mertail",
@@ -2681,6 +2684,7 @@ static const mutation_def mut_data[] =
   {"You float through the air rather than walking.", "", ""},
   {"You feel both weightless and legless.", "", ""},
   {"You feel dragged down by the weight of the world."},
+  TILEG_MUT_FLOAT,
 },
 
 { MUT_INNATE_CASTER, 0, 1, mutflag::good, false,
@@ -2713,6 +2717,7 @@ static const mutation_def mut_data[] =
   {"Your magical power is your life essence.", "", ""},
   {"Your magical power and health merge together.", "", ""},
   {"Your life and magic unlink."},
+  TILEG_MUT_HP_CASTING,
 },
 
 // XX why does this have 3 levels, only 1 is used
@@ -2756,14 +2761,17 @@ static const mutation_def mut_data[] =
   {"Your divine heritage dramatically boosts your attributes as you level up.", "", ""},
   {"You feel more divine.", "", ""},
   {"You feel more mortal.", "", ""},
+  TILEG_MUT_DIVINE_ATTRIBUTES,
 },
 
+#if TAG_MAJOR_VERSION == 34
 { MUT_DEVOUR_ON_KILL, 0, 1, mutflag::good, true,
   "devour on kill",
   {"You thrive by killing the living.", "", ""},
   {"You feel hungry for flesh.", "", ""},
   {"You feel less hungry for flesh.", "", ""},
 },
+#endif
 
 { MUT_SHORT_LIFESPAN, 0, 1, mutflag::bad, false,
   "otherworldly",
@@ -2792,6 +2800,7 @@ static const mutation_def mut_data[] =
   {"You regain HP and MP as you explore.", "", ""},
   {"You feel a fierce wanderlust.", "", ""},
   {"You feel like a homebody.", "", ""},
+  TILEG_MUT_EXPLORE_REGEN,
 },
 
 { MUT_DOUBLE_POTION_HEAL, 0, 1, mutflag::good, false,
@@ -2828,6 +2837,45 @@ static const mutation_def mut_data[] =
    {"You feel luckier", "", ""},
    {"You feel unlucky", "", ""},
 },
+
+{ MUT_FORMLESS, 0, 2, mutflag::good, true,
+  "formless",
+
+  {"You can equip up to 6 pieces of aux armour in any combination.",
+   "You can equip up to 6 pieces of aux armour in any combination and unleash them.",
+   ""},
+  {"", "You feel ready to unleash a true cacophony.", ""},
+  {"", "", ""},
+  TILEG_MUT_FORMLESS,
+  {"", "You will be able to unleash your equipped armour.", ""},
+},
+
+{ MUT_TRICKSTER, 0, 1, mutflag::good, false,
+  "trickster",
+
+  {"You gain AC when you inflict magical misfortune on nearby enemies.", "", ""},
+  {"", "", ""},
+  {"", "", ""},
+  TILEG_MUT_TRICKSTER,
+},
+
+{ MUT_MNEMOPHAGE, 0, 1, mutflag::good, false,
+   "mnemnophage",
+   {"You can enhance your damage-dealing spells by burning harvested memories.", ""},
+   {"Your flames flicker hungrily.", "", ""},
+   {"Your flames grow less ravenous.", "", ""},
+   TILEG_MUT_MNEMOPHAGE,
+   {"You will be able to burn memories to enhance your damage-dealing spells."}
+ },
+
+{ MUT_SPELLCLAWS, 0, 1, mutflag::good, false,
+   "spellclaws",
+   {"You perform a melee attack whenever you cast damage-dealing spells.", "", ""},
+   {"You feel destructive magic coursing through your claws.", "", ""},
+   {"You no longer feel destructive magic coursing through your claws.", "", ""},
+   TILEG_MUT_SPELLCLAWS,
+},
+
 // Makhleb-specific mutations
 
 { MUT_MAKHLEB_DESTRUCTION_GEH, 0, 1, mutflag::good, false,

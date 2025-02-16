@@ -129,6 +129,9 @@ static talisman_type _talisman_for(monster_type mtyp)
         if (coinflip())
             return TALISMAN_DEATH;
         break;
+    case MONS_JORY:
+        if (coinflip())
+            return TALISMAN_VAMPIRE;
     default:
         break;
     }
@@ -1865,17 +1868,24 @@ int make_mons_armour(monster_type type, int level)
         item.sub_type  = ARM_LEATHER_ARMOUR;
         break;
 
+    case MONS_ORC_HIGH_PRIEST:
+    case MONS_DEEP_ELF_FIRE_MAGE:
+    case MONS_DEEP_ELF_AIR_MAGE:
+    case MONS_DEEP_ELF_KNIGHT:
     case MONS_DEEP_ELF_ANNIHILATOR:
     case MONS_DEEP_ELF_DEATH_MAGE:
     case MONS_DEEP_ELF_DEMONOLOGIST:
-    case MONS_DEEP_ELF_HIGH_PRIEST:
-    case MONS_DEEP_ELF_KNIGHT:
-    case MONS_DEEP_ELF_AIR_MAGE:
-    case MONS_DEEP_ELF_FIRE_MAGE:
-    case MONS_DEEP_ELF_SORCERER:
     case MONS_DEEP_ELF_ELEMENTALIST:
+    case MONS_DEEP_ELF_HIGH_PRIEST:
+    case MONS_DEEP_ELF_SORCERER:
+        item.base_type = OBJ_ARMOUR;
+        item.sub_type  = random_choose_weighted(12, ARM_ROBE,
+                                                4, ARM_LEATHER_ARMOUR,
+                                                3, ARM_RING_MAIL,
+                                                1, ARM_SCALE_MAIL);
+        break;
+
     case MONS_ORC:
-    case MONS_ORC_HIGH_PRIEST:
     case MONS_ORC_PRIEST:
         if (x_chance_in_y(2, 5))
         {
@@ -1888,7 +1898,7 @@ int make_mons_armour(monster_type type, int level)
                                                     1, ARM_CHAIN_MAIL);
         }
         else
-            return NON_ITEM; // er...
+            return NON_ITEM; // don't hand out too much armour to early orcs
         break;
 
     case MONS_GNOLL_BOUDA:
@@ -2131,6 +2141,7 @@ int make_mons_armour(monster_type type, int level)
         break;
 
     case MONS_JOSEPHINA:
+    case MONS_VAMPIRE_BLOODPRINCE:
         level = ISPEC_GOOD_ITEM;
     case MONS_ORC_SORCERER:
     case MONS_DEMONSPAWN_BLOOD_SAINT:
@@ -2176,6 +2187,8 @@ int make_mons_armour(monster_type type, int level)
         item.sub_type  = ARM_ROBE;
         break;
 
+    case MONS_SPHINX_MARAUDER:
+    case MONS_GUARDIAN_SPHINX:
     case MONS_DRACONIAN_SHIFTER:
     case MONS_DRACONIAN_SCORCHER:
     case MONS_DRACONIAN_ANNIHILATOR:

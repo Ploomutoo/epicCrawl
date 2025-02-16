@@ -58,8 +58,6 @@ function ks_shop_vault(e, glyphs)
 end
 }}
 
-# XXX: Don't change the name of this vault!
-# Gozag code uses it to find out where shops can normally place.
 NAME: serial_shops
 TAGS: nolayout_encompass allow_dup extra luniq
 DEPTH: D, Depths, Orc, Elf, Shoals, Snake, Vaults
@@ -937,11 +935,12 @@ ENDMAP
 # Custom blood shop
 NAME:    guppyfry_shop_blood
 TAGS:    no_monster_gen transparent
-DEPTH:   D:12-, Depths
+DEPTH:   D:11-, Depths
 KMONS:   1 = vampire / vampire bat
 KMONS:   2 = vampire mage / vampire knight
 KFEAT:   v = general shop type:Blood suffix:Bar count:8 ; \
-             dagger ego:vampirism w:30 | any weapon ego:vampirism w:15 | \
+             dagger ego:vampirism w:20 | any weapon ego:vampirism w:15 | \
+             sanguine talisman w:8 | sanguine talisman randart w:2 | \
              randbook numspells:2 spells:sublimation_of_blood w:20 | \
              randbook disc:necromancy w:9 | w:1 book of annihilations
 SHUFFLE: ABCD
@@ -977,7 +976,7 @@ SUBST:  G : YlG
 :   randbook disc:necromancy w:5 | necronomicon w:1 | grand grimoire w:1 | \
 :   sceptre_of_torment w:1 | scythe_of_curses w:1 | majin-bo w:1 | \
 :   black_knights_barding w:1 | obsidian_axe w:1 | damnation w:1 | \
-:   sword_of_zonguldrok w:1")
+:   skull_of_zonguldrok w:1")
 : if not you.in_branch("D") then
 KFEAT: a = altar_kikubaaqudgha / altar_yredelemnul / altar_makhleb / \
            altar_beogh w:1 / altar_lugonu w:1
@@ -1585,9 +1584,9 @@ local weaponnames = {"dagger", "short sword", "falchion", "scimitar",
                     "hand axe", "executioner's axe w:6",
                     "club w:20", "flail", "demon whip w:3",
                     "dire flail", "eveningstar w:6",
-                    "spear", "halberd", "demon trident w:3"}
+                    "spear", "halberd", "partisan w:6", "demon trident w:3"}
 local egos = {"chaos", "draining", "distortion", "electrocution", "flaming",
-              "freezing", "heavy", "speed", "spectral"}
+              "freezing", "heavy", "speed", "spectral", "protection", "pain"}
 local kstr = "S = general shop name:" .. name .. " type:Alliterative " ..
              "suffix:Armaments count:" .. count .. " ; " ..
              "halberd itemname:scythe tile:wpn_scythe wtile:scythe ego:speed | " ..
@@ -1914,7 +1913,7 @@ NAME:   tekkud_shop_of_orbs
 TAGS:   no_monster_gen no_item_gen no_trap_gen patrolling
 TAGS:   vaults_hard vaults_orient_s
 DEPTH:  D:13-, Snake:2-, Elf:2-, Vaults, Crypt, Depths, Zot, !Zot:$
-WEIGHT: 1 (Zot), 3
+WEIGHT: 1 (Zot, Crypt), 3
 {{
 local shopname = util.random_from({"type:Orb suffix:Outfitters",
    "type:Spherical suffix:Supermarket", "type:Round suffix:Resellers",
@@ -1951,7 +1950,7 @@ MONS:  lich / fire giant, crystal guardian
 MONS:  great orb of eyes / occultist w:5 / glowing shapeshifter w:1
 SUBST: + = .
 : elseif you.in_branch("Crypt") then
-MONS:  revenant / curse skull w:5 / lich
+MONS:  revenant soulmonger / curse skull w:5 / lich
 MONS:  vampire knight / deep elf death mage
 MONS:  orb spider zombie / weeping skull / laughing skull
 : elseif you.in_branch("Depths") then

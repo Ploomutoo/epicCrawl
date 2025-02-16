@@ -2539,6 +2539,9 @@ cloud_type bolt::get_cloud_type() const
     if (origin_spell == SPELL_SPECTRAL_CLOUD)
         return CLOUD_SPECTRAL;
 
+    if (origin_spell == SPELL_RAVENOUS_SWARM)
+        return CLOUD_BATS;
+
     return CLOUD_NONE;
 }
 
@@ -2553,6 +2556,9 @@ int bolt::get_cloud_pow() const
     if (origin_spell == SPELL_SPECTRAL_CLOUD)
         return random_range(12, 20);
 
+    if (origin_spell == SPELL_RAVENOUS_SWARM)
+        return random_range(22, 40);
+
     return 0;
 }
 
@@ -2563,6 +2569,16 @@ int bolt::get_cloud_size(bool min, bool max) const
         || origin_spell == SPELL_FREEZING_CLOUD)
     {
         return 10;
+    }
+
+    if (origin_spell == SPELL_RAVENOUS_SWARM)
+    {
+        if (min)
+            return 10;
+        else if (max)
+            return 16;
+        else
+            return random_range(10, 16);
     }
 
     if (min)
@@ -3024,6 +3040,9 @@ void bolt::affect_place_clouds()
     if (origin_spell == SPELL_FLAMING_CLOUD)
         place_cloud(CLOUD_FIRE, p, random2(4) + 2, agent());
 
+    if (origin_spell == SPELL_RAVENOUS_SWARM)
+        place_cloud(CLOUD_BATS, p, random2(4) + 4, agent());
+
     // Fire/cold over water/lava
     if (feat == DNGN_LAVA && flavour == BEAM_COLD
         || feat_is_water(feat) && is_fiery())
@@ -3352,7 +3371,7 @@ bool bolt::harmless_to_player() const
     case BEAM_AGILITY:
     case BEAM_INVISIBILITY:
     case BEAM_RESISTANCE:
-    case BEAM_DOUBLE_VIGOUR:
+    case BEAM_DOUBLE_HEALTH:
         return true;
 
     case BEAM_HOLY:
@@ -3727,7 +3746,8 @@ void bolt::affect_player_enchantment(bool resistible)
     {
     case BEAM_HIBERNATION:
     case BEAM_SLEEP:
-        you.put_to_sleep(nullptr, ench_power, flavour == BEAM_HIBERNATION);
+        you.put_to_sleep(nullptr, (4 + random2avg(8, 3)) * BASELINE_DELAY,
+                            flavour == BEAM_HIBERNATION);
         break;
 
     case BEAM_CORONA:
@@ -3789,6 +3809,11 @@ void bolt::affect_player_enchantment(bool resistible)
 
     case BEAM_PETRIFY:
         you.petrify(agent());
+        obvious_effect = true;
+        break;
+
+    case BEAM_VEX:
+        you.vex(agent(), random_range(3, 6));
         obvious_effect = true;
         break;
 
@@ -4188,17 +4213,6 @@ static const vector<pie_effect> pie_effects = {
         10
     },
     {
-        "raspberry",
-        [](const actor &defender) {
-            return defender.is_player();
-        },
-        [](actor &/*defender*/, const bolt &/*beam*/) {
-            for (int i = 0; i < NUM_STATS; ++i)
-                lose_stat(static_cast<stat_type>(i), 1 + random2(3));
-        },
-        10
-    },
-    {
         "cherry",
         [](const actor &defender) {
             return defender.is_player() || defender.res_fire() < 3;
@@ -4590,6 +4604,11 @@ bool bolt::ignores_player() const
         return true;
     }
 
+    // XXX: Mostly to stop the targeter being weird with trying to keep you
+    //      out of splash damage.
+    if (origin_spell == SPELL_MERCURY_ARROW && agent() && agent()->is_player())
+        return true;
+
     if (origin_spell == SPELL_HOARFROST_BULLET && is_explosion
         && agent() && agent()->wont_attack())
     {
@@ -4872,6 +4891,8 @@ bool bolt::has_relevant_side_effect(monster* mon)
     {
         return true;
     }
+    else if (origin_spell == SPELL_RAVENOUS_SWARM && !(mon->holiness() & MH_UNDEAD))
+        return true;
 
     return false;
 }
@@ -5198,8 +5219,11 @@ void bolt::kill_monster(monster &mon)
 
     item_def *corpse = monster_die(mon, ref_killer, kindex);
 
-    if (origin_spell != SPELL_GLACIATE && origin_spell != SPELL_GLACIAL_BREATH)
+    if (origin_spell != SPELL_GLACIATE && origin_spell != SPELL_GLACIAL_BREATH
+        || goldify)
+    {
         return;
+    }
 
     if (corpse)
         destroy_item(corpse->index());
@@ -5750,7 +5774,8 @@ void bolt::affect_monster(monster* mon)
 
     int hit_margin = _test_beam_hit(beam_hit, rand_ev, r);
 
-    if (you.duration[DUR_BLIND] && agent() && agent()->is_player())
+    if (you.duration[DUR_BLIND] && beam_hit != AUTOMATIC_HIT && agent()
+        && agent()->is_player())
     {
         const int distance = you.pos().distance_from(mon->pos());
         if (x_chance_in_y(player_blind_miss_chance(distance), 100))
@@ -6031,6 +6056,7 @@ bool ench_flavour_affects_monster(actor *agent, beam_type flavour,
 
     case BEAM_CONFUSION:
     case BEAM_IRRESISTIBLE_CONFUSION:
+    case BEAM_VEX:
         rc = !mon->clarity();
         break;
 
@@ -6380,7 +6406,11 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         {
             if (simple_monster_message(*mon, " looks drowsy..."))
                 obvious_effect = true;
-            mon->put_to_sleep(agent(), ench_power, true);
+            // Since 1 turn will pass for the player's own action here, EH will
+            // put a monster to sleep for between ~20-55 aut, slanted towards
+            // the low end.
+            const int dur = max(30, 10 + random2avg(55, 3));
+            mon->put_to_sleep(agent(), dur, true);
             return MON_AFFECTED;
         }
         return MON_UNAFFECTED;
@@ -6429,11 +6459,11 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         }
         return MON_AFFECTED;
 
-    case BEAM_DOUBLE_VIGOUR:
-        if (!mon->has_ench(ENCH_DOUBLED_VIGOUR)
-            && mon->add_ench(ENCH_DOUBLED_VIGOUR))
+    case BEAM_DOUBLE_HEALTH:
+        if (!mon->has_ench(ENCH_DOUBLED_HEALTH)
+            && mon->add_ench(ENCH_DOUBLED_HEALTH))
         {
-            if (simple_monster_message(*mon, " surges with doubled vitality!"))
+            if (simple_monster_message(*mon, " surges with doubled health!"))
                 obvious_effect = true;
         }
         return MON_AFFECTED;
@@ -6486,6 +6516,12 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         apply_bolt_petrify(mon);
         return MON_AFFECTED;
 
+    case BEAM_VEX:
+        if (mon->vex(agent(), random_range(3, 6)))
+            return MON_AFFECTED;
+        else
+            return MON_UNAFFECTED;
+
     case BEAM_SPORE:
     case BEAM_CONFUSION:
     case BEAM_IRRESISTIBLE_CONFUSION:
@@ -6516,10 +6552,10 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
     }
 
     case BEAM_SLEEP:
-        if (mons_just_slept(*mon))
+        if (mon->asleep())
             return MON_UNAFFECTED;
 
-        mon->put_to_sleep(agent(), ench_power);
+        mon->put_to_sleep(agent(), random_range(4, 7) * BASELINE_DELAY);
         if (simple_monster_message(*mon, " falls asleep!"))
             obvious_effect = true;
 
@@ -7446,7 +7482,7 @@ bool bolt::nice_to(const monster_info& mi) const
 
     if (flavour == BEAM_HASTE
         || flavour == BEAM_HEALING
-        || flavour == BEAM_DOUBLE_VIGOUR
+        || flavour == BEAM_DOUBLE_HEALTH
         || flavour == BEAM_MIGHT
         || flavour == BEAM_AGILITY
         || flavour == BEAM_INVISIBILITY
@@ -7716,10 +7752,12 @@ static string _beam_type_name(beam_type type)
     case BEAM_SHADOW_TORPOR:         return "shadow torpor";
     case BEAM_HAEMOCLASM:            return "gore";
     case BEAM_BLOODRITE:             return "blood";
-    case BEAM_DOUBLE_VIGOUR:         return "vigour-doubling";
+    case BEAM_DOUBLE_HEALTH:         return "health-doubling";
+    case BEAM_VEX:                   return "vexing";
     case BEAM_SEISMIC:               return "seismic shockwave";
     case BEAM_BOLAS:                 return "entwining bolas";
     case BEAM_MERCURY:               return "mercury";
+    case BEAM_BAT_CLOUD:             return "cloud of bats";
 
     case NUM_BEAMS:                  die("invalid beam type");
     }

@@ -39,6 +39,7 @@
 #include "mon-place.h"
 #include "mon-poly.h"
 #include "mon-tentacle.h"
+#include "player.h"
 #include "religion.h"
 #include "spl-clouds.h"
 #include "spl-damage.h"
@@ -222,6 +223,9 @@ bool monster::add_ench(const mon_enchant &ench)
 
 void monster::add_enchantment_effect(const mon_enchant &ench, bool quiet)
 {
+    if ((ench.who == KC_YOU || ench.who == KC_FRIENDLY) && you.has_mutation(MUT_TRICKSTER))
+        trickster_trigger(*this, ench.ench);
+
     // Check for slow/haste.
     switch (ench.ench)
     {
@@ -230,7 +234,7 @@ void monster::add_enchantment_effect(const mon_enchant &ench, bool quiet)
         calc_speed();
         break;
 
-    case ENCH_DOUBLED_VIGOUR:
+    case ENCH_DOUBLED_HEALTH:
         scale_hp(2, 1);
         break;
 
@@ -302,7 +306,7 @@ void monster::add_enchantment_effect(const mon_enchant &ench, bool quiet)
             {
                 mprf("You %sdetect the %s %s.",
                      friendly() ? "" : "can no longer ",
-                     ench.ench == ENCH_HEXED ? "hexed" :
+                     ench.ench == ENCH_HEXED ? "dominated" :
                      ench.ench == ENCH_CHARM ? "charmed"
                                              : "bribed",
                      name(DESC_PLAIN, true).c_str());
@@ -416,10 +420,10 @@ void monster::remove_enchantment_effect(const mon_enchant &me, bool quiet)
         calc_speed();
         break;
 
-    case ENCH_DOUBLED_VIGOUR:
+    case ENCH_DOUBLED_HEALTH:
         scale_hp(1, 2);
         if (!quiet)
-            simple_monster_message(*this, " excess vigour fades away.", true);
+            simple_monster_message(*this, " excess health fades away.", true);
         break;
 
     case ENCH_HASTE:
@@ -460,6 +464,11 @@ void monster::remove_enchantment_effect(const mon_enchant &me, bool quiet)
         if (!quiet)
             simple_monster_message(*this, " is no longer moving slowly.");
         calc_speed();
+        break;
+
+    case ENCH_VEXED:
+        if (!quiet)
+            simple_monster_message(*this, " is no longer overcome with frustration.");
         break;
 
     case ENCH_PARALYSIS:
@@ -544,7 +553,7 @@ void monster::remove_enchantment_effect(const mon_enchant &me, bool quiet)
             {
                 mprf("%s is no longer %s.", name(DESC_THE, true).c_str(),
                         me.ench == ENCH_CHARM   ? "charmed"
-                        : me.ench == ENCH_HEXED ? "hexed"
+                        : me.ench == ENCH_HEXED ? "dominated"
                                                 : "bribed");
 
                 mprf("You can %s detect %s.",
@@ -977,6 +986,21 @@ void monster::remove_enchantment_effect(const mon_enchant &me, bool quiet)
     case ENCH_BLINKITIS:
         if (!quiet)
             simple_monster_message(*this, " looks more stable.");
+        break;
+
+    case ENCH_CHAOS_LACE:
+        if (!quiet)
+            simple_monster_message(*this, " is no longer laced with chaos.");
+        break;
+
+    case ENCH_DEEP_SLEEP:
+        if (behaviour == BEH_SLEEP)
+        {
+            if (!quiet)
+                simple_monster_message(*this, " wakes up again.");
+            behaviour_event(this, coinflip() ? ME_DISTURB : ME_ALERT, me.agent(), pos());
+        }
+        break;
 
     default:
         break;
@@ -1341,7 +1365,7 @@ void monster::apply_enchantment(const mon_enchant &me)
     case ENCH_LOWERED_WL:
     case ENCH_TIDE:
     case ENCH_REGENERATION:
-    case ENCH_DOUBLED_VIGOUR:
+    case ENCH_DOUBLED_HEALTH:
     case ENCH_STRONG_WILLED:
     case ENCH_IDEALISED:
     case ENCH_LIFE_TIMER:
@@ -1386,6 +1410,10 @@ void monster::apply_enchantment(const mon_enchant &me)
     case ENCH_CHANGED_APPEARANCE:
     case ENCH_KINETIC_GRAPNEL:
     case ENCH_TEMPERED:
+    case ENCH_CHAOS_LACE:
+    case ENCH_VEXED:
+    case ENCH_DEEP_SLEEP:
+    case ENCH_DROWSY:
         decay_enchantment(en);
         break;
 
@@ -2142,8 +2170,10 @@ static const char *enchant_names[] =
     "rimeblight",
     "magnetised",
     "armed",
-    "misdirected", "changed appearance", "shadowless", "doubled_vigour",
-    "grapnel", "tempered", "hatching", "blinkitis",
+    "misdirected", "changed appearance", "shadowless", "doubled_health",
+    "grapnel", "tempered", "hatching", "blinkitis", "chaos_laced", "vexed",
+    "deep sleep", "drowsy",
+    "vampire thrall",
     "buggy", // NUM_ENCHANTMENTS
 };
 
@@ -2390,7 +2420,7 @@ int mon_enchant::calc_duration(const monster* mons,
     case ENCH_INNER_FLAME:
         return random_range(25, 35) * 10;
     case ENCH_BERSERK:
-    case ENCH_DOUBLED_VIGOUR:
+    case ENCH_DOUBLED_HEALTH:
         return (16 + random2avg(13, 2)) * 10;
     case ENCH_ROLLING:
         return random_range(10 * BASELINE_DELAY, 15 * BASELINE_DELAY);

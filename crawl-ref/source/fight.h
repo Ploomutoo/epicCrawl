@@ -25,6 +25,7 @@ enum stab_type
     STAB_PARALYSED,
     STAB_SLEEPING,
     STAB_ALLY,
+    STAB_BLIND,
     NUM_STABS
 };
 
@@ -40,9 +41,7 @@ int melee_confuse_chance(int HD);
 
 bool wielded_weapon_check(const item_def *weapon, string attack_verb="");
 
-stab_type find_stab_type(const actor *attacker,
-                         const actor &defender,
-                         bool actual = true);
+stab_type find_player_stab_type(const monster &victim);
 
 int stab_bonus_denom(stab_type stab);
 
@@ -57,14 +56,14 @@ void get_cleave_targets(const actor &attacker, const coord_def& def,
                         bool force_cleaving = false,
                         const item_def *weapon = nullptr);
 // too many params... need to pass in a mini-struct or something
-void attack_multiple_targets(actor &attacker, list<actor*> &targets,
-                             int attack_number = 0,
-                             int effective_attack_number = 0,
-                             wu_jian_attack_type wu_jian_attack
-                               = WU_JIAN_ATTACK_NONE,
-                             bool is_projected = false,
-                             bool is_cleave = true,
-                             item_def *weapon = nullptr);
+int attack_multiple_targets(actor &attacker, list<actor*> &targets,
+                            int attack_number = 0,
+                            int effective_attack_number = 0,
+                            wu_jian_attack_type wu_jian_attack
+                              = WU_JIAN_ATTACK_NONE,
+                            bool is_projected = false,
+                            bool is_cleave = true,
+                            item_def *weapon = nullptr);
 
 class attack;
 int to_hit_pct(const monster_info& mi, attack &atk,

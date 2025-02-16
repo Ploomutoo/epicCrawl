@@ -73,7 +73,7 @@ static const map<job_type, job_def> job_data =
 { JOB_BRIGAND, {
     "Br", "Brigand",
     3, 3, 6,
-    {     { SP_TROLL, SP_SPRIGGAN, SP_DEMONSPAWN, SP_VAMPIRE, SP_VINE_STALKER, SP_GNOLL } },
+    {     { SP_TROLL, SP_SPRIGGAN, SP_DEMONSPAWN, SP_VINE_STALKER, SP_GNOLL } },
     {},
     { "dagger plus:2", "robe", "cloak", "dart ego:poisoned q:9", "dart ego:curare q:3" },
     weapon_choice::none,
@@ -124,7 +124,7 @@ static const map<job_type, job_def> job_data =
 { JOB_DELVER, {
     "De", "Delver",
     4, 2, 6,
-    {     { SP_FELID, SP_SPRIGGAN, SP_KOBOLD, SP_VAMPIRE, SP_GNOLL } },
+    {     { SP_FELID, SP_SPRIGGAN, SP_KOBOLD, SP_GNOLL } },
     {},
     { "leather armour", "scroll of fog", "scroll of revelation", "scroll of fear", "potion of haste", "wand of digging charges:3" },
     weapon_choice::plain,
@@ -135,7 +135,7 @@ static const map<job_type, job_def> job_data =
 { JOB_EARTH_ELEMENTALIST, {
     "EE", "Earth Elementalist",
     0, 7, 5,
-    {     { SP_DEEP_ELF, SP_SPRIGGAN, SP_GARGOYLE, SP_DEMIGOD, SP_GHOUL, SP_OCTOPODE } },
+    {     { SP_DEEP_ELF, SP_SPRIGGAN, SP_GARGOYLE, SP_DEMIGOD, SP_OCTOPODE } },
     {
         SPELL_SANDBLAST,
         SPELL_PASSWALL,
@@ -152,7 +152,7 @@ static const map<job_type, job_def> job_data =
 { JOB_ENCHANTER, {
     "En", "Enchanter",
     0, 7, 5,
-    {     { SP_DEEP_ELF, SP_FELID, SP_KOBOLD, SP_SPRIGGAN, SP_NAGA, SP_VAMPIRE } },
+    {     { SP_DEEP_ELF, SP_FELID, SP_KOBOLD, SP_SPRIGGAN, SP_NAGA } },
     {
         SPELL_HIBERNATION,
         SPELL_CONFUSING_TOUCH,
@@ -204,7 +204,7 @@ static const map<job_type, job_def> job_data =
         SPELL_FORGE_BLAZEHEART_GOLEM,
         SPELL_FORGE_LIGHTNING_SPIRE
     },
-    { "robe", "potion of magic", "mace tile:wpn_hammer wtile:hammer itemname:hammer" },
+    { "mace tile:wpn_hammer wtile:hammer itemname:hammer", "robe", "potion of magic" },
     weapon_choice::none,
     { { SK_DODGING, 2 }, { SK_FORGECRAFT, 4 }, { SK_SPELLCASTING, 2 }, { SK_STEALTH, 2 } },
 } },
@@ -296,7 +296,7 @@ static const map<job_type, job_def> job_data =
 { JOB_NECROMANCER, {
     "Ne", "Necromancer",
     0, 7, 5,
-    {     { SP_DEEP_ELF, SP_DJINNI, SP_MOUNTAIN_DWARF, SP_DEMONSPAWN, SP_MUMMY, SP_VAMPIRE } },
+    {     { SP_DEEP_ELF, SP_DJINNI, SP_MOUNTAIN_DWARF, SP_DEMONSPAWN, SP_MUMMY } },
     {
         SPELL_SOUL_SPLINTER,
         SPELL_GRAVE_CLAW,
@@ -340,7 +340,7 @@ static const map<job_type, job_def> job_data =
 { JOB_SUMMONER, {
     "Su", "Summoner",
     0, 7, 5,
-    {     { SP_DEEP_ELF, SP_ONI, SP_VINE_STALKER, SP_MERFOLK, SP_TENGU, SP_VAMPIRE } },
+    {     { SP_DEEP_ELF, SP_ONI, SP_VINE_STALKER, SP_MERFOLK, SP_TENGU } },
     {
         SPELL_SUMMON_SMALL_MAMMAL,
         SPELL_CALL_IMP,

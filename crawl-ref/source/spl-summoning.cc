@@ -54,6 +54,7 @@
 #include "mon-pathfind.h"
 #include "mon-place.h"
 #include "mon-speak.h"
+#include "mutation.h"
 #include "place.h" // absdungeon_depth
 #include "player-equip.h"
 #include "player-stats.h"
@@ -226,7 +227,7 @@ spret cast_summon_cactus(int pow, bool fail)
 
 spret cast_awaken_armour(int pow, bool fail)
 {
-    const item_def *armour = you.slot_item(EQ_BODY_ARMOUR);
+    const item_def *armour = you.body_armour();
     if (armour == nullptr)
     {
         // I don't think we can ever reach this line, but let's be safe.
@@ -254,7 +255,7 @@ spret cast_awaken_armour(int pow, bool fail)
         return spret::success;
     }
 
-    mprf("You draw out an echo of %s", armour->name(DESC_YOUR).c_str());
+    mprf("You draw out an echo of %s.", armour->name(DESC_YOUR).c_str());
 
     item_def &fake_armour = env.item[mitm_slot];
     fake_armour.clear();
@@ -295,7 +296,7 @@ spret cast_monstrous_menagerie(actor* caster, int pow, bool fail)
     monster_type type = MONS_PROGRAM_BUG;
 
     if (random2(pow) > 60 && coinflip())
-        type = MONS_SPHINX;
+        type = MONS_GUARDIAN_SPHINX;
     else
         type = coinflip() ? MONS_MANTICORE : MONS_LINDWURM;
 
@@ -759,16 +760,13 @@ static void _animate_weapon(int pow, actor* target)
 {
     item_def * const wpn = target->weapon();
     ASSERT(wpn);
-    // If sac love, the weapon will go after you, not the target.
-    const bool hostile = you.allies_forbidden();
     const int dur = min(2 + div_rand_round(random2(1 + pow), 5), 6);
 
-    mgen_data mg(MONS_DANCING_WEAPON,
-                 hostile ? BEH_HOSTILE : BEH_FRIENDLY,
+    mgen_data mg(MONS_DANCING_WEAPON, BEH_FRIENDLY,
                  target->pos(),
-                 hostile ? MHITYOU : target->mindex(),
-                 hostile ? MG_NONE : MG_FORCE_BEH);
-    mg.set_summoned(&you, SPELL_TUKIMAS_DANCE, summ_dur(dur));
+                 target->mindex(),
+                 MG_FORCE_BEH);
+    mg.set_summoned(&you, SPELL_TUKIMAS_DANCE, summ_dur(dur), false);
     mg.set_range(1, 2);
     mg.props[TUKIMA_WEAPON] = *wpn;
     mg.props[TUKIMA_POWER] = pow;
@@ -781,13 +779,9 @@ static void _animate_weapon(int pow, actor* target)
         return;
     }
 
-    // Don't haunt yourself under sac love.
-    if (!hostile)
-    {
-        mons->add_ench(mon_enchant(ENCH_HAUNTING, 1, target,
-                                   INFINITE_DURATION));
-        mons->foe = target->mindex();
-    }
+    mons->add_ench(mon_enchant(ENCH_HAUNTING, 1, target,
+                                INFINITE_DURATION));
+    mons->foe = target->mindex();
 
     // We are successful. Unwield the weapon, removing any wield effects.
     mprf("%s dances into the air!", wpn->name(DESC_THE).c_str());
@@ -1203,11 +1197,13 @@ spret cast_summon_horrible_things(int pow, bool fail)
         return spret::abort;
 
     fail_check();
-    if (one_chance_in(5))
+    if (one_chance_in(4))
     {
         // if someone deletes the db, no message is ok
         mpr(getMiscString("SHT_int_loss"));
-        lose_stat(STAT_INT, 1);
+
+        // XXX: Temporary effect until something else is implemented.
+        temp_mutate(MUT_WEAK_WILLED, "glimpsing the beyond");
     }
 
     int num_abominations = random_range(2, 4) + x_chance_in_y(pow, 200);
@@ -2655,7 +2651,7 @@ spret foxfire_swarm()
     bool unknown_unseen = false;
     for (radius_iterator ri(you.pos(), 2, C_SQUARE, LOS_NO_TRANS); ri; ++ri)
     {
-        if (_create_foxfire(you, *ri, GOD_NO_GOD, 20))
+        if (_create_foxfire(you, *ri, 20))
         {
             created = true;
             continue;
@@ -3374,9 +3370,10 @@ void clockwork_bee_pick_new_target(monster& bee)
     }
 }
 
+// For spell menu display only
 dice_def diamond_sawblade_damage(int power)
 {
-    return zap_damage(ZAP_SHRED, (1 + div_rand_round(power, 10)) * 12, true, false);
+    return zap_damage(ZAP_SHRED, (1 + power/ 10) * 12, true, false);
 }
 
 vector<coord_def> diamond_sawblade_spots(bool actual)
@@ -3583,11 +3580,15 @@ spret cast_surprising_crocodile(actor& agent, const coord_def& targ, int pow, bo
     atk.needs_message = false;
     atk.do_drag();
 
-    // Then perform the actual attack, with bonus power
-    atk.needs_message = true;
-    atk.dmg_mult = 20 + pow;
-    atk.to_hit = AUTOMATIC_HIT;
-    atk.attack();
+    // Then perform the actual attack, with bonus power.
+    // (But check that we didn't pull them into a shaft first.)
+    if (victim->alive())
+    {
+        atk.needs_message = true;
+        atk.dmg_mult = 20 + pow;
+        atk.to_hit = AUTOMATIC_HIT;
+        atk.attack();
+    }
 
     croc->flags & ~MF_JUST_SUMMONED;
 

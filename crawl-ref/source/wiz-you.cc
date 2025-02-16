@@ -234,6 +234,7 @@ void wizard_heal(bool super_heal)
         you.duration[DUR_SLOW] = 0;
         you.duration[DUR_BLIND] = 0;
         you.duration[DUR_SIGN_OF_RUIN] = 0;
+        you.duration[DUR_SENTINEL_MARK] = 0;
         you.duration[DUR_CANINE_FAMILIAR_DEAD] = 0;
         you.duration[DUR_VORTEX_COOLDOWN] = 0;
         you.duration[DUR_DRAGON_CALL_COOLDOWN] = 0;
@@ -246,8 +247,6 @@ void wizard_heal(bool super_heal)
         you.duration[DUR_WORD_OF_CHAOS_COOLDOWN] = 0;
         you.duration[DUR_FIRE_VULN] = 0;
         delete_all_temp_mutations("Super heal");
-        you.stat_loss.init(0);
-        you.attribute[ATTR_STAT_LOSS_XP] = 0;
         decr_zot_clock();
         you.redraw_stats = true;
         gain_draconian_breath_uses(MAX_DRACONIAN_BREATH);
@@ -266,9 +265,6 @@ void wizard_heal(bool super_heal)
     you.redraw_hit_points = true;
     you.redraw_armour_class = true;
     you.redraw_evasion = true;
-
-    for (int stat = 0; stat < NUM_STATS; stat++)
-        you.duration[stat_zero_duration(static_cast<stat_type> (stat))] = 0;
 }
 
 void wizard_set_piety_to(int newpiety, bool force)
@@ -609,8 +605,6 @@ void wizard_set_stats()
     you.base_stats[STAT_STR] = debug_cap_stat(sstr);
     you.base_stats[STAT_INT] = debug_cap_stat(sint);
     you.base_stats[STAT_DEX] = debug_cap_stat(sdex);
-    you.stat_loss.init(0);
-    you.attribute[ATTR_STAT_LOSS_XP] = 0;
     notify_stat_change();
 }
 
@@ -961,6 +955,15 @@ void wizard_join_religion()
             you.gold = max(you.gold, gozag_service_fee());
         join_religion(god);
     }
+}
+
+void wizard_get_god_tension()
+{
+    mpr("(Tension uses a given god's perspective to check on their summons; use 'No God' to ignore this.)");
+    god_type god = choose_god(you.religion);
+    int tension = get_tension(god);
+    mprf("%s tension value: %d", !(god == GOD_NO_GOD) ? god_name(god).c_str()
+                                                      : "General", tension);
 }
 
 void wizard_xom_acts()

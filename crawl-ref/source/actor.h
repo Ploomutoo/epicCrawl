@@ -7,7 +7,6 @@
 #include "conduct-type.h"
 #include "constrict-type.h"
 #include "energy-use-type.h"
-#include "equipment-type.h"
 #include "god-type.h"
 #include "item-prop-enum.h"
 #include "kill-method-type.h"
@@ -115,30 +114,17 @@ public:
                                     bool rescale = true) const = 0;
     virtual int has_claws(bool allow_tran = true) const = 0;
     virtual item_def *shield() const = 0;
-    virtual item_def *slot_item(equipment_type eq,
-                                bool include_melded=false) const = 0;
-    virtual int wearing(equipment_type slot, int sub_type) const = 0;
-    virtual int wearing_ego(equipment_type slot, int sub_type) const = 0;
+    virtual item_def *body_armour() const = 0;
+    virtual int wearing(object_class_type obj_type, int sub_type,
+                        bool count_plus = 0, bool check_attuned = false) const = 0;
+    virtual int wearing_ego(object_class_type obj_type, int ego) const = 0;
+    int wearing_jewellery(int sub_type) const;
     virtual int scan_artefacts(artefact_prop_type which_property,
                                vector<const item_def *> *matches = nullptr) const = 0;
+    virtual bool unrand_equipped(int unrand_index, bool include_melded = false) const = 0;
 
     virtual hands_reqd_type hands_reqd(const item_def &item,
                                        bool base = false) const;
-
-            bool can_wield(const item_def* item,
-                           bool ignore_curse = false,
-                           bool ignore_brand = false,
-                           bool ignore_shield = false,
-                           bool ignore_transform = false) const;
-    virtual bool can_wield(const item_def &item,
-                           bool ignore_curse = false,
-                           bool ignore_brand = false,
-                           bool ignore_shield = false,
-                           bool ignore_transform = false) const = 0;
-    virtual bool could_wield(const item_def &item,
-                             bool ignore_brand = false,
-                             bool ignore_transform = false,
-                             bool quiet = true) const = 0;
 
     virtual string name(description_level_type type,
                         bool force_visible = false,
@@ -207,16 +193,16 @@ public:
                           string source = "") = 0;
     virtual void petrify(const actor *attacker, bool force = false) = 0;
     virtual bool fully_petrify(bool quiet = false) = 0;
+    virtual bool vex(const actor* who, int dur, string source = "", string special_msg = "") = 0;
     virtual void slow_down(actor *attacker, int strength) = 0;
     virtual void confuse(actor *attacker, int strength) = 0;
-    virtual void put_to_sleep(actor *attacker, int strength,
+    virtual void put_to_sleep(actor *attacker, int duration,
                               bool hibernate = false) = 0;
     virtual void weaken(const actor *attacker, int pow) = 0;
     virtual bool strip_willpower(actor *attacker, int dur,
                                  bool quiet = false) = 0;
     virtual void expose_to_element(beam_type element, int strength = 0,
                                    bool slow_cold_blood = true) = 0;
-    virtual void drain_stat(stat_type /*stat*/, int /*amount*/) { }
     virtual void splash_with_acid(actor *evildoer) = 0;
     virtual void acid_corrode(int acid_strength) = 0;
     virtual bool corrode_equipment(const char* corrosion_source = "the acid",
@@ -226,7 +212,6 @@ public:
     virtual bool can_hibernate(bool holi_only = false,
                                bool intrinsic_only = false) const;
     virtual bool can_sleep(bool holi_only = false) const;
-    virtual void check_awaken(int disturbance) = 0;
     virtual int beam_resists(bolt &beam, int hurted, bool doEffects,
                              string source = "") = 0;
     virtual bool can_feel_fear(bool include_unknown) const = 0;
