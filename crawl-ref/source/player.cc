@@ -3964,9 +3964,6 @@ int get_real_hp(bool trans, bool drained)
     if (trans)
         hitp = get_form()->mult_hp(hitp);
 
-    if (player_equip_unrand(UNRAND_BEAR_SPIRIT))
-        hitp += you.experience_level * 3;
-
     return max(1, hitp);
 }
 

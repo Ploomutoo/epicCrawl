@@ -69,3 +69,28 @@
 # Turn the shift-vi keys into safe move, instead of run.
 # include = safe_move_shift.txt
 
+{
+add_autopickup_func(function(it, name)
+  if it.is_useless then
+    return
+  end
+  if it.class(true) == "armour" then
+    local good_slots = {cloak="Cloak", helmet="Helmet", gloves="Gloves",
+                        boots="Boots"}
+    st, _ = it.subtype()
+    if good_slots[st] ~= nil and items.equipped_at(good_slots[st]) == nil then
+      return true
+    end
+  end
+end)
+}
+
+tile_realtime_anim = true
+drop_disables_autopickup = true
+autofight_caught = true
+
+food_snacking_frequency = 100
+fountain_line_frequency = 100
+
+fail_severity_to_confirm = 5
+
