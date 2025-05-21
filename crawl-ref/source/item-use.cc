@@ -448,6 +448,7 @@ static void _note_tele_cancel(MenuEntry* entry)
     if (ie && ie->item
         && ie->item->base_type == OBJ_SCROLLS
         && ie->item->sub_type == SCR_TELEPORTATION
+        && ie->item->is_identified()
         && you.duration[DUR_TELEPORT])
     {
         ie->text += " (cancels current teleport)";
@@ -1962,6 +1963,23 @@ bool drink(item_def* potion)
 
     if (!quaff_potion(*potion))
         return false;
+
+    // XXX: maybe being a status-effect potion should be in item-prop.cc?
+    if (you.has_mutation(MUT_EFFICIENT_METABOLISM)
+        && (potion->sub_type == POT_AMBROSIA
+            || potion->sub_type == POT_ATTRACTION
+            || potion->sub_type == POT_BERSERK_RAGE
+            || potion->sub_type == POT_BRILLIANCE
+            || potion->sub_type == POT_ENLIGHTENMENT
+            || potion->sub_type == POT_HASTE
+            || potion->sub_type == POT_INVISIBILITY
+            || potion->sub_type == POT_LIGNIFY
+            || potion->sub_type == POT_MIGHT
+            || potion->sub_type == POT_RESISTANCE))
+        {
+            mprf("Your mutated metabolism churns, savouring the %s.",
+                potion->name(DESC_QUALNAME).c_str());
+        }
 
     if (!alreadyknown)
     {

@@ -4,7 +4,7 @@ Stone Soup 0.33 (through 0.33-a0-1449-0d2a297ef60)
 Highlights
 ----------
 * New magic school + background: Forgewrights, building explosive constructs.
-* Two new species: poltergeists and revenants.
+* Two new species: Poltergeists and Revenants.
 * Twelve new talismans have been added, and Shapeshifters have been reworked.
 * Ghost vaults are moved into a game-long repeating portal, the Necropolis.
 * Yet more new monsters, decorations, and traps spread throughout the Dungeon.
@@ -55,6 +55,8 @@ Branches, Environment
 * Walking over fountains now has a chance to produce flavour messages, varying
   based on the fountain, one's god, and the absence of hostile enemies in sight.
 * Zot traps now can inflict blindness.
+* Entering Gauntlets now reveals their layout, items, and monsters to the
+  player, outside of the shape or contents of the minotaur's maze.
 * The last floor of Crypt now has a 30% chance to contain a sanguine talisman.
 * The clouds of degeneration in Alistair's Party Mansion are now alcoholic mist,
   inflicting Vertigo.
@@ -82,7 +84,7 @@ Character
 * Fighters now start with a second potion of might.
 * Shapeshifters now start with a quill talisman, three flux baubles, and a
   protean talisman, which can be used with 6 or more Shapeshifting skill to
-  randomly transform it into a scarab, rimehorn, medusa or maw talisman.
+  randomly transform it into a scarab, rimehorn, medusa, or maw talisman.
   They keep their potion of lignification and start with 1 more Fighting skill.
 * Wanderers can now start with quill talismans, inkwell talismans, flux baubles,
   protean talismans, or any protean-tier talisman.
@@ -93,6 +95,8 @@ Character
   * efficient magic, making spells cost 1 less (to a minimum of 1 MP).
   * ephemeral shield, granting +7 SH briefly after spells and invocations.
   * poor constitution, inflicting Weak and then Slow on taking damage.
+  * slime shroud, sometimes deflecting melee attacks and then cooling down until
+    it can do so again (Jiyva only).
   * time-warped blood, hasting some of your allies when you fall below 50%
     health, and can only activate again after returning to full health.
 * Berserk players are now immune to fear.
@@ -129,8 +133,9 @@ Interface and Options
   spell success chances for each spell if they switched to using that item.
 * Examining spellbooks in webtiles now colours spells according to their
   usability and whether or not one has the spell in their library.
-* Examining talismans now displays their upsides, downsides, and skill scaling
-  in a more compressed format with additional details.
+* Examining talismans now displays their upsides, downsides, changes to one's
+  defences, and skill scaling in a more compressed format with additional
+  details.
 * Spell range is now indicated with numbers instead of diagrams.
 * Default target-picking behaviour for spells, abilities, and items has been
   improved: it is now more consistent at avoiding the player or their allies
@@ -171,7 +176,7 @@ Items
   - inkwell talismans, providing Walking Scroll Form. This melds all equipment,
     increases all magic school skills scaling to one's Shapeshifting, grants
     extra max mp, disables casting spells above level 4, and cuts one's melee
-    damage in half in exchange for a 50% to gain 1 MP on every hit.
+    damage in half in exchange for a 50% chance to gain 1 MP on every hit.
  - Tier 2:
   - scarab talismans, providing Sun Scarab Form. This small form melds weapons
     and armour, carts around a solar ember that cleaves with fire attacks when
@@ -245,7 +250,7 @@ Monsters
 * New monsters:
   - Alderkings, fae trees and necromantic masters of Depths.
   - Fravashi, mid-tier warrior-summoning angels.
-  - Goblin riders, wvyern-taming cavalry for Bailies.
+  - Goblin riders, wyvern-taming cavalry for Bailies.
   - Ironbound mechanists, dual-wielding forgewright coglins for Vaults.
   - Nekomata, self-cloning ranged cat demons for Pan.
   - Oni incarcerators, Manifold Assault users for Gehenna.
@@ -315,10 +320,10 @@ Species
     be easier to cast while ignoring encumbrance penalties, and get extra power.
     Spell-activated automatic attacks during this also heal the player.
   - At XL 3, they also gain knowledge of a random level 1 destructive spell.
-* Formicids now may wield an additional pair of gloves.
+* Formicids now may wear an additional pair of gloves.
 * Merfolk Long Blades apt is lowered from +2 to +1, and their Polearms apt is
   increased from +3 to +4.
-* Mountain Dwarf Summoning apt is lowered from 0 to -2.
+* Mountain Dwarf Summonings apt is lowered from 0 to -2.
 * Enhancer staves are now one-handed instead of two-handed for spriggans and
   kobolds.
 * Vampires and ghouls have been removed.
@@ -373,7 +378,7 @@ Spells
     melee attacks explode for damage scaled to damage dealt, avoiding allies,
     and which lasts for very little time if the user stops attacking.
   - Sphinx Sisters (L7 Summ / Hexes) that summons a pair of riddling sphinxes,
-    one guardian and one maurader, to debilitate the enemies with hexes and
+    one guardian and one marauder, to debilitate the enemies with hexes and
     batter them with violent winds.
 * Spell changes:
   * Awakened Armours now equip a replica of the body armour they're echoing.
@@ -414,12 +419,14 @@ Tiles and Other Art
   * Features: altars to Fedhas, altars to Xom, caches of meat, granite statues
     in Depths and Zot.
   * Forms: Flux form tiles for humanoids, felids, and octopodes.
-  * Items: all forms of leather armour.
+  * Items: all forms of leather armour, troll leather armour randarts,
+    sacks of spiders (active and inert).
   * Monsters: apises, boggarts, brain worms, creeping infernos, culicivora,
     great orbs of eyes, living spells, ophanim, rakshasa, scrub nettles,
     shapeshifters and glowing shapeshifters, sky beasts, all tengu types.
   * Mutation icons: big wings, demonspawn demonic touch, mp-powered wands,
-    screaming, subdued magic, tendrils, pseudopods, wild magic.
+    screaming, stinger, subdued magic, tendrils, pseudopods, demonspawn
+    weakness stinger, wild magic.
   * Plants, both regular and withered.
   * Player dolls: Coglins.
   * The prune curse from the glaive of Prune.
@@ -445,7 +452,7 @@ Tiles and Other Art
 * Gehenna now has unique stone wall tiles.
 * Depths and Zot now have unique metal wall tiles.
 * Webtiles now has the banishment animation offline tiles uses.
-* New oni splash screen by benadryl.
+* New Oni splash screen by benadryl.
 
 Stone Soup 0.32.1 (20240925)
 ----------------------------

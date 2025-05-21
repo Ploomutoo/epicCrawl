@@ -71,6 +71,7 @@
 #include "species.h" // random_starting_species
 #include "spl-clouds.h" // explode_blastmotes_at
 #include "spl-damage.h"
+#include "spl-monench.h"
 #include "spl-selfench.h"
 #include "spl-summoning.h"
 #include "spl-transloc.h"
@@ -435,7 +436,15 @@ bool swap_check(monster* mons, coord_def &loc, bool quiet)
     if (mons->unswappable() || mons->asleep())
     {
         if (!quiet)
-            simple_monster_message(*mons, " cannot move out of your way!");
+        {
+            if (is_valid_tempering_target(*mons, you))
+            {
+                simple_monster_message(*mons, " cannot move out of your way! "
+                    "(Use ctrl+direction or * direction to deconstruct it instead.)");
+            }
+            else
+                simple_monster_message(*mons, " cannot move out of your way!");
+        }
         return false;
     }
 
@@ -1869,6 +1878,10 @@ static int _player_base_evasion_modifiers()
 
     if (you.get_mutation_level(MUT_DISTORTION_FIELD))
         evbonus += you.get_mutation_level(MUT_DISTORTION_FIELD) + 1;
+
+    // XXX: rescale these modifiers to allow +0.5 EV bonuses past the soft cap?
+    if (you.get_mutation_level(MUT_PROTEAN_GRACE))
+        evbonus += protean_grace_amount();
 
     if (you.has_mutation(MUT_TENGU_FLIGHT))
         evbonus += 4;
@@ -3518,6 +3531,9 @@ int slaying_bonus(bool throwing, bool random)
     ret += 3 * augmentation_amount();
     ret += you.get_mutation_level(MUT_SHARP_SCALES);
 
+    if (you.get_mutation_level(MUT_PROTEAN_GRACE))
+        ret += protean_grace_amount();
+
     if (you.duration[DUR_FUGUE])
         ret += you.props[FUGUE_KEY].get_int();
 
@@ -4860,10 +4876,10 @@ bool haste_player(int turns, bool rageext)
         return false;
     }
 
-    // Cutting the nominal turns in half since hasted actions take half the
-    // usual delay.
-    turns = haste_div(turns);
-    const int threshold = 40;
+    // This used to be applying haste_div to turns versus a cap of 40, which
+    // was unncessarily opaque for actually hasting the player and capped
+    // lower than the intended quantity for haste sources.
+    const int threshold = 80;
 
     if (!you.duration[DUR_HASTE])
         mpr("You feel yourself speed up.");
@@ -6592,7 +6608,7 @@ mon_holy_type player::holiness(bool temp, bool incl_form) const
     if (incl_form)
     {
         const transformation f = temp ? form : default_form;
-        // Special-cased to add undead holiness onto the player's basse type,
+        // Special-cased to add undead holiness onto the player's base type,
         // rather than replace it
         if (f == transformation::vampire
                  || f == transformation::bat_swarm)
@@ -7727,6 +7743,8 @@ bool player::polymorph(int dur, bool allow_immobile)
 
     if (f != transformation::none && transform(dur, f, true))
     {
+        stop_delay(true, true);
+
         transform_uncancellable = true;
         return true;
     }

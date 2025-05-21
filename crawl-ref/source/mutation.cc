@@ -1610,6 +1610,10 @@ bool mut_is_compatible(mutation_type mut, bool base_only)
             return false;
         }
 
+        // Only species that have innate fur can mutate more.
+        if (mut == MUT_SHAGGY_FUR && !you.has_innate_mutation(MUT_SHAGGY_FUR))
+            return false;
+
         // Formicids have stasis and so prevent mutations that would do nothing.
         if ((mut == MUT_BERSERK || mut == MUT_TELEPORT) && you.stasis())
             return false;
@@ -2589,6 +2593,13 @@ string mutation_desc(mutation_type mut, int level, bool colour,
         ostr << mdef.have[0] << stone_body_armour_bonus() / 100 << ")";
         result = ostr.str();
     }
+    else if (mut == MUT_PROTEAN_GRACE)
+    {
+        ostringstream ostr;
+        int num = protean_grace_amount();
+        ostr << mdef.have[0] << num << " EV, Slay +" << num << ")";
+        result = ostr.str();
+    }
     else if (mut == MUT_MP_WANDS && you.has_mutation(MUT_HP_CASTING))
         result = "You expend health (3 HP) to strengthen your wands.";
     else if (!ignore_player && mut == MUT_TENTACLE_ARMS)
@@ -3224,4 +3235,16 @@ void set_evolution_mut_xp(bool malignant)
     // too quickly in the early game after big XP gains.
     you.attribute[ATTR_EVOL_XP] = _evolution_mut_xp(malignant);
     dprf("setting evol XP to %d", you.attribute[ATTR_EVOL_XP]);
+}
+
+int protean_grace_amount()
+{
+    int amount = you.how_mutated(false, false, true);
+
+    // A soft cap for Xom, Jiyva, and Demonspawn.
+    // XXX: rewrite _player_base_evasion_modifiers() to allow +0.5 EV bonuses?
+    if (amount > 7)
+        amount = 7 + floor((amount - 7) / 2);
+
+    return amount;
 }

@@ -35,6 +35,24 @@
 # One-off and two-off ghost vault code has been moved to ghost.lua.
 
 {{
+function necropolis_tag()
+    if you.in_branch("D") or you.in_branch("Lair") or you.in_branch("Orc") then
+      return "uniq_necropolis_early"
+    elseif you.in_branch("Swamp") or you.in_branch("Snake") or
+           you.in_branch("Shoals") or you.in_branch("Spider") or
+           you.in_branch("Vaults") then
+      return "uniq_necropolis_mid"
+    else
+      return "uniq_necropolis_late"
+    end
+end
+
+-- Due to the order vaults are assigned tags versus the generation at the
+-- start of the game, we have to manually use vetos instead of uniq tags.
+function necropolis_veto()
+    return dgn.uniq_tag_used(necropolis_tag())
+end
+
 function necropolis_portal_entry(e)
     local timeout_turns = crawl.random_range(900, 1200)
 
@@ -51,21 +69,7 @@ function necropolis_portal_entry(e)
             { 0, 'full choir' }
         }
     }
-
-    -- One could force an early portal to become later portals if diving fast
-    -- enough between branches, but getting the rewards from both is extremely
-    -- impractical, so this should be fine for setting up only three Necropolis
-    -- visits per game.
     dgn.persist.necropolis_difficulty = necropolis_difficulty()
-    if you.in_branch("D") or you.in_branch("Lair") or you.in_branch("Orc") then
-        e.tags("uniq_early_necropolis_portal")
-    elseif you.in_branch("Swamp") or you.in_branch("Snake") or
-           you.in_branch("Shoals") or you.in_branch("Spider") or
-           you.in_branch("Vaults") then
-        e.tags("uniq_midgame_necropolis_portal")
-    else -- Elf, Crypt, Depths. Currently not bothering with Zot portals.
-        e.tags("uniq_lategame_necropolis_portal")
-    end
 
     e.lua_marker('O',
         timed_marker {
@@ -85,6 +89,9 @@ function necropolis_portal_entry(e)
     e.chance(350)
     e.depth_chance("D:5-7", 275)
     e.depth_chance("Vaults", 0)
+    if crawl.game_started() then
+      e.tags(necropolis_tag())
+    end
     e.tags("vaults_necropolis no_monster_gen no_item_gen no_trap_gen chance_necropolis")
     e.kfeat("O = enter_necropolis")
     e.kfeat("a = x")
@@ -172,13 +179,16 @@ function necropolis_generic_spawns(e, _0, _9, _8)
     e.kmons(_8 .. " = place:D:9 w:15 / wraith w:5")
   elseif dgn.persist.necropolis_difficulty == "pre_lair_d" then
     e.kmons(_0 .. " = place:D:8 w:60 / spectre place:D:9")
-    e.kmons(_9 .. " = place:D:11 w:40 / spectre place:D:12")
-    e.kmons(_8 .. " = place:D:14 w:30 / spectre place:D:15 / shadowghast")
+    e.kmons(_9 .. " = place:D:11 w:40 / spectre place:D:12 / wraith w:5")
+    e.kmons(_8 .. " = place:D:14 w:30 / \
+                      gargoyle / spectre place:D:15 w:5 / shadowghast w:5")
   elseif dgn.persist.necropolis_difficulty == "post_lair_d" then
-    e.kmons(_0 .. " = place:D:12 w:65 / spectre place:D:12 / \
+    e.kmons(_0 .. " = place:D:12 w:40 / \
+                      simulacrum place:D:12 / spectre place:D:12 / \
                       zombie place:D:12 / laughing skull")
-    e.kmons(_9 .. " = place:D:15 w:35 / necromancer")
-    e.kmons(_8 .. " = place:D:15 9 w:65 / spectral fire dragon / \
+    e.kmons(_9 .. " = freezing wraith / gargoyle / boggart / necromancer")
+    e.kmons(_8 .. " = very ugly thing / deep troll / phantasmal warrior / \
+                      shadow dragon w:5 / spectral fire dragon / \
                       spectral ice dragon / flayed ghost")
   elseif dgn.persist.necropolis_difficulty == "lair" then
     e.kmons(_0 .. " = bullfrog / water moccasin / wyvern / basilisk / yak / \
@@ -263,7 +273,6 @@ end
 function necropolis_portal_setup(e)
   e.tags("no_monster_gen no_pool_fixup")
   e.kfeat("<> = exit_necropolis")
-  e.kfeat("~ = runed_door")
 
   -- Not actually used outside of summoning;
   -- see the generic_spawns function above.
@@ -576,6 +585,7 @@ default-depth: D:5-, Lair, Orc, Elf, Snake, !Snake:$, Swamp, !Swamp:$, \
                Depths, Crypt
 
 NAME:    index_necropolis_entry_arbor_square
+veto {{ return necropolis_veto() }}
 WEIGHT:  10 (Lair, Elf, Depths), 0 (Snake, Spider), 5
 : necropolis_portal_entry(_G)
 : if you.in_branch("Vaults") then
@@ -600,6 +610,7 @@ nnnn''.-
 ENDMAP
 
 NAME:    index_necropolis_entry_arbor_path
+veto {{ return necropolis_veto() }}
 WEIGHT:  10 (Lair, Elf, Crypt, Depths), 0 (Orc, Snake, Spider, Vaults), 5
 : necropolis_portal_entry(_G)
 COLOUR:  t = lightblue
@@ -619,6 +630,7 @@ xxxxxxxxxx
 ENDMAP
 
 NAME:    index_necropolis_entry_crossroads
+veto {{ return necropolis_veto() }}
 WEIGHT:  0 (D, Spider), 10
 : necropolis_portal_entry(_G)
 : if you.in_branch("Vaults") then
@@ -646,6 +658,7 @@ xxvn.   .xvvn..
 ENDMAP
 
 NAME:    index_necropolis_entry_wine_dark_sea
+veto {{ return necropolis_veto() }}
 TAGS:    no_pool_fixup vaults_orient_s
 WEIGHT:  20 (Shoals), 10 (D, Orc, Swamp), 0 (Snake, Spider), 5
 : if you.in_branch("Vaults") then
@@ -666,6 +679,7 @@ xccc'''cccx
 ENDMAP
 
 NAME:   index_necropolis_entry_etched_script
+veto {{ return necropolis_veto() }}
 WEIGHT: 10 (Orc, Snake, Shoals, Swamp, Vaults), 0 (D, Lair, Spider), 5
 : if you.in_branch("Vaults") then
 TAGS:   no_wall_fixup
@@ -686,6 +700,7 @@ xxxxxxxxx
 ENDMAP
 
 NAME:    index_necropolis_entry_repeat_visits
+veto {{ return necropolis_veto() }}
 : necropolis_portal_entry(_G)
 : if not you.in_branch("Vaults") then
 CLEAR:   -
@@ -708,6 +723,7 @@ MAP
 ENDMAP
 
 NAME:    index_necropolis_entry_life_lattice
+veto {{ return necropolis_veto() }}
 : if you.in_branch("Swamp") then
 SUBST:   x = w
 : elseif you.in_branch("Vaults") then
@@ -729,6 +745,7 @@ x.....'O'.....x
 ENDMAP
 
 NAME:    index_necropolis_entry_open_halls
+veto {{ return necropolis_veto() }}
 TAGS:    vaults_orient_n vaults_orient_s
 WEIGHT:  5 (Shoals), 10
 : necropolis_portal_entry(_G)
@@ -758,6 +775,7 @@ x..... .....x
 ENDMAP
 
 NAME:    index_necropolis_entry_miniature_reverse
+veto {{ return necropolis_veto() }}
 TAGS:    vaults_orient_n
 WEIGHT:  10 (Orc, Elf, Snake, Shoals, Vaults), 0 (Lair, Spider, Swamp), 5
 KFEAT:   - = +
@@ -786,6 +804,7 @@ ccOcc   ccAcc
 ENDMAP
 
 NAME:    index_necropolis_entry_not_quite_thereafter
+veto {{ return necropolis_veto() }}
 WEIGHT:  0 (D, Lair, Spider), 5
 : necropolis_portal_entry(_G)
 SHUFFLE: nGT- / nGT- / nnn" / TGT- / GnG-
@@ -864,7 +883,7 @@ vwwwwwwwwwwNwwNwwNwwoocc........................cYYYYYYYYYYYYYYYYYYYYcowwwwwwwwv
 vwwwwwwwwwwwwwwwwwwwocc.........................cYYYYYYYYYYYYYYYYYYYYcowwwwwwwwv
 vwwwwwwwwwwwwwwwwwwwoB..........................+YYYYYYYYYYYYYYYYYYYYcowwwwwwwwv
 vwwwwwwwwwwooooooooooB..........................+YYYYYYYYYYYYYYYYYYYYcowwwwwwwwv
-vwwwwwwwwwoocccJJJcccccc++ccc...ccc~~cccc~~ccc..cYYYYYYYYYYYYYYYYYYYYcowwwwwwwwv
+vwwwwwwwwwoocccJJJcccccc++ccc...ccc++cccc++ccc..cYYYYYYYYYYYYYYYYYYYYcowwwwwwwwv
 vwwwwwwwwoocc...............ccVcc............ccVcYYYYYYYYYYYYYYYYYYYYcowwwwwwwwv
 vwwwwwwwoocc.................ccc..............cccYYYYYYYYYYYYYYYYYYYYcowwwwwwwwv
 vwwwwwwwocc...................c''''''''''''''''ccYYYYYYYYYYYYYYYYYYYYcowwwwwwwwv
@@ -897,7 +916,7 @@ vwwwwwwwoc...vv...........vv..c'''''''''''''''''cZZZZZZZZZZZZZZZZZZZZcowwwwwwwwv
 vwwwwwwwocc...................c''''''''''''''''ccZZZZZZZZZZZZZZZZZZZZcowwwwwwwwv
 vwwwwwwwoocc.................ccc..............cccZZZZZZZZZZZZZZZZZZZZcowwwwwwwwv
 vwwwwwwwwoocc...............ccVcc............ccVcZZZZZZZZZZZZZZZZZZZZcowwwwwwwwv
-vwwwwwwwwwoocccJJJcccccc++ccc...ccc~~cccc~~ccc..cZZZZZZZZZZZZZZZZZZZZcowwwwwwwwv
+vwwwwwwwwwoocccJJJcccccc++ccc...ccc++cccc++ccc..cZZZZZZZZZZZZZZZZZZZZcowwwwwwwwv
 vwwwwwwwwwwooooooooooB..........................+ZZZZZZZZZZZZZZZZZZZZcowwwwwwwwv
 vwwwwwwwwwwwwwwwwwwwoB..........................+ZZZZZZZZZZZZZZZZZZZZcowwwwwwwwv
 vwwwwwwwwwwwwwwwwwwwocc.........................cZZZZZZZZZZZZZZZZZZZZcowwwwwwwwv
@@ -983,7 +1002,7 @@ vwwwwwwocXXXXXXXXXXXXXXXXXXXXc.....''q"ss"q''.....cZZZZZZZZZZZZZZZZZZZZcowwwwwwv
 vwwwwwwocXXXXXXXXXXXXXXXXXXXXc......''''''''......cZZZZZZZZZZZZZZZZZZZZcowwwwwwv
 vwwwwwwocc..................cc....................cc..................ccowwwwwwv
 vwwwwwwoocc................ccccV................Vcccc................ccoowwwwwwv
-vwwwwwwwooccccccccccccccccccccccccc~~cccccc~~cccccccccccccccccccccccccoowwwwwwwv
+vwwwwwwwooccccccccccccccccccccccccc++cccccc++cccccccccccccccccccccccccoowwwwwwwv
 vwwwwwwwoccc........................................................cccowwwwwwwv
 vwwwMwwooB...''''''''''''''''''''''''''''''''''''''''''''''''''''''...BoowwMwwwv
 vwwwwwwoBB..'''""""""""""""""""""""""""""""""""""""""""""""""""""'''..BBowwwwwwv
@@ -1068,10 +1087,10 @@ vwwwwwoc..XXXXXXXXXXXXXXXXXXXX..c...c..YYYYYYYYYYYYYYYYYYYY..Fowwwwwwv
 vwwwwwoc..XXXXXXXXXXXXXXXXXXXX..c...c..YYYYYYYYYYYYYYYYYYYY..Fowwwwwwv
 vwwwwwocc......................cc...cc......................ccowwPwwwv
 vwwwwwoccc....................ccc...ccc....................cccowwwwwwv
-vwwwwwocccccccccccc...ccccccccccv~~~vccccccccccc++ccccccccccccowwwwwwv
-vwwwwwooooccc'''''ccVcc.............~.......................nnowwwwwwv
-vwwwwwwwwocc'''''''ccc''............~.......................Vcowwwwwwv
-vwwwwwwwwoc''"""""''c''''''''''''...~.......................nnowwwwwwv
+vwwwwwocccccccccccc...ccccccccccv+++vccccccccccc++ccccccccccccowwwwwwv
+vwwwwwooooccc'''''ccVcc.............+.......................nnowwwwwwv
+vwwwwwwwwocc'''''''ccc''............+.......................Vcowwwwwwv
+vwwwwwwwwoc''"""""''c''''''''''''...+.......................nnowwwwwwv
 vwwwwwwwwoc''"pAs"''c'''''''''''''..vccccccccccc++ccccccccccccowwwwwwv
 vwwwwwwwwoc''"""""''c''"""""""""''..ccc....................cccowwwwwwv
 vwwwwwwwwoc''"q"s"''c''"s"r"q"p"''..cc......................ccowwOwwwv
@@ -1163,8 +1182,8 @@ vwwwwwwNwwwwocXXXXXXXXXXXXXXXXXXXXc.'""tp""'.cYYYYYYYYYYYYYYYYYYYYcowwwwNwwwwwwv
 vwwwwwwwwMwwocXXXXXXXXXXXXXXXXXXXXc.'""""""'.cYYYYYYYYYYYYYYYYYYYYcowwMwwwwwwwwv
 vwwwwwwwwwwwocccccccccccccccccccccc.''''''''.ccccccccccccccccccccccowwwwwwwwwwwv
 vwwwwwwwwwwwooooooccc''''''''c....................c''''''''cccoooooowwwwwwwwwwwv
-vwwwwwwwwwwwwwwwwocc'''''''''~....................+'''''''''ccowwwwwwwwwwwwwwwwv
-vwwwwwwwwwwwwwwwwoc''""""""''~....................+''""""""''cowwwwwwwwwwwwwwwwv
+vwwwwwwwwwwwwwwwwocc'''''''''+....................+'''''''''ccowwwwwwwwwwwwwwwwv
+vwwwwwwwwwwwwwwwwoc''""""""''+....................+''""""""''cowwwwwwwwwwwwwwwwv
 vwwwwwwwwwwwwwwwwoc''"ts"t"''c.......V....V.......c''"t"st"''cowwwwwwwwwwwwwwwwv
 vwwwwwwwwwwwwwMwwoc''""""""''cccccccccc++cccccccccc''""""""''cowwMwwwwwwwwwwwwwv
 vwwwwwwwwwwwwwwwwoB'""Gf"r""'cZZZZZZZZZZZZZZZZZZZZc'""r"fG""'Bowwwwwwwwwwwwwwwwv
@@ -1558,13 +1577,13 @@ KFEAT:   V = V
 SHUFFLE: yzYZ / zyYZ / zyZY
 SUBST:   r : x-, s : x-, x : cx, yY : cx, zZ = .
 NSUBST:  R = 1:R / *:"-"
-KPROP:   -"VOQR089de$%*|? = no_tele_into
 FTILE:   G = floor_necropolis_grass
 FTILE:   R" = floor_necropolis_square_grass
 MARKER:  P = lua:transp_loc("necropolis_ghost_arena_entry")
 MARKER:  Q = lua:transp_dest_loc("necropolis_ghost_arena_entry")
 MARKER:  R = lua:transp_loc("necropolis_ghost_arena_exit")
 MARKER:  S = lua:transp_dest_loc("necropolis_ghost_arena_exit")
+KPROP:   -QR"VO089de$%*|? = no_tele_into
 : necropolis_generic_spawns(_G)
 : necropolis_ghost_setup(_G)
 MAP
@@ -1739,7 +1758,7 @@ SUBST:  1 = 1GG, D = DF, E = EH
 NSUBST: M = 0 / 2=09 / 9 / DE / DE88JJ / *:J
 SUBST:  1 = 1GG, D = DF, E = EH
 : else -- Snake, Shoals, Vaults, Elf, Crypt, Depths.
-NSUBST: M = 1:0 / 2 = 09 / 1:98 / 2:D / *:J
+NSUBST: M = 1:0 / 2 = 009 / 1:98 / 2:D / *:J, ' = 2:E / *:'
 SUBST:  D = DF, ? = ?!
 : end
 : necropolis_ghost_setup(_G, false)
@@ -1858,11 +1877,11 @@ NSUBST:  M = 1:O / 1:2 / 2:|, ' = 5:% / 3 = %' / *:'
 SUBST:   L = $:30 9:20 d:20 8 *, * = *|
 SUBST:   y = G:70 1, W = '
 : end
-KPROP:   '~WQR$%*|defghijkO12098 = no_tele_into
 MARKER:  P = lua:transp_loc("necropolis_ghost_randoct_entry")
 MARKER:  Q = lua:transp_dest_loc("necropolis_ghost_randoct_entry")
 MARKER:  R = lua:transp_loc("necropolis_ghost_randoct_exit")
 MARKER:  S = lua:transp_dest_loc("necropolis_ghost_randoct_exit")
+KPROP:   'QR~W$%*|defghijkO12098 = no_tele_into
 : necropolis_generic_spawns(_G)
 : necropolis_ghost_setup(_G)
 MAP
@@ -3094,7 +3113,7 @@ MARKER:  P = lua:transp_loc("necropolis_davey_jones_entry")
 MARKER:  Q = lua:transp_dest_loc("necropolis_davey_jones_entry")
 MARKER:  R = lua:transp_loc("necropolis_davey_jones_exit")
 MARKER:  S = lua:transp_dest_loc("necropolis_davey_jones_exit")
-KPROP:   -~wd*|O123456EF = no_tele_into
+KPROP:   -QR~wd*|O123456EF = no_tele_into
 : necropolis_ghost_setup(_G)
 MAP
 ....................
@@ -3191,7 +3210,7 @@ MARKER:  P = lua:transp_loc("necropolis_smash_entry")
 MARKER:  Q = lua:transp_dest_loc("necropolis_smash_entry")
 MARKER:  R = lua:transp_loc("necropolis_smash_exit")
 MARKER:  S = lua:transp_dest_loc("necropolis_smash_exit")
-KPROP:  -$%*|?!ZQRT123456EFHJKO = no_tele_into
+KPROP:  -QR$%*|?!ZT123456EFHJKO = no_tele_into
 : necropolis_ghost_setup(_G)
 MAP
 ....................
@@ -3326,11 +3345,11 @@ NSUBST: - = 1:2 / 2:4 / 4:5 / 2 = 5- / 4:? / *:-
 SUBST:  A : aa., a : xx., B : bb., b : xx., Y : yy., y : xx., Z : zz., Z : xx.
 COLOUR: x = yellow
 TILE:   x = wall_wax
-KPROP:  -defghijk$%*|12345O = no_tele_into
 MARKER: P = lua:transp_loc("necropolis_ghost_hive_entry")
 MARKER: Q = lua:transp_dest_loc("necropolis_ghost_hive_entry")
 MARKER: R = lua:transp_loc("necropolis_ghost_hive_exit")
 MARKER: S = lua:transp_dest_loc("necropolis_ghost_hive_exit")
+KPROP:  -QRdefghijk$%*|12345O = no_tele_into
 : necropolis_ghost_setup(_G)
 MAP
 .......Y....Z.......
@@ -3391,7 +3410,7 @@ KFEAT:  ~ = zot trap / dispersal trap w:5 / archmage's trap w:1
 KFEAT:  ' = tyrant's trap / dispersal trap w:5 / zot trap w:5 / web w:1
 KFEAT:  " = harlequin's trap / dispersal trap w:5 / zot trap w:1
 SUBST:  G : GGU
-KPROP:  -'"defghi$%*|O12U = no_tele_into
+KPROP:  -'"defghi$%*|O1209U = no_tele_into
 : necropolis_generic_spawns(_G)
 : necropolis_ghost_setup(_G)
 MAP
@@ -3483,21 +3502,27 @@ KMONS:  DEFH = player ghost
 MONS:   moth of wrath
 : ghost_good_loot(_G)
 : local j = ""
-: if dgn.persist.necropolis_difficulty == "pre_temple_d" then
 # Moths of wrath as individual monsters are reasonably scary very early, so
-# tune back the pre-Lair sets much more than we would otherwise.
+# the pre-Lair sets set them behind grates instead of letting them free.
+: if dgn.persist.necropolis_difficulty == "pre_temple_d" or
+:    dgn.persist.necropolis_difficulty == "pre_lair_d" then
+SUBST:  M = m, ? = 1
+: else
+SUBST:  m? = -, M = x
+: end
+: if dgn.persist.necropolis_difficulty == "pre_temple_d" then
 MONS:   quokka / hound / iguana
 MONS:   water moccasin w:5 / bullfrog / black bear
 MONS:   ice beast / yak / wyvern / killer bee
 SUBST:  D = DE, d = *, e = *%, f = %$, ghij= -
-NSUBST: - = 1:1 / 2:2 / 2 = 2- / 1:34--- / *:-
+NSUBST: - = 2:2 / 2 = 2- / 1:34--- / *:-
 :   j = "lupine talisman / animal skin randart w:5"
 : elseif dgn.persist.necropolis_difficulty == "pre_lair_d" then
 MONS:   water moccasin / ice beast / bullfrog / black bear
 MONS:   killer bee / yak / water moccasin / wyvern
 MONS:   komodo dragon / basilisk / hornet / manticore / acid dragon
 SUBST:  D = DE, e = *, f = *%, g = %$--, hij= -
-NSUBST: - = 1:1 / 2:2 / 4 = 2- / 1:3 / 1:4--- / *:-
+NSUBST: - = 2:2 / 4 = 2- / 1:3 / 1:4--- / *:-
 :   j = "lupine talisman w:15"
 : elseif dgn.persist.necropolis_difficulty == "post_lair_d" then
 MONS:   komodo dragon / hydra / basilisk / manticore / acid dragon
@@ -3555,12 +3580,13 @@ KITEM:  I = potion of berserk rage pre_id q:1
 :    j = j .. " / box of beasts w:4"
 : end
 : kitem("J = " .. j)
+KFEAT:  m = iron_grate
 NSUBST: R = 1:R / *:-
 MARKER: P = lua:transp_loc("necropolis_berserking_beasts_entry")
 MARKER: Q = lua:transp_dest_loc("necropolis_berserking_beasts_entry")
 MARKER: R = lua:transp_loc("necropolis_berserking_beasts_exit")
 MARKER: S = lua:transp_dest_loc("necropolis_berserking_beasts_exit")
-KPROP:  -1234%$*|DEFHIJ = no_tele_into
+KPROP:  -QR1234%$*|DEFHIJ = no_tele_into
 : necropolis_ghost_setup(_G)
 MAP
 ....................
@@ -3569,12 +3595,12 @@ MAP
 ....................
 .....cncScccc.......
 ....ccRccc--cccnc...
-...cc------x---Rc...
-...c----x---x---cc..
-...c--xx--x------c..
-...nR--x--Q--xx-Rn..
-..cc-x-----x-----c..
-..c----xxxDJ-xx-cc..
+...cc-----mMm--Rc...
+...c----x-m?M---cc..
+...c--xx--Mmm----c..
+...nR-mMm-Q--xx-Rn..
+..cc-xm?m--x-----c..
+..c---mMMxDJ-xx-cc..
 ..cc--xigedfhj--c...
 ...cccI-cnnnc-Icc...
 .....cccc.P.cccc....
@@ -3686,12 +3712,12 @@ COLOUR: a = lightred
 TILE:   a = wall_pebble_red
 TILE:   c = dngn_stone_wall_red
 KPROP:  c = bloody
-KPROP:  -defghijk$%*|ZO12DEFHJKLqrsuy = no_tele_into
 : ghost_flavour_unrand_chance(_G, "?", "Z", "necklace_of_bloodlust")
 MARKER: P = lua:transp_loc("necropolis_wrathful_warriors_entry")
 MARKER: Q = lua:transp_dest_loc("necropolis_wrathful_warriors_entry")
 MARKER: R = lua:transp_loc("necropolis_wrathful_warriors_exit")
 MARKER: S = lua:transp_dest_loc("necropolis_wrathful_warriors_exit")
+KPROP:  -QRdefghijk$%*|ZO12DEFHJKLqrsuy = no_tele_into
 : necropolis_ghost_setup(_G, false)
 MAP
 ...................
@@ -4587,8 +4613,8 @@ MONS:    hound, vampire bat
 NSUBST:  ' = 1:1 / 1:1 / *:', " = 1:1 / 2:2 / *:"
 NSUBST:  * = 1:d / * = dd%
 : elseif dgn.persist.necropolis_difficulty == "lair" then
-MONS:    wolf, vampire
-NSUBST:  ' = 2:1 / 1:2 / *:', " = 1:1 / 1:2 / *:"
+MONS:    wolf, vampire / vampire bat
+NSUBST:  ' = 1:1 / 1:2 / *:', " = 2:1 / 1:2 / *:"
 NSUBST:  % = 1:d / *:%, * = 1:ee* / *:*
 : elseif dgn.persist.necropolis_difficulty == "orc" then
 MONS:    warg, obsidian bat
@@ -4599,7 +4625,6 @@ MONS:    wolf spider, vampire
 NSUBST:  ' = 2:1 / 1:2 / *:', " = 1:1 / 1:2 / *:"
 NSUBST:  $ = 1:d / *:$, * = 1:e / *:*
 : elseif dgn.persist.necropolis_difficulty == "swamp" then
-MONS:    tyrant leech, vampire mage
 KMONS:   1 = tyrant leech
 KMONS:   2 = vampire mage
 KFEAT:   12O'"` = W

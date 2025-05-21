@@ -1957,6 +1957,15 @@ static tileidx_t _tileidx_monster_no_props(const monster_info& mon)
                 return TILEP_MONS_GOBLIN_RIDER_SPEARLESS;
         }
 
+        case MONS_REAPER:
+        {
+            const item_def * const weapon = mon.inv[MSLOT_WEAPON].get();
+            if (weapon && weapon->is_type(OBJ_WEAPONS, WPN_HALBERD))
+                return TILEP_MONS_REAPER;
+            else
+                return TILEP_MONS_REAPER_SCYTHELESS;
+        }
+
         case MONS_CEREBOV:
         case MONS_SERAPH:
             return base + (mon.inv[MSLOT_WEAPON] ? 0 : 1);
@@ -2409,7 +2418,7 @@ static const map<monster_info_flags, tileidx_t> monster_status_icons = {
     { MB_RETREATING, TILEI_RETREAT  },
     { MB_TOUCH_OF_BEOGH, TILEI_TOUCH_OF_BEOGH },
     { MB_VENGEANCE_TARGET, TILEI_VENGEANCE_TARGET },
-    { MB_MAGNETISED, TILEI_BULLSEYE },  // Placeholder
+    { MB_MAGNETISED, TILEI_MAGNETISED },
     { MB_RIMEBLIGHT, TILEI_RIMEBLIGHT },
     { MB_ARMED, TILEI_UNDYING_ARMS },
     { MB_SHADOWLESS, TILEI_SHADOWLESS },

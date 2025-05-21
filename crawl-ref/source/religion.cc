@@ -1301,7 +1301,7 @@ static set<spell_type> _vehumet_eligible_gift_spells(set<spell_type> excluded_sp
 
 static int _vehumet_weighting(spell_type spell)
 {
-    int bias = 100 + elemental_preference(spell, 10);
+    int bias = 100 + destructive_elemental_preference(spell, 10);
     return bias;
 }
 
@@ -2700,7 +2700,8 @@ void lose_piety(int pgn)
         invalidate_agrid(true);
     }
 
-    you.props[MIN_IGNIS_PIETY_KEY] = you.piety;
+    if (you_worship(GOD_IGNIS))
+        you.props[MIN_IGNIS_PIETY_KEY] = you.piety;
 }
 
 /// Whether Fedhas would set `target` to a neutral attitude
@@ -3876,7 +3877,7 @@ void god_pitch(god_type which_god)
         return;
     }
 
-    if (which_god == GOD_LUGONU && you.penance[GOD_LUGONU])
+    if (!is_good_god(which_god) && you.penance[which_god])
     {
         you.turn_is_over = false;
         simple_god_message(" refuses to forgive you so easily!", false,

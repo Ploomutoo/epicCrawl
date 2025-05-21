@@ -3685,19 +3685,21 @@ D E
    H
 ENDMAP
 
-NAME:  nicolae_lair_lakeside_cave
-TAGS:  no_pool_fixup transparent
-DEPTH: Lair
-KITEM: DEF = % w:40 / * w:16 / | w:4 / nothing w:20
-KMONS: 1D = alligator / anaconda / manticore / fire crab / polar bear / \
-            torpor snail / komodo dragon / dire elephant
-KMONS: 2E = hornet / hell rat / wyvern / cane toad / death yak / elephant / \
-            steam dragon / rime drake / hydra
-KMONS: 3F = basilisk / scorpion / wolf / black mamba / water moccasin / \
-            black bear / yak / bullfrog
-SUBST: K = xxw..., M = wW, N = WWwx, - = x_, H = D E:20 F:40, \
-       p = 2:5 3:80 .:400, q = 1 3 2:80 .:360
-CLEAR: _
+NAME:   nicolae_lair_lakeside_cave
+TAGS:   no_pool_fixup transparent
+DEPTH:  Lair
+KMONS:  1D = alligator w:15 / manticore / fire crab w:5 / polar bear / \
+             torpor snail w:5 / komodo dragon / hydra
+KMONS:  2E = hornet / hell rat / wyvern / cane toad / death yak / elephant / \
+             steam dragon / rime drake
+KMONS:  3F = basilisk / scorpion / wolf / black mamba / water moccasin / \
+             black bear / yak / bullfrog
+KMONS:  P = plant
+KITEM:  DEF = % w:40 / * w:16 / | w:4 / $ w:20
+SUBST:  K = xxw..., M = wW, N = WWwx, - = x-
+NSUBST: p = 4:. / 1:3 / * = 2:5 3:80 .:400
+NSUBST: q = 2 = 122223 / 2:. / * = 3 2:40 .:180, H = 1:F / * = D E:20 F:40
+CLEAR:  -
 MAP
                  @..Mw--
  -----------     ...Mww--
@@ -3710,8 +3712,8 @@ MAP
 -xKqMMwwwwwwwMMMppMMMwwwx-
 -xKqMMwwwwwwwwwwMMwwwwwxx-
 -xKqqMwwwwMxxxwwwwwwxxxx--
--xKqqqMMMM.+.xxxxxxxxxxx-
--xKKqqqMM.1x..HHHDxxxxx--
+-xKqqqMMMM.+Pxxxxxxxxxxx-
+-xKKqqqMM.1xP.HHHDxxxxx--
 -xxKKqqq.1.xN.HHHDxxxx--
 --xxKKKKKKxxNNNNxxxx---
  --xxxxxxxxxxxxxxx---
@@ -4234,15 +4236,15 @@ TILE:    G = dngn_statue_elephant
 : set_feature_name("tree", "dead tree")
 MAP
    xxxcccccccc
-  xxttrrrLrrrcc
- xxttqqqMMM.qrcc
-xxqtq....MM..qrcc                           ccccc
-xx...qrrqr..r..rcccccccccccccccccccccccccccccaaGttq.
-xq.qttcccc++c++ccccccccccccccccccccccccccccaaaKKJttqq.
+  xxttnGnGrrrcc
+ xxttqqqMLM.qrcc
+xxqtq..nMMM..qrcc                           ccccc
+xx...qnGnG..r..rcccccccccccccccccccccccccccccaaGttq.
+xq.qqtcccc++c++ccccccccccccccccccccccccccccaaaKKJttqq.
 xt7ttccccG--c..OOGcc.WWccGqqqGccqqqccQQ.....qqGKKGttt.
-cnsncccccp-pcq.OON+..WwW+.55%&cGe2..+QQQqqc.cq.Kaaatq.
-cndnccccc-c-ccccOGcqWwwR+.56**c|$22.cPqcccc---caaccc..
-cnnnccccc+cp--pccccqwwwwcG5qqGc*%22.cccc---pc+ccccccc.
+ccsccccccp-pcq.OON+..WwW+.55%&cGe2..+QQQqqc.cq.Kaaatq.
+ccdcccccc-c-ccccOGcqWwwR+.56**c|$22.cPqcccc---caaccc..
+ccccccccc+cp--pccccqwwwwcG5qqGc*%22.cccc---pc+ccccccc.
 ccccGEEqq.cccc---pcWWWWqccnnnccG62qqcp--pcccc.qqHHGcc.
 xxxc*DE..qccccccc-cccWqcccGpGcccqqccc-cccccccq..HF*cc.
 xxxcGEEqqqccttaccp-pcccccGpYpGccnncp-pccattccqqqHHGcc.
