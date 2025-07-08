@@ -35,6 +35,7 @@
 #include "level-state-type.h"
 #include "libutil.h"
 #include "makeitem.h"
+#include "mutation.h"
 #include "notes.h"
 #include "options.h"
 #include "orb-type.h"
@@ -1192,6 +1193,14 @@ string sub_type_string(const item_def &item, bool known)
             bookname += skill_name(static_cast<skill_type>(item.plus));
             return bookname;
             }
+        case BOOK_PARCHMENT:
+            {
+            if (item.plus == 0 || !known)
+                return "parchment";
+            string parchmentname = "parchment of ";
+            parchmentname += spell_title(static_cast<spell_type>(item.plus));
+            return parchmentname;
+            }
         case BOOK_NECRONOMICON:
             return "Necronomicon";
         case BOOK_GRAND_GRIMOIRE:
@@ -1409,7 +1418,7 @@ static string _name_weapon(const item_def &weap, description_level_type desc,
     const bool identified = weap.is_identified();
 
     const string curse_prefix = !dbname && !terse && weap.cursed() ? "cursed " : "";
-    const string plus_text = identified && !dbname ? _plus_prefix(weap) : "";
+    const string plus_text = identified && !dbname && !qualname ? _plus_prefix(weap) : "";
     const string chaotic = testbits(weap.flags, ISFLAG_CHAOTIC) ? "chaotic " : "";
     const string replica = testbits(weap.flags, ISFLAG_REPLICA) ? "replica " : "";
 
@@ -3018,7 +3027,6 @@ static string _general_cannot_read_reason()
     if (you.confused())
         return "You are too confused!";
 
-    // no reading while threatened (Ru/random mutation)
     if (you.duration[DUR_NO_SCROLLS])
         return "You cannot read scrolls in your current state!";
 
@@ -3028,6 +3036,9 @@ static string _general_cannot_read_reason()
     // water elementals
     if (you.duration[DUR_WATER_HOLD] && !you.res_water_drowning())
         return "You cannot read scrolls while unable to breathe!";
+
+    if (you.has_mutation(MUT_HOARD_SCROLLS) && you.props.exists(HOARD_SCROLLS_TIMER_KEY))
+        return "You cannot bring yourself to waste a scroll at the moment!";
 
     return "";
 }
@@ -3181,6 +3192,9 @@ string cannot_drink_item_reason(const item_def *item, bool temp,
 
         if (you.berserk())
             return "You are too berserk!";
+
+        if (you.has_mutation(MUT_HOARD_POTIONS) && you.props.exists(HOARD_POTIONS_TIMER_KEY))
+            return "You cannot bring yourself to waste a potion at the moment!";
 
         if (player_in_branch(BRANCH_COCYTUS))
             return "It's too cold; everything's frozen solid!";

@@ -457,6 +457,11 @@ item_def *monster::weapon(int which_attack) const
     if (attk.type != AT_HIT && attk.type != AT_WEAP_ONLY)
         return nullptr;
 
+    // Draugr can only use their weapon for their doom attack and not any other
+    // hit attack the monster they're derived from may have.
+    if (type == MONS_DRAUGR && which_attack != 0)
+        return nullptr;
+
     // Even/odd attacks use main/offhand weapon.
     if (which_attack > 1)
         which_attack &= 1;
@@ -568,16 +573,6 @@ bool monster::can_throw_large_rocks() const
            || type == MONS_PARGHIT // he's stronger than your average troll
            || type == MONS_BOUND_SOUL
            || type == MONS_PLAYER_SHADOW; // can throw them if you can!
-}
-
-bool monster::can_be_dazzled() const
-{
-    return mons_can_be_dazzled(type);
-}
-
-bool monster::can_be_blinded() const
-{
-    return mons_can_be_blinded(type);
 }
 
 bool monster::can_speak()
@@ -2675,8 +2670,6 @@ bool monster::go_frenzy(actor *source)
     const int duration = 16 + random2avg(13, 2);
 
     add_ench(mon_enchant(ENCH_FRENZIED, 0, source, duration * BASELINE_DELAY));
-    add_ench(mon_enchant(ENCH_HASTE, 0, source, duration * BASELINE_DELAY));
-    add_ench(mon_enchant(ENCH_MIGHT, 0, source, duration * BASELINE_DELAY));
 
     mons_att_changed(this);
 
@@ -3145,8 +3138,8 @@ static int _zombie_ac_modifier(monster_type type)
         case MONS_ZOMBIE:
         case MONS_SIMULACRUM:
             return -2;
-        case MONS_SKELETON:
-            return -6;
+        case MONS_DRAUGR:
+            return 10;
         case MONS_SPECTRAL_THING:
         case MONS_BOUND_SOUL:
             return 2;
@@ -3173,7 +3166,7 @@ int monster::base_armour_class() const
     if (mons_is_ghost_demon(type))
         return ghost->ac;
 
-    // zombie, skeleton, etc ac mods
+    // derived undead ac mods
     if (mons_class_is_zombified(type))
     {
         // handle weird zombies for which type isn't enough to reconstruct ac
@@ -3287,7 +3280,7 @@ static int _zombie_ev_modifier(monster_type type)
         case MONS_SIMULACRUM:
         case MONS_SPECTRAL_THING:
             return -5;
-        case MONS_SKELETON:
+        case MONS_DRAUGR:
             return -7;
         default:
             die("invalid zombie type %d (%s)", type,
@@ -3446,6 +3439,7 @@ bool monster::evil() const
         return true;
     if (has_attack_flavour(AF_DRAIN)
         || has_attack_flavour(AF_VAMPIRIC)
+        || has_attack_flavour(AF_HELL_HUNT)
         || has_attack_flavour(AF_FOUL_FLAME))
     {
         return true;
@@ -3537,10 +3531,12 @@ int monster::known_chaos(bool check_spells_god) const
 
     if (type == MONS_UGLY_THING
         || type == MONS_VERY_UGLY_THING
+        || type == MONS_CRAWLING_FLESH_CAGE
         || type == MONS_ABOMINATION_SMALL
         || type == MONS_ABOMINATION_LARGE
         || type == MONS_MUTANT_BEAST
         || type == MONS_WRETCHED_STAR
+        || type == MONS_KOBOLD_FLESHCRAFTER // Mutated tentacles!
         || type == MONS_KILLER_KLOWN      // For their random attacks.
         || type == MONS_TIAMAT            // For her colour-changing.
         || type == MONS_BAI_SUZHEN
@@ -3927,6 +3923,11 @@ bool monster::res_constrict() const
     return is_insubstantial() || is_spiny() || is_amorphous();
 }
 
+int monster::res_blind() const
+{
+    return mons_res_blind(type);
+}
+
 int monster::res_corr() const
 {
     int u = get_mons_resist(*this, MR_RES_CORR);
@@ -3975,6 +3976,10 @@ int monster::willpower() const
     // Hepliaklqana ancestors scale with xl.
     if (mons_is_hepliaklqana_ancestor(type))
         u = get_experience_level() * get_experience_level() / 2; // 0-160ish
+
+    // ghost demon struct overrides the monster values if it is non-negative
+    if (mons_is_ghost_demon(type) && ghost->willpower >= 0)
+        u = ghost->willpower;
 
     // Draining/malmutation reduce monster base WL proportionately.
     const int HD = get_hit_dice();
@@ -4089,11 +4094,12 @@ int monster::skill(skill_type sk, int scale, bool /*real*/, bool /*temp*/) const
     int ret;
     switch (sk)
     {
+    case SK_INVOCATIONS:
     case SK_EVOCATIONS:
         return hd;
 
     case SK_NECROMANCY:
-        return (has_spell_of_type(spschool::necromancy)) ? hd : hd/2;
+        return (has_spell_of_type(spschool::necromancy)) ? hd * 2 : hd/2;
 
     case SK_CONJURATIONS:
     case SK_ALCHEMY:
@@ -4267,6 +4273,12 @@ int monster::hurt(const actor *agent, int amount, beam_type flavour,
     if (mons_is_projectile(type)
         || mid == MID_ANON_FRIEND)
     {
+        return 0;
+    }
+
+    if (damage_immune(agent))
+    {
+        simple_monster_message(*this, " is warded from harm.");
         return 0;
     }
 
@@ -4805,8 +4817,7 @@ void monster::load_ghost_spells()
 
 bool monster::has_hydra_multi_attack() const
 {
-    return mons_genus(mons_base_type(*this)) == MONS_HYDRA
-        || mons_species(true) == MONS_SERPENT_OF_HELL;
+    return mons_genus(mons_base_type(*this)) == MONS_HYDRA;
 }
 
 int monster::heads() const
@@ -4819,11 +4830,6 @@ int monster::heads() const
     // here doesn't actually matter for non-hydra-type monsters.
     else
         return 1;
-}
-
-bool monster::has_multitargeting() const
-{
-    return has_hydra_multi_attack() && !mons_is_zombified(*this);
 }
 
 bool monster::is_priest() const
@@ -4900,7 +4906,7 @@ void monster::calc_speed()
 {
     speed = mons_base_speed(*this);
 
-    if (has_ench(ENCH_BERSERK))
+    if (this->berserk_or_frenzied())
         speed = berserk_mul(speed);
     else if (has_ench(ENCH_HASTE))
         speed = haste_mul(speed);
@@ -5146,7 +5152,7 @@ bool monster::has_blood(bool /*temp*/) const
 
 bool monster::has_bones(bool /*temp*/) const
 {
-    return mons_skeleton(type);
+    return mons_has_skeleton(type);
 }
 
 bool monster::is_stationary() const
@@ -5239,6 +5245,25 @@ bool monster::polymorph(poly_power_type power)
     return monster_polymorph(this, targ, power);
 }
 
+bool monster::doom(int amount)
+{
+    int& stacks = props[MONSTER_DOOM_KEY].get_int();
+    stacks += amount;
+    if (stacks >= 50)
+    {
+        stacks = 0;
+        if (you.can_see(*this))
+            mprf("Doom befalls %s.", name(DESC_THE).c_str());
+
+        enchant_type ench = random_choose(ENCH_SLOW, ENCH_VITRIFIED, ENCH_WEAK, ENCH_BLIND, ENCH_DRAINED);
+
+        // High degree specifically for Draining
+        add_ench(mon_enchant(ench, 7, nullptr, random_range(1000, 2000)));
+    }
+
+    return false;
+}
+
 static bool _mons_is_icy(int mc)
 {
     return mc == MONS_ICE_BEAST
@@ -5276,7 +5301,7 @@ bool monster::is_fiery() const
 
 static bool _mons_is_skeletal(int mc)
 {
-    return mc == MONS_SKELETON
+    return mc == MONS_DRAUGR
            || mc == MONS_BONE_DRAGON
            || mc == MONS_SKELETAL_WARRIOR
            || mc == MONS_ANCIENT_CHAMPION
@@ -5356,7 +5381,7 @@ void monster::apply_location_effects(const coord_def &oldpos,
         dungeon_events.fire_position_event(DET_MONSTER_MOVED, pos());
 
     if (alive()
-        && (mons_habitat(*this) == HT_WATER || mons_habitat(*this) == HT_LAVA)
+        && !(mons_habitat(*this) & HT_DRY_LAND)
         && !monster_habitable_grid(this, pos())
         && type != MONS_HELLFIRE_MORTAR
         && !has_ench(ENCH_AQUATIC_LAND))
@@ -5630,6 +5655,37 @@ bool monster::strip_willpower(actor *attacker, int dur, bool quiet)
 
     mon_enchant lowered_wl(ENCH_LOWERED_WL, 1, attacker, dur * BASELINE_DELAY);
     return add_ench(lowered_wl);
+}
+
+void monster::daze(int duration)
+{
+    // Enchantment degree is used as a timer to prevent immediately breaking on
+    // the turn it is applied.
+    if (has_ench(ENCH_DAZED))
+    {
+        mon_enchant ench = get_ench(ENCH_DAZED);
+        ench.duration += (duration * BASELINE_DELAY);
+        ench.degree = you.elapsed_time_at_last_input;
+        update_ench(ench);
+    }
+    else
+    {
+        add_ench(mon_enchant(ENCH_DAZED, you.elapsed_time_at_last_input, nullptr,
+                             duration * BASELINE_DELAY));
+    }
+}
+
+void monster::vitrify(const actor *attacker, int duration, bool quiet)
+{
+    if (!quiet && you.can_see(*this))
+    {
+        if (has_ench(ENCH_VITRIFIED))
+            mprf("%s looks even more glass-like.", name(DESC_THE).c_str());
+        else
+            mprf("%s becomes as fragile as glass!", name(DESC_THE).c_str());
+    }
+
+    add_ench(mon_enchant(ENCH_VITRIFIED, 0, attacker, duration * BASELINE_DELAY));
 }
 
 int monster::beam_resists(bolt &beam, int hurted, bool doEffects, string /*source*/)
@@ -6011,6 +6067,9 @@ int monster::reach_range() const
     if (wpn)
         range = max(range, weapon_reach(*wpn));
 
+    if (type == MONS_PLAYER_SHADOW && you.form == transformation::aqua)
+        range += 2;
+
     return range;
 }
 
@@ -6304,12 +6363,12 @@ bool monster::is_binding_sigil_immune() const
     return has_ench(ENCH_SWIFT);
 }
 
-// Monsters with an innate umbra don't have their accuracy reduced by it, and
-// nor do followers of Yredelemnul and Dithmenos.
+// Monsters with an innate umbra don't have their accuracy reduced by it,
+// nor do undead or followers of Yredelemnul.
 bool monster::nightvision() const
 {
     return god == GOD_YREDELEMNUL
-           || god == GOD_DITHMENOS
+           || (holiness() & MH_UNDEAD)
            || umbra_radius() >= 0;
 }
 
@@ -6395,6 +6454,14 @@ bool monster::cloud_immune(bool items) const
     return type == MONS_CLOUD_MAGE || actor::cloud_immune(items);
 }
 
+bool monster::damage_immune(const actor* source) const
+{
+    if (has_ench(ENCH_WARDING) && source && !adjacent(source->pos(), pos()))
+        return true;
+
+    return false;
+}
+
 bool monster::is_illusion() const
 {
     return type == MONS_PLAYER_ILLUSION
@@ -6453,6 +6520,8 @@ int monster::spell_hd(spell_type spell) const
         hd = max(1, hd * 2 / 3);
     if (has_ench(ENCH_IDEALISED))
         hd *= 2;
+    if (has_ench(ENCH_FIGMENT))
+        hd = max(1, hd / 2);
 
     if (type == MONS_PLAYER_SHADOW)
     {
@@ -6462,6 +6531,9 @@ int monster::spell_hd(spell_type spell) const
 
     if (has_ench(ENCH_EMPOWERED_SPELLS))
         hd += 5;
+    if (has_ench(ENCH_DIMINISHED_SPELLS))
+        hd = max(1, hd - 7);
+
     return hd;
 }
 

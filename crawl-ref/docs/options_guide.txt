@@ -82,7 +82,8 @@ The contents of this text are:
                 always_show_zot, always_show_gems, more_gem_info, action_panel,
                 action_panel_filter, action_panel_show_unidentified,
                 action_panel_scale, action_panel_orientation,
-                action_panel_font_family, action_panel_font_size
+                action_panel_font_family, action_panel_font_size,
+		 show_resist_percent
 3-i     Colours (messages and menus).
                 menu_colour, message_colour
 3-j     Quivers, firing, and ammo.
@@ -1478,6 +1479,11 @@ easy_door = true
 warn_hatches = false
         Ask for confirmation before using a one-way escape hatch or shaft.
 
+warn_contam_cost = false
+	Ask for confirmation before casting a spell with a contam cost, if it
+	is possible that casting it at your current level of magic contamination
+	could cause you to reach harmful levels of contamination.
+
 enable_recast_spell = true
         If enabled, allows recasting the previously cast spell by pressing
         Enter or '.' at the spellcasting prompt.
@@ -1879,6 +1885,11 @@ action_panel_font_size = 16 (persistent)
 action_panel_glyphs = false
         If set to true, show glyphs instead of tiles in the action panel. This
         option is only available on webtiles.
+
+show_resist_percent = true
+	When set to true, the exact percentage of damage the player will take
+	from each element, based on their current pips of resistance, will be
+	shown on the % screen.
 
 3-i     Colours (messages and menus)
 -----------------
@@ -2953,17 +2964,17 @@ mon_glyph -= <monster name or symbol>
 
              mon_glyph += deep elf annihilator : E lightmagenta
              mon_glyph += Xtahua : lightmagenta D
-             mon_glyph += large zombie : darkgrey
-             mon_glyph += small simulacrum : x
+             mon_glyph += ghoul : darkgrey
+             mon_glyph += cognitogaunt : x
 
         (The left hand side of the : is case-sensitive.)
 
         You can also specify another monster, so that it copies the base
         symbol and colour of that monster (this is not transitive). For
-        example, if you think that slime creature colours are backwards:
+        example, if you think that holy warrior colours are backwards:
 
-            mon_glyph += slime creature : merged slime creature
-            mon_glyph += merged slime creature : slime creature
+            mon_glyph += daeva : angel
+            mon_glyph += angel : daeva
 
         You can specify symbols using their code points using the syntax
         as shown in the "feature" option. You can also use Unicode code
@@ -2981,7 +2992,6 @@ mon_glyph -= <monster name or symbol>
              player
              sensed monster
              {trivial,easy,tough,nasty,friendly} sensed monster
-             merged slime creature
 
         Playable species that normally have no monster of the same name can
         also be redefined, for use with show_player_species = true.
@@ -3206,8 +3216,8 @@ lua_max_memory = 16
 Lua files are scripts which can provide existing commands with a new
 meaning or create new commands (to be used in macros). To use Lua
 files, Crawl needs to be compiled with support for user Lua scripts.
-You can if your Crawl has Lua support by hitting ?V in-game. The list
-of features Crawl displays should include "Lua user scripts".
+You can check to see if your Crawl has Lua support by hitting ?V in-game.
+The list of features Crawl displays should include "Lua user scripts".
 
 Lua files are included using the lua_file option (one file per line):
 

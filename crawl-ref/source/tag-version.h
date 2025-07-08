@@ -322,6 +322,13 @@ enum tag_minor_version
     TAG_MINOR_SPECIFY_EXP,         // Specify monster EXP in yaml rather than calculating from HD
     TAG_MINOR_GHOST_MOVE_SPEED_FIX,// Fixup move speed of old spriggan/naga/barachi ghosts
     TAG_MINOR_COMPRESS_MAPPING,    // Reduce another mutation to 2 levels
+    TAG_MINOR_FRENZY_FIXUP,        // Don't pair frenzy with haste and might
+    TAG_MINOR_GHOST_WILLPOWER,     // Allow specifying willpower for ghost_demons (and player ghosts)
+    TAG_MINOR_BANES,               // Added Banes
+    TAG_MINOR_TEMP_MUT_KILLS,      // Change how temp mutations are cured
+    TAG_MINOR_CONTAM_PERCENT,      // Rescale internal values for magic contamination
+    TAG_MINOR_ZOT_ORB_ROTATION,    // Add multiple rotating orb monster types to Zot
+    TAG_MINOR_GHOST_TITLE,         // Store ghost titles instead of generating them
 #endif
     NUM_TAG_MINORS,
     TAG_MINOR_VERSION = NUM_TAG_MINORS - 1
@@ -340,6 +347,8 @@ const set<int> bones_minor_tags =
          TAG_MINOR_GHOST_MAGIC,
          TAG_MINOR_GHOST_UMBRAS,
          TAG_MINOR_GHOST_MOVE_SPEED_FIX,
+         TAG_MINOR_GHOST_WILLPOWER,
+         TAG_MINOR_GHOST_TITLE,
 #endif
         };
 

@@ -1626,6 +1626,50 @@ bool feat_dangerous_for_form(transformation which_trans,
 }
 
 /**
+ * Checks if it would be unsafe for the player to transform into a specific form
+ * at the present time (and prints an appropriate message, if so)
+ */
+bool transforming_is_unsafe(transformation which_trans)
+{
+    if (feat_dangerous_for_form(transformation::none, env.grid(you.pos())))
+    {
+        mprf(MSGCH_PROMPT, "%s right now would cause you to %s!",
+                which_trans == transformation::none ? "Untransforming" : "Transforming",
+                env.grid(you.pos()) == DNGN_LAVA ? "burn" : "drown");
+        return true;
+    }
+
+    // Now check if there are any items that would break if we changed form in
+    // this way.
+    unwind_var<player_equip_set> unwind_eq(you.equipment);
+    unwind_var<transformation> unwind_default_form(you.default_form);
+    unwind_var<transformation> unwind_form(you.form);
+
+    you.default_form = which_trans;
+    you.form = which_trans;
+
+    you.equipment.unmeld_all_equipment(true);
+    you.equipment.meld_equipment(get_form(which_trans)->blocked_slots, true);
+
+    // Pretend incompatible items fell away.
+    vector<item_def*> forced_remove = you.equipment.get_forced_removal_list(true);
+    for (item_def* item : forced_remove)
+    {
+        // Now see if any of them would break if they did so.
+        if (item->cursed()
+            || (is_artefact(*item) && artefact_property(*item, ARTP_FRAGILE)))
+        {
+            mprf(MSGCH_PROMPT, "%s right now would shatter %s!",
+                 which_trans == transformation::none ? "Untransforming" : "Transforming",
+                 item->name(DESC_YOUR).c_str());
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
  * Is the player alive enough to become the given form?
  *
  * All undead can use Vessel of Slaughter; vampires also can also use their
@@ -1726,6 +1770,20 @@ static void _print_death_brand_changes(item_def *weapon, bool entering_death)
     }
 }
 
+static void _rip_net()
+{
+    if (you.attribute[ATTR_HELD])
+    {
+        int net = get_trapping_net(you.pos());
+        if (net != NON_ITEM)
+        {
+            mpr("The net rips apart!");
+            destroy_item(net);
+            stop_being_held();
+        }
+    }
+}
+
 /// Form-specific special effects. Should be in a class?
 static void _on_enter_form(transformation which_trans)
 {
@@ -1753,20 +1811,10 @@ static void _on_enter_form(transformation which_trans)
                     mpr("Your branches shred the web that entangled you.");
             }
         }
-        // Fall through to dragon form to leave nets.
+        _rip_net();
+        break;
 
     case transformation::dragon:
-        if (you.attribute[ATTR_HELD])
-        {
-            int net = get_trapping_net(you.pos());
-            if (net != NON_ITEM)
-            {
-                mpr("The net rips apart!");
-                destroy_item(net);
-                stop_being_held();
-            }
-        }
-
         // The first time the player becomes a dragon, given them a charge of
         // their breath weapon so they can actually use them.
         if (!you.props.exists(HAS_USED_DRAGON_TALISMAN_KEY)
@@ -1775,6 +1823,7 @@ static void _on_enter_form(transformation which_trans)
             gain_draconian_breath_uses(1);
             you.props[HAS_USED_DRAGON_TALISMAN_KEY] = true;
         }
+        _rip_net();
         break;
 
     case transformation::death:
@@ -1824,7 +1873,7 @@ void set_form(transformation which_trans, int dur, bool scale_hp)
     quiver::set_needs_redraw();
 }
 
-static void _enter_form(int dur, transformation which_trans, bool scale_hp = true)
+static void _enter_form(int dur, transformation which_trans, bool using_talisman = true)
 {
     const bool was_flying = you.airborne();
 
@@ -1844,9 +1893,8 @@ static void _enter_form(int dur, transformation which_trans, bool scale_hp = tru
     // Update your status.
     // Order matters here, take stuff off (and handle attendant HP and stat
     // changes) before adjusting the player to be transformed.
-    you.equipment.meld_equipment(get_form(which_trans)->blocked_slots);
-
-    set_form(which_trans, dur, scale_hp);
+    you.equipment.meld_equipment(get_form(which_trans)->blocked_slots, false);
+    set_form(which_trans, dur, !using_talisman);
 
     if (you.digging && form_changes_anatomy(which_trans))
     {
@@ -1953,7 +2001,7 @@ bool transform(int dur, transformation which_trans, bool involuntary,
 {
     // Zin's protection.
     if (have_passive(passive_t::resist_polymorph)
-        && x_chance_in_y(you.piety, piety_breakpoint(5))
+        && x_chance_in_y(you.piety(), piety_breakpoint(5))
         && which_trans != transformation::none)
     {
         simple_god_message(" protects your body from unnatural transformation!");
@@ -1984,10 +2032,10 @@ bool transform(int dur, transformation which_trans, bool involuntary,
         && !((you.form == transformation::vampire || you.form == transformation::bat_swarm)
                && (which_trans == transformation::vampire || which_trans == transformation::bat_swarm)))
     {
-        untransform(true, !using_talisman);
+        untransform(true, !using_talisman, !using_talisman, which_trans);
     }
 
-    _enter_form(dur, which_trans, !using_talisman);
+    _enter_form(dur, which_trans, using_talisman);
 
     return true;
 }
@@ -2002,9 +2050,20 @@ bool transform(int dur, transformation which_trans, bool involuntary,
  *                       talisman-related shapeshifting, to prevent exploits
  *                       such as instantly healing via entering a -90% HP form
  *                       and then leaving it again immediately.)
+ * @param preserve_equipment    True if incompatible equipment should be melded
+ *                              instead of being unequipped (such as when
+ *                              entering a temporary form from a talisman that
+ *                              gave additional equipment slotsshifting).
+ * @param new_form       If this untransform is being done in the process of
+ *                       entering a new form, what form is that?
  */
-void untransform(bool skip_move, bool scale_hp)
+void untransform(bool skip_move, bool scale_hp, bool preserve_equipment,
+                 transformation new_form)
 {
+    // Skip if there's nothing that needs doing.
+    if (you.form == transformation::none)
+        return;
+
     const transformation old_form = you.form;
     const bool was_flying = you.airborne();
 
@@ -2059,14 +2118,22 @@ void untransform(bool skip_move, bool scale_hp)
 
     // If the player is no longer be eligible to equip some of the items that
     // they were wearing (possibly due to losing slots from their default form
-    // changing), calculate that now and make the fall off.
+    // changing), calculate that now. If they're outright exiting the form,
+    // make them fall off. If they're entering a temporary form, meld them.
+    // If they're returning back to the form that granted those slots in the
+    // first place, do nothing.
     vector<item_def*> forced_remove = you.equipment.get_forced_removal_list(true);
-    for (item_def* item : forced_remove)
+    if (preserve_equipment && new_form != you.default_form)
+        you.equipment.meld_equipment(forced_remove);
+    else if (!preserve_equipment)
     {
-        mprf("%s falls away%s!", item->name(DESC_YOUR).c_str(),
-                item->cursed() ? ", shattering the curse!" : "");
+        for (item_def* item : forced_remove)
+        {
+            mprf("%s falls away%s!", item->name(DESC_YOUR).c_str(),
+                    item->cursed() ? ", shattering the curse!" : "");
 
-        unequip_item(*item, false);
+            unequip_item(*item, false);
+        }
     }
 
     // Update skill boosts for the current state of equipment melds
@@ -2124,7 +2191,7 @@ void untransform(bool skip_move, bool scale_hp)
         riddle_targs.clear();
 }
 
-void return_to_default_form()
+void return_to_default_form(bool new_form)
 {
     if (you.default_form == transformation::none)
         untransform(false, false);
@@ -2134,8 +2201,8 @@ void return_to_default_form()
         // only be called in situations where those should end and transform()
         // will refuse to do that on its own)
         if (you.transform_uncancellable)
-            untransform(true, false);
-        transform(0, you.default_form, true, true);
+            untransform(true, false, !new_form, you.default_form);
+        transform(0, you.default_form, true, new_form);
     }
     ASSERT(you.form == you.default_form);
 }

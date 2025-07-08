@@ -1234,6 +1234,19 @@ static item_def* _item_swap_prompt(const vector<item_def*>& candidates)
         return nullptr;
 }
 
+static bool _is_slow_equip(const item_def& item)
+{
+    if (item.base_type == OBJ_JEWELLERY)
+        return jewellery_is_amulet(item.sub_type);
+    else if (item.base_type == OBJ_ARMOUR)
+        return true;
+    else if (is_weapon(item))
+        return you.has_mutation(MUT_SLOW_WIELD);
+
+    // Probably nothing reaches this?
+    return true;
+}
+
 /**
  * Potentially prompt the player about a multitude of things related to changing
  * their current gear. This includes inscriptions, god disapproval, Drain^ and
@@ -1269,6 +1282,7 @@ bool warn_about_changing_gear(const vector<item_def*>& to_remove, item_def* to_e
         return false;
     }
 
+    bool needs_delay = to_equip && _is_slow_equip(*to_equip);
     for (const item_def* item : to_remove)
     {
         if (!maybe_warn_about_removing(*item))
@@ -1276,6 +1290,15 @@ bool warn_about_changing_gear(const vector<item_def*>& to_remove, item_def* to_e
             canned_msg(MSG_OK);
             return false;
         }
+        if (_is_slow_equip(*item))
+            needs_delay = true;
+    }
+
+    if (needs_delay && !i_feel_safe(true)
+        && !yesno("Spend multiple turns changing equipment while enemies are nearby?", true, 'n'))
+    {
+        canned_msg(MSG_OK);
+        return false;
     }
 
     // Check whether removing any of this sequence of items would cause us to
@@ -1399,6 +1422,11 @@ bool try_equip_item(item_def& item)
             equipment_slot used_slot = equipment.find_compatible_occupied_slot(
                                                              *to_remove.back(),
                                                              item);
+
+            // See if any other reason is preventing us from removing this.
+            if (!can_unequip_item(*to_remove.back()))
+                return false;
+
             equipment.remove(*to_remove.back());
 
             equipment.num_slots[used_slot] -= 1;
@@ -1433,19 +1461,6 @@ bool try_equip_item(item_def& item)
     item_def& real_item = you.inv[_get_item_slot_maybe_with_move(item)];
     do_equipment_change(&real_item, slot, to_remove);
 
-    return true;
-}
-
-static bool _is_slow_equip(const item_def& item)
-{
-    if (item.base_type == OBJ_JEWELLERY)
-        return jewellery_is_amulet(item.sub_type);
-    else if (item.base_type == OBJ_ARMOUR)
-        return true;
-    else if (is_weapon(item))
-        return you.has_mutation(MUT_SLOW_WIELD);
-
-    // Probably nothing reaches this?
     return true;
 }
 
@@ -1556,13 +1571,6 @@ void do_equipment_change(item_def* to_equip, equipment_slot equip_slot,
         if (_is_slow_equip(*item))
             needs_delay = true;
 
-    if (needs_delay && !i_feel_safe(true)
-        && !yesno("Spend multiple turns changing equipment anyway?", true, 'n'))
-    {
-        canned_msg(MSG_OK);
-        return;
-    }
-
     const bool is_multi = (to_equip != nullptr && !to_remove.empty())
                             || to_remove.size() > 1;
 
@@ -1612,35 +1620,55 @@ void do_equipment_change(item_def* to_equip, equipment_slot equip_slot,
     you.turn_is_over = true;
 }
 
-bool try_unequip_item(item_def& item)
+bool can_unequip_item(item_def& item, bool silent)
 {
     if (item_is_melded(item))
     {
-        mprf(MSGCH_PROMPT, "%s is melded into your body!",
-                           item.name(DESC_YOUR).c_str());
+        if (!silent)
+        {
+            mprf(MSGCH_PROMPT, "%s is melded into your body!",
+                               item.name(DESC_YOUR).c_str());
+        }
         return false;
     }
 
     if (item.cursed())
     {
-        mprf(MSGCH_PROMPT, "%s is stuck to your body!",
-                            item.name(DESC_YOUR).c_str());
+        if (!silent)
+        {
+            mprf(MSGCH_PROMPT, "%s is stuck to your body!",
+                                item.name(DESC_YOUR).c_str());
+        }
         return false;
     }
 
-    if (is_unrandom_artefact(item, UNRAND_DEMON_AXE))
+    if (is_unrandom_artefact(item, UNRAND_DEMON_AXE) && you.beheld())
     {
-        mprf(MSGCH_PROMPT, "Your thirst for blood prevents you from unwielding "
-                           "your weapon!");
+        if (!silent)
+        {
+            mprf(MSGCH_PROMPT, "Your thirst for blood prevents you from unwielding "
+                               "your weapon!");
+        }
         return false;
     }
 
     if (you.duration[DUR_VAINGLORY] && is_unrandom_artefact(item, UNRAND_VAINGLORY))
     {
-        mprf(MSGCH_PROMPT, "It would be unfitting for someone so glorious to "
-                           "remove their crown in front of an audience.");
+        if (!silent)
+        {
+            mprf(MSGCH_PROMPT, "It would be unfitting for someone so glorious to "
+                               "remove their crown in front of an audience.");
+        }
         return false;
     }
+
+    return true;
+}
+
+bool try_unequip_item(item_def& item)
+{
+    if (!can_unequip_item(item))
+        return false;
 
     vector<item_def*> to_remove = {&item};
 
@@ -1670,14 +1698,8 @@ static bool _try_unwield_weapons()
     }
 
     for (item_def* item : weapons)
-    {
-        if (item->cursed())
-        {
-            mprf(MSGCH_PROMPT, "%s is stuck to your body!",
-                                    item->name(DESC_YOUR).c_str());
+        if (!can_unequip_item(*item))
             return false;
-        }
-    }
 
     if (!warn_about_changing_gear(weapons))
         return false;
@@ -2874,7 +2896,19 @@ bool read(item_def* scroll, dist *target)
         break;
 
     case SCR_TELEPORTATION:
+    {
+        // you_teleport already handles much of this, but this allows a more
+        // robust message for unidentified tele scrolls read with -tele
+        const string reason = you.no_tele_reason();
+        if (!reason.empty())
+        {
+            mpr(pre_succ_msg);
+            mpr(reason);
+            break;
+        }
+
         you_teleport();
+    }
         break;
 
     case SCR_ACQUIREMENT:

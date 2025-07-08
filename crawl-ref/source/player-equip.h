@@ -79,7 +79,7 @@ struct player_equip_set
     item_def* get_first_slot_item(equipment_slot slot, bool include_melded = false) const;
     player_equip_entry& get_entry_for(const item_def& item);
 
-    bool slot_is_fully_covered(equipment_slot slot) const;
+    bool innate_slot_is_covered(equipment_slot slot) const;
     bool has_compatible_slot(equipment_slot slot, bool include_form = false) const;
 
     // Basic mutators
@@ -88,6 +88,7 @@ struct player_equip_set
 
     // Melding-related functions
     void meld_equipment(int slots, bool skip_effects = false);
+    void meld_equipment(vector<item_def*> to_meld, bool skip_effects = false);
     void unmeld_slot(equipment_slot slot, bool skip_effects = false);
     void unmeld_all_equipment(bool skip_effects = false);
     bool is_melded(const item_def& item);
@@ -114,11 +115,13 @@ struct player_equip_set
     void shift_twohander_to_slot(equipment_slot new_slot);
 
 private:
+    void handle_melding(vector<item_def*>& to_meld, bool skip_effects);
     void handle_unmelding(vector<item_def*>& to_unmeld, bool skip_effects);
 };
 
 int get_player_equip_slot_count(equipment_slot slot, string* zero_reason = nullptr,
-                                bool count_melded_unrands = false);
+                                bool count_melded_unrands = false,
+                                bool count_items = true);
 FixedVector<int, NUM_EQUIP_SLOTS> get_total_player_equip_slots();
 const vector<equipment_slot>& get_alternate_slots(equipment_slot slot);
 
