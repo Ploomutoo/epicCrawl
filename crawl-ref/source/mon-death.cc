@@ -257,10 +257,7 @@ static int _calc_player_experience(const monster* mons)
 
     // Award the player any XP remaining in the tesseract's XP pool.
     if (mons->type == MONS_BOUNDLESS_TESSERACT && mons->props.exists(TESSERACT_XP_KEY))
-    {
         experience += mons->props[TESSERACT_XP_KEY].get_int();
-        mprf("Awarding %d bonus XP.", mons->props[TESSERACT_XP_KEY].get_int());
-    }
 
     return experience;
 }
@@ -1821,7 +1818,7 @@ static bool _animate_dead_reap(monster &mons)
     return true;
 }
 
-static bool _reaping(monster &mons)
+static bool _reaping_brand(monster &mons)
 {
     if (!mons.props.exists(REAPING_DAMAGE_KEY))
         return false;
@@ -1890,7 +1887,7 @@ static bool _apply_necromancy(monster &mons, bool quiet, bool corpse_gone,
     if (corpse_gone || have_passive(passive_t::goldify_corpses))
         return false;
 
-    if (in_los && (_animate_dead_reap(mons) || _reaping(mons)))
+    if (in_los && (_animate_dead_reap(mons)))
         return true;
 
     return false;
@@ -3166,10 +3163,36 @@ item_def* monster_die(monster& mons, killer_type killer,
     // Must be done after health is set to zero and monster is properly marked dead.
     if (mons.type == MONS_BOUNDLESS_TESSERACT)
     {
-        mprf(MSGCH_ORB, "You feel the reach of Zot diminish.");
+        // Remove all non-rewarding spawns, along with the other tesseract.
         for (monster_iterator mi; mi; ++mi)
-            if (mi->type == MONS_BOUNDLESS_TESSERACT && mi->mid != mons.mid)
+        {
+            if (mi->type == MONS_BOUNDLESS_TESSERACT && mi->mid != mons.mid
+                && !(mi->flags & MF_BANISHED))
+            {
                 monster_die(**mi, killer, killer_index);
+            }
+            else if ((mi->flags & (MF_HARD_RESET | MF_NO_REWARD)
+                     && mi->props.exists(BLAME_KEY)))
+            {
+                const CrawlVector& blame = mi->props[BLAME_KEY].get_vector();
+                if (blame[blame.size() - 1].get_string() == "created by a Boundless Tesseract")
+                {
+                    if (you.can_see(**mi))
+                    {
+                        mprf(MSGCH_MONSTER_TIMEOUT, "%s is pulled back into %s original reality.",
+                             mi->name(DESC_THE).c_str(), mi->pronoun(PRONOUN_POSSESSIVE).c_str());
+                        }
+                    monster_die(**mi, KILL_RESET, NON_MONSTER);
+                }
+            }
+        }
+
+        if (you.props.exists(TESSERACT_START_TIME_KEY))
+        {
+            mprf(MSGCH_ORB, "You feel the reach of Zot diminish.");
+            mark_milestone("tesseract.kill", "destroyed the tesseracts.");
+            you.props.erase(TESSERACT_START_TIME_KEY);
+        }
     }
     if (mons_is_tentacle_head(mons_base_type(mons)))
     {
@@ -3264,6 +3287,8 @@ item_def* monster_die(monster& mons, killer_type killer,
                                  SPELL_DEATH_CHANNEL,
                                  static_cast<god_type>(you.attribute[ATTR_DIVINE_DEATH_CHANNEL]));
         }
+        else if (!you_worship(GOD_YREDELEMNUL))
+            (_reaping_brand(mons));
 
         if (in_los && corpseworthy && yred_torch_is_raised())
             yred_feed_torch(&mons);

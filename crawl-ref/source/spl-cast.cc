@@ -213,13 +213,30 @@ public:
             | MF_NO_WRAP_ROWS | MF_ALLOW_FORMATTING
             | MF_ARROWS_SELECT | MF_INIT_HOVER) {}
 protected:
-    bool process_command(command_type c) override
+    command_type get_command(int keyin) override
     {
+        if (keyin == '?')
+            return CMD_MENU_HELP;
+        return ToggleableMenu::get_command(keyin);
+    }
+
+    bool process_command(command_type cmd) override
+    {
+        if (cmd == CMD_MENU_HELP)
+        {
+            int idx = last_hovered;
+            if (idx >= 0 && idx < static_cast<int>(items.size()))
+            {
+                examine_index(idx);
+                return true;
+            }
+        }
+
         get_selected(&sel);
         // if there's a preselected item, and no current selection, select it.
         // for arrow selection, the hover starts on the preselected item so no
         // special handling is needed.
-        if (menu_action == ACT_EXECUTE && c == CMD_MENU_SELECT
+        if (menu_action == ACT_EXECUTE && cmd == CMD_MENU_SELECT
             && !(flags & MF_ARROWS_SELECT) && sel.empty())
         {
             for (size_t i = 0; i < items.size(); ++i)
@@ -231,7 +248,7 @@ protected:
                 }
             }
         }
-        return ToggleableMenu::process_command(c);
+        return ToggleableMenu::process_command(cmd);
     }
 
     bool examine_index(int i) override
@@ -274,6 +291,7 @@ int list_spells(bool toggle_with_I, bool transient, bool viewing,
 
     string more_str = make_stringf("<lightgrey>Select a spell to %s</lightgrey>",
         real_action.c_str());
+    more_str = pad_more_with_esc(more_str + "   [<w>?</w>] help");
     string toggle_desc = menu_keyhelp_cmd(CMD_MENU_CYCLE_MODE);
     if (toggle_with_I)
     {
@@ -368,6 +386,15 @@ static int _apply_spellcasting_success_boosts(spell_type spell, int chance)
         fail_reduce = fail_reduce * 2 / 3;
 
     if (you.form == transformation::sun_scarab && spell_typematch(spell, spschool::fire))
+        fail_reduce = fail_reduce * 2 / 3;
+
+    if (you.wearing_ego(OBJ_ARMOUR, SPARM_COMMAND) && spell_typematch(spell, spschool::summoning))
+        fail_reduce = fail_reduce * 180 / (180 + you.skill(SK_ARMOUR, 10));
+
+    if (you.wearing_ego(OBJ_ARMOUR, SPARM_DEATH) && spell_typematch(spell, spschool::necromancy))
+        fail_reduce = fail_reduce / 2;
+
+    if (you.wearing_ego(OBJ_ARMOUR, SPARM_RESONANCE) && spell_typematch(spell, spschool::forgecraft))
         fail_reduce = fail_reduce * 2 / 3;
 
     const int wizardry = player_wizardry();
@@ -549,6 +576,12 @@ int calc_spell_power(spell_type spell)
 
     if (you.duration[DUR_ENKINDLED] && spell_can_be_enkindled(spell))
         power = (power + (you.experience_level * 300)) * 3 / 2;
+
+    if (you.wearing_ego(OBJ_ARMOUR, SPARM_COMMAND) && spell_typematch(spell, spschool::summoning))
+        power = power * (270 + you.skill(SK_ARMOUR, 10)) / 270;
+
+    if (you.wearing_ego(OBJ_ARMOUR, SPARM_CONJURING) && !spell_typematch(spell, spschool::conjuration))
+        power = power * (540 + you.skill(SK_CONJURATIONS, 10)) / 540;
 
     // at this point, `power` is assumed to be basically in centis.
     // apply a stepdown, and scale.
@@ -774,6 +807,13 @@ static bool _majin_charge_hp()
     return you.unrand_equipped(UNRAND_MAJIN) && !you.duration[DUR_DEATHS_DOOR];
 }
 
+static bool _death_ego_charge_hp(spell_type spell)
+{
+    return you.wearing_ego(OBJ_ARMOUR, SPARM_DEATH)
+            && !spell_typematch(spell, spschool::necromancy)
+            && !you.duration[DUR_DEATHS_DOOR];
+}
+
 
 /**
  * Cast a spell.
@@ -972,6 +1012,8 @@ spret cast_a_spell(bool check_range, spell_type spell, dist *_target,
     const int hp_cost = min(spell_mana(spell), you.hp - 1);
     if (_majin_charge_hp())
         pay_hp(hp_cost);
+    if (_death_ego_charge_hp(spell))
+        pay_hp(hp_cost);
 
     const spret cast_result = your_spells(spell, 0, !you.divine_exegesis,
                                           nullptr, _target, force_failure);
@@ -983,6 +1025,8 @@ spret cast_a_spell(bool check_range, spell_type spell, dist *_target,
         // Return the MP since the spell is aborted.
         refund_mp(cost);
         if (_majin_charge_hp())
+            refund_hp(hp_cost);
+        if (_death_ego_charge_hp(spell))
             refund_hp(hp_cost);
 
         redraw_screen();
@@ -3463,7 +3507,9 @@ bool warn_about_contam_cost(int max_contam)
     if (!Options.warn_contam_cost || you.magic_contamination >= 1000)
         return false;
 
-    if (you.magic_contamination + max_contam >= 1000)
+    const int mul = you.has_mutation(MUT_CONTAMINATION_SUSCEPTIBLE) ? 2 : 1;
+
+    if (you.magic_contamination + (max_contam * mul) >= 1000)
         return !yesno("Casting this now could dangerously contaminate you. Continue?", true, 'n');
 
     return false;

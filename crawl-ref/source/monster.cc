@@ -4414,16 +4414,23 @@ int monster::hurt(const actor *agent, int amount, beam_type flavour,
                 mirror_damage_fineff::schedule(valid_agent, this, amount * 2 / 3);
         }
 
-        // Trigger corrupting presence
-        if (agent && agent->is_player() && alive()
-            && you.get_mutation_level(MUT_CORRUPTING_PRESENCE))
+        // Trigger corrupting presence and orbs of glass
+        if (agent && agent->is_player() && alive())
         {
-            if (one_chance_in(12))
-                this->corrode(&you, "Your corrupting presence");
-            if (you.get_mutation_level(MUT_CORRUPTING_PRESENCE) > 1
-                        && one_chance_in(12))
+            if (you.get_mutation_level(MUT_CORRUPTING_PRESENCE))
             {
-                this->malmutate(&you, "Your corrupting presence");
+                if (one_chance_in(12))
+                    this->corrode(&you, "Your corrupting presence");
+                if (you.get_mutation_level(MUT_CORRUPTING_PRESENCE) > 1
+                        && one_chance_in(12))
+                {
+                    this->malmutate(&you, "Your corrupting presence");
+                }
+            }
+            if (you.wearing_ego(OBJ_ARMOUR, SPARM_GLASS)
+                && x_chance_in_y(40 + you.skill(SK_EVOCATIONS, 10), 500))
+            {
+                this->vitrify(&you, 4 + random2(5 + you.skill(SK_EVOCATIONS)));
             }
         }
 
@@ -5107,10 +5114,15 @@ bool monster::can_mutate() const
     if (type == MONS_CHAOS_SPAWN)
         return false;
 
-    // Abominations re-randomize their tile when mutated. They do not gain the
-    // malmutate status or experience any other non-cosmetic effect.
-    if (type == MONS_ABOMINATION_SMALL || type == MONS_ABOMINATION_LARGE)
+    // Abominations and crawling flesh cages re-randomize their tile when
+    // mutated. They do not gain the malmutate status or experience any other
+    // non-cosmetic effect.
+    if (type == MONS_ABOMINATION_SMALL
+        || type == MONS_ABOMINATION_LARGE
+        || type == MONS_CRAWLING_FLESH_CAGE)
+    {
         return true;
+    }
 
     const mon_holy_type holi = holiness();
 
@@ -5128,10 +5140,17 @@ bool monster::can_polymorph() const
     if (type == MONS_CHAOS_SPAWN)
         return true;
 
-    // Abominations re-randomize their tile when mutated, so can_mutate returns
-    // true for them. Like all undead, they can't be polymorphed.
-    if (type == MONS_ABOMINATION_SMALL || type == MONS_ABOMINATION_LARGE)
+    // Abominations and crawling flesh cages re-randomize their tile when
+    // mutated, so can_mutate returns true for them. Abominations can't be
+    // polymorphed because they're undead, and crawling flesh cages can't be
+    // polymorphed the usual way because they're mostly made of ugly thing
+    // fragments.
+    if (type == MONS_ABOMINATION_SMALL
+        || type == MONS_ABOMINATION_LARGE
+        || type == MONS_CRAWLING_FLESH_CAGE)
+    {
         return false;
+    }
 
     // Polymorphing apostles breaks all sorts of things (like making challenges
     // unwinnable if it happens) and it would be complex to fix this, so let's
@@ -5185,9 +5204,12 @@ bool monster::malmutate(const actor* source, const string& /*reason*/)
     if (!can_mutate())
         return false;
 
-    // Abominations re-randomize their tile when mutated. They do not gain the
-    // malmutate status or experience any other non-cosmetic effect.
-    if (type == MONS_ABOMINATION_SMALL || type == MONS_ABOMINATION_LARGE)
+    // Abominations and crawling flesh cages re-randomize their tile when
+    // mutated. They do not gain the malmutate status or experience any other
+    // non-cosmetic effect.
+    if (type == MONS_ABOMINATION_SMALL
+        || type == MONS_ABOMINATION_LARGE
+        || type == MONS_CRAWLING_FLESH_CAGE)
     {
 #ifdef USE_TILE
         props[TILE_NUM_KEY].get_short() = ui_random(256);

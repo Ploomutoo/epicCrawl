@@ -4991,6 +4991,18 @@ int str_to_ego(object_class_type item_type, string ego_str)
         "mayhem",
         "guile",
         "energy",
+        "sniping",
+        "ice",
+        "fire",
+        "air",
+        "earth",
+        "archery",
+        "command",
+        "death",
+        "resonance",
+        "parrying",
+        "conjuring",
+        "glass",
         nullptr
     };
     COMPILE_CHECK(ARRAYSZ(armour_egos) == NUM_REAL_SPECIAL_ARMOURS);
@@ -5299,6 +5311,7 @@ bool item_list::parse_single_spec(item_spec& result, string s)
     {
         result.level = ISPEC_MUNDANE;
         result.ego   = -1;
+        result.allow_uniques = 0;
     }
     if (strip_tag(s, "damaged"))
         result.level = ISPEC_DAMAGED;

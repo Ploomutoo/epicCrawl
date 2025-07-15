@@ -40,6 +40,14 @@ end
 # <<E>> Temple entries
 ##############################################################################
 
+# Dummy Temple entry
+NAME:   temple_entry_dummy
+TAGS:   transparent
+: temple_entry(_G)
+MAP
+ZOZ
+ENDMAP
+
 NAME:   temple_hall
 SUBST:  ? : c:20 x v b G:5
 : temple_entry(_G)
@@ -98,13 +106,6 @@ MAP
 ...?...
 ENDMAP
 
-NAME:   temple_statues
-TAGS:   transparent
-: temple_entry(_G)
-MAP
-ZOZ
-ENDMAP
-
 NAME:   temple_green
 TAGS:   transparent
 NSUBST: ? = 1:+ / * = +bb
@@ -143,9 +144,9 @@ ENDMAP
 NAME:    temple_doors_cd
 TAGS:    transparent
 WEIGHT:  2
-SHUFFLE: Y'"C& / ZD~~~
+SHUFFLE: Y'"C& / yD~~~
 NSUBST:  XY = + / m+
-SUBST:   Z = m, cCD : cxxx
+SUBST:   y = m, cCD : cxxx
 SUBST:   ? : ?:40 T:30 U, ? = T:30 U, & = @
 CLEAR:   ~
 : temple_entry(_G)

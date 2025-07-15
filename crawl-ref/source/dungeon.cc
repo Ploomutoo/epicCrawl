@@ -1679,6 +1679,9 @@ static int _num_mons_wanted()
     int mon_wanted = roll_dice(3, _mon_die_size());
     if (mon_wanted > 60)
         mon_wanted = 60;
+
+    if (level_id::current() == level_id(BRANCH_ZOT, 5))
+        mon_wanted = max(10, mon_wanted - 4);
     return mon_wanted;
 }
 
@@ -3878,6 +3881,17 @@ static void _place_branch_entrances(bool use_vaults)
                 if (_place_vault_by_tag(entry_tag))
                     // Placed this entrance, carry on to subsequent branches
                     continue;
+                // If placing a normal Temple entrance failed, try again to
+                // place the smallest possible one, and if that also fails, veto
+                // the level (to ensure Zot orb statues are always placed.)
+                else if (it->id == BRANCH_TEMPLE)
+                {
+                    const map_def* dummy = find_map_by_name("temple_entry_dummy");
+                    if (dummy && _build_secondary_vault(dummy))
+                        continue;
+
+                    throw dgn_veto_exception("Failed to place Temple entry.");
+                }
             }
 
             // Otherwise place a single stair feature.

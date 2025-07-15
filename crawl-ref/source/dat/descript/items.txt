@@ -6,6 +6,10 @@ much protection as the armour made from the scales of some larger dragons, it is
 somewhat lighter and less encumbering. It is also remarkably smooth, letting
 corrosive slime flow off it like water.
 %%%%
+Amulet of alchemy
+
+An amulet that enhances and reduces the mp cost of alchemy spells.
+%%%%
 amulet of faith
 
 A charm crafted to call the attention of the gods to its wearer. This divine
@@ -45,6 +49,11 @@ amulet of the acrobat
 An amulet that allows the user to tumble and roll to evade the blows of their
 enemies, but only while moving and waiting. While taking other actions
 (including climbing stairs) the amulet conveys no benefits.
+%%%%
+amulet of wildshape
+
+An amulet which improves its wearer's skill with shapeshifting. The benefit
+provided depends somewhat on the wearer's base shapeshifting skill.
 %%%%
 animal skin
 
@@ -1181,9 +1190,15 @@ A slender, sharply pointed sword, with an uncommonly elegant design.
 riddle talisman
 
 An intricate puzzlebox containing an unknowable prize. Transforms the user into
-a riddle-loving sphinx. In this form, they are capable of wearing a cloak and
-barding, and their melee attacks cause powerful winds to strike their foe which
-do increased damage for every open space next to them. They are also masterful
+a riddle-loving sphinx. In this form, they are {{
+    if you.race() == "Felid" then
+        return "normally capable of wearing a cloak and barding (though your" ..
+               " own diminutive size would prevent this)"
+    else
+        return "capable of wearing a cloak and barding"
+    end
+}}, and their melee attacks cause powerful winds to strike their foe which do
+increased damage for every open space next to them. They are also masterful
 enchanters, casting Hex spells much more easily and ignoring a portion of their
 foe's Willpower.
 
@@ -1212,20 +1227,9 @@ ring of evasion
 
 A ring that makes its wearer more capable of avoiding attacks.
 %%%%
-ring of fire
-
-A ring that brings its wearer more in contact with the powers of fire. It
-grants resistance to heat and enhances fire magic, but causes vulnerability to
-cold.
-%%%%
 ring of flight
 
 A ring that grants its wearer flight.
-%%%%
-ring of ice
-
-A ring that brings its wearer more in contact with the powers of ice. It grants
-resistance to cold and enhances ice magic, but causes vulnerability to heat.
 %%%%
 ring of intelligence
 

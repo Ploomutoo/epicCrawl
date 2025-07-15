@@ -228,9 +228,9 @@ enum jewellery_type
     RING_FLIGHT,
     RING_POSITIVE_ENERGY,
     RING_WILLPOWER,
+#if TAG_MAJOR_VERSION == 34
     RING_FIRE,
     RING_ICE,
-#if TAG_MAJOR_VERSION == 34
     RING_TELEPORT_CONTROL,
 #endif
     NUM_RINGS,                         //   keep as last ring; should not overlap
@@ -263,6 +263,9 @@ enum jewellery_type
     AMU_FAITH,
     AMU_REFLECTION,
     AMU_REGENERATION,
+    AMU_WILDSHAPE,
+    AMU_ALCHEMY,
+    AMU_DISSIPATION,
 
     NUM_JEWELLERY
 };
@@ -519,6 +522,18 @@ enum special_armour_type
     SPARM_MAYHEM,
     SPARM_GUILE,
     SPARM_ENERGY,
+    SPARM_SNIPING,
+    SPARM_ICE,
+    SPARM_FIRE,
+    SPARM_AIR,
+    SPARM_EARTH,
+    SPARM_ARCHERY,
+    SPARM_COMMAND,
+    SPARM_DEATH,
+    SPARM_RESONANCE,
+    SPARM_PARRYING,
+    SPARM_CONJURING,
+    SPARM_GLASS,
     NUM_REAL_SPECIAL_ARMOURS,
     NUM_SPECIAL_ARMOURS,
 };

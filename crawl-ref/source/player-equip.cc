@@ -1697,7 +1697,7 @@ void equip_artefact_effect(item_def &item, bool *show_msgs, bool unmeld)
     {
         if (msg)
             mpr("You feel a malign power afflict you.");
-        add_bane();
+        add_bane(NUM_BANES, "Equipping an artefact");
     }
 
     if (proprt[ARTP_RAMPAGING] && msg && !unmeld
@@ -2402,6 +2402,14 @@ static void _remove_amulet_of_faith(item_def &item)
     lose_piety(piety_loss);
 }
 
+static void _change_wildshape_status()
+{
+    calc_hp();
+    calc_mp();
+    redraw_screen();
+    update_screen();
+}
+
 static void _handle_regen_item_equip(const item_def& item)
 {
     const bool regen_hp = is_regen_item(item);
@@ -2462,6 +2470,11 @@ bool acrobat_boost_active()
            && (!you.is_constricted());
 }
 
+bool parrying_boost_active()
+{
+    return player_parrying() && you.duration[DUR_PARRYING];
+}
+
 static void _equip_amulet_of_reflection()
 {
     you.redraw_armour_class = true;
@@ -2472,14 +2485,6 @@ static void _equip_jewellery_effect(item_def &item, bool unmeld)
 {
     switch (item.sub_type)
     {
-    case RING_FIRE:
-        mpr("You feel more attuned to fire.");
-        break;
-
-    case RING_ICE:
-        mpr("You feel more attuned to ice.");
-        break;
-
     case RING_SEE_INVISIBLE:
         autotoggle_autopickup(false);
         break;
@@ -2554,6 +2559,22 @@ static void _equip_jewellery_effect(item_def &item, bool unmeld)
         _equip_amulet_of_reflection();
         break;
 
+    case AMU_WILDSHAPE:
+        if (!you.skill(SK_SHAPESHIFTING))
+            mpr("You feel meek and tame.");
+        else
+            mpr("You feel a wild power.");
+        _change_wildshape_status();
+        break;
+
+    case AMU_ALCHEMY:
+        mpr("You feel more attuned to alchemy.");
+        break;
+
+    case AMU_DISSIPATION:
+        mpr("You feel as though your troubles will go away faster.");
+        break;
+
     case AMU_GUARDIAN_SPIRIT:
         _spirit_shield_message(unmeld);
         break;
@@ -2570,8 +2591,6 @@ static void _unequip_jewellery_effect(item_def &item, bool meld)
     // The ring/amulet must already be removed from you.equipment at this point.
     switch (item.sub_type)
     {
-    case RING_FIRE:
-    case RING_ICE:
     case RING_POSITIVE_ENERGY:
     case RING_POISON_RESISTANCE:
     case RING_PROTECTION_FROM_COLD:
@@ -2627,6 +2646,10 @@ static void _unequip_jewellery_effect(item_def &item, bool meld)
     case AMU_FAITH:
         if (!meld)
             _remove_amulet_of_faith(item);
+        break;
+
+    case AMU_WILDSHAPE:
+            _change_wildshape_status();
         break;
 
 #if TAG_MAJOR_VERSION == 34

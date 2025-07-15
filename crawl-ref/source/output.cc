@@ -637,7 +637,8 @@ static bool _boosted_sh()
            || (you.get_mutation_level(MUT_EPHEMERAL_SHIELD)
                 && you.duration[DUR_EPHEMERAL_SHIELD])
            || (you.get_mutation_level(MUT_CONDENSATION_SHIELD)
-                && !you.duration[DUR_ICEMAIL_DEPLETED]);
+                && !you.duration[DUR_ICEMAIL_DEPLETED])
+           || you.duration[DUR_PARRYING];
 }
 
 #ifdef DGL_SIMPLE_MESSAGING
@@ -1040,7 +1041,7 @@ static void _print_stats_doom(int x, int y)
 
     // Hide the bar entirely if there is no active doom (since that will be true
     // most of the time).
-    if (you.attribute[ATTR_DOOM] == 0)
+    if (you.attribute[ATTR_DOOM] == 0 && !Options.always_show_doom_contam)
     {
         CPRINTF("          ");
         return;
@@ -1056,8 +1057,10 @@ static void _print_stats_doom(int x, int y)
         textcolour(LIGHTRED);
     else if (you.attribute[ATTR_DOOM] >= 25)
         textcolour(YELLOW);
-    else
+    else if (you.attribute[ATTR_DOOM] > 0)
         textcolour(LIGHTGRAY);
+    else
+        textcolour(DARKGRAY);
 
     CPRINTF("%d%% ", you.attribute[ATTR_DOOM]);
     you.redraw_doom = false;
@@ -1068,9 +1071,9 @@ static void _print_stats_contam(int x, int y)
     CGOTOXY(x, y, GOTO_STAT);
 
     // Hide the bar entirely if the player has no contam
-    if (you.magic_contamination == 0)
+    if (you.magic_contamination == 0 && !Options.always_show_doom_contam)
     {
-        CPRINTF("            ");
+        CPRINTF("          ");
         return;
     }
 
@@ -1078,7 +1081,8 @@ static void _print_stats_contam(int x, int y)
     textcolour(HUD_CAPTION_COLOUR);
     CPRINTF("Contam: ");
 
-    const int contam = max(1, you.magic_contamination / 10);
+    const int contam = max(you.magic_contamination > 0 ? 1 : 0,
+                           you.magic_contamination / 10);
     if (contam >= 200)
         textcolour(RED);
     else if (contam >= 100)
@@ -1289,6 +1293,7 @@ static void _get_status_lights(vector<status_light>& out)
     // statuses important enough to appear first. (Rightmost)
     const unsigned int important_statuses[] =
     {
+        STATUS_TESSERACT,
         STATUS_ORB,
         STATUS_ZOT,
         STATUS_STAT_ZERO,
@@ -2142,14 +2147,16 @@ static void _print_overview_screen_equip(column_composer& cols,
 
             const int item_idx   = equipped[i].item;
             const char equip_char = index_to_letter(item_idx);
+            const int equip_width = (melded ? sw - 32 : sw - 25)
+                - (Options.show_resist_percent ? 3 : 0);
 
             str = make_stringf(
                      "<w>%c</w> - <%s>%s%s</%s>",
                      equip_char,
                      colname.c_str(),
                      melded ? "melded " : "",
-                     chop_string(item.name(DESC_PLAIN, true),
-                                 melded ? sw - 32 : sw - 25, false).c_str(),
+                     chop_string(item.name(DESC_PLAIN, true), equip_width,
+                        false).c_str(),
                      colname.c_str());
             equip_chars.push_back(equip_char);
 
