@@ -1396,7 +1396,7 @@ int player_res_corrosion(bool allow_random, bool temp, bool items)
         if (you.scan_artefacts(ARTP_RCORR)
             || you.wearing(OBJ_ARMOUR, ARM_ACID_DRAGON_ARMOUR)
             || you.wearing_jewellery(RING_RESIST_CORROSION)
-            || you.wearing_ego(OBJ_ARMOUR, SPARM_PRESERVATION))
+            || you.wearing_ego(OBJ_ARMOUR, SPARM_CORROSION_RESISTANCE))
         {
             return 1;
         }
@@ -1536,7 +1536,7 @@ int player_spec_death()
 {
     int sd = 0;
 
-    sd += you.wearing(OBJ_STAVES, STAFF_DEATH);
+    sd += you.wearing(OBJ_STAVES, STAFF_NECROMANCY);
 
     sd += you.get_mutation_level(MUT_NECRO_ENHANCER);
 
@@ -1705,7 +1705,7 @@ int player_prot_life(bool allow_random, bool temp, bool items)
             pl++;
         }
 
-        pl += you.wearing(OBJ_STAVES, STAFF_DEATH);
+        pl += you.wearing(OBJ_STAVES, STAFF_NECROMANCY);
     }
 
     // undead/demonic power
@@ -6413,7 +6413,7 @@ int player::armour_class_scaled(int scale) const
             AC += _meek_bonus() * 100;
     }
 
-    if (you.wearing_ego(OBJ_GIZMOS, SPGIZMO_PARRYREV))
+    if (you.wearing_ego(OBJ_GIZMOS, SPGIZMO_REVGUARD))
     {
         const static int rev_bonus[] = {0, 200, 400, 500};
         AC += rev_bonus[you.rev_tier()];
@@ -8580,7 +8580,7 @@ void player::rev_down(int dur)
     const int perc_lost = div_rand_round(dur * 5, 6);
     you.props[REV_PERCENT_KEY] = max(0, you.rev_percent() - perc_lost);
 
-    if (you.wearing_ego(OBJ_GIZMOS, SPGIZMO_PARRYREV))
+    if (you.wearing_ego(OBJ_GIZMOS, SPGIZMO_REVGUARD))
         you.redraw_armour_class = true;
 }
 
@@ -8593,7 +8593,7 @@ void player::rev_up(int dur)
     const int perc_gained = random_range(dur * 2, dur * 3);
     you.props[REV_PERCENT_KEY] = min(100, you.rev_percent() + perc_gained);
 
-    if (you.wearing_ego(OBJ_GIZMOS, SPGIZMO_PARRYREV))
+    if (you.wearing_ego(OBJ_GIZMOS, SPGIZMO_REVGUARD))
         you.redraw_armour_class = true;
 }
 

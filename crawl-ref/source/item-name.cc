@@ -554,7 +554,7 @@ const char* special_armour_type_name(special_armour_type ego, bool terse)
 #if TAG_MAJOR_VERSION == 34
         case SPARM_JUMPING:           return "jumping";
 #endif
-        case SPARM_PRESERVATION:      return "preservation";
+        case SPARM_CORROSION_RESISTANCE: return "corrosion resistance";
         case SPARM_REFLECTION:        return "reflection";
         case SPARM_SPIRIT_SHIELD:     return "spirit shield";
         case SPARM_HURLING:           return "hurling";
@@ -613,7 +613,7 @@ const char* special_armour_type_name(special_armour_type ego, bool terse)
 #if TAG_MAJOR_VERSION == 34
         case SPARM_JUMPING:           return "obsolete";
 #endif
-        case SPARM_PRESERVATION:      return "rCorr";
+        case SPARM_CORROSION_RESISTANCE: return "rCorr";
         case SPARM_REFLECTION:        return "reflect";
         case SPARM_SPIRIT_SHIELD:     return "Spirit";
         case SPARM_HURLING:           return "hurl";
@@ -862,7 +862,7 @@ const char* jewellery_effect_name(int jeweltype, bool terse)
 #endif
         case AMU_ACROBAT:                return "Acrobat";
         case AMU_WILDSHAPE:              return "Wildshape";
-        case AMU_ALCHEMY:                return "Alch";
+        case AMU_ALCHEMY:                return "Alch+";
         case AMU_DISSIPATION:            return "Dissipate";
         case AMU_NOTHING:                return "";
         default: return "buggy";
@@ -1041,7 +1041,7 @@ const char* gizmo_effect_name(int type)
     {
         case SPGIZMO_SPELLMOTOR:    return "SpellMotor";
         case SPGIZMO_GADGETEER:     return "Gadgeteer";
-        case SPGIZMO_PARRYREV:      return "RevArmour";
+        case SPGIZMO_REVGUARD:      return "RevGuard";
         case SPGIZMO_AUTODAZZLE:    return "AutoDazzle";
 
         default:

@@ -262,6 +262,9 @@ const char* jewellery_base_ability_string(int subtype)
     case AMU_GUARDIAN_SPIRIT:     return "Spirit";
     case AMU_FAITH:               return "Faith";
     case AMU_REFLECTION:          return "Reflect";
+    case AMU_WILDSHAPE:           return "Wildshape";
+    case AMU_ALCHEMY:             return "Alch+";
+    case AMU_DISSIPATION:         return "Dissipate";
 #if TAG_MAJOR_VERSION == 34
     case AMU_INACCURACY:          return "Inacc";
 #endif
@@ -685,7 +688,8 @@ static const char* _jewellery_base_ability_description(int subtype)
     case AMU_WILDSHAPE:
         return "It improves your skill with shapeshifting (+5)";
     case AMU_ALCHEMY:
-        return "It enhances your alchemy spells and reduces their mp cost.";
+        return "It enhances your alchemy spells and restores some MP when you "
+               "drink potions.";
     case AMU_DISSIPATION:
         return "It reduces the duration of hostile enchantments and decays "
                "magical contamination more quickly.";
@@ -2319,7 +2323,7 @@ static const char* _item_ego_desc(special_armour_type ego)
         return "it protects its wearer from the effects of negative energy.";
     case SPARM_ARCHMAGI:
         return "it increases the power of its wearer's magical spells.";
-    case SPARM_PRESERVATION:
+    case SPARM_CORROSION_RESISTANCE:
         return "it protects its wearer from the effects of acid and corrosion.";
     case SPARM_REFLECTION:
         return "it reflects blocked missile attacks back in the "
@@ -2697,7 +2701,7 @@ static string _describe_gizmo(const item_def &item)
                        "a 30% chance to not spend a charge.\n";
                 break;
 
-            case SPGIZMO_PARRYREV:
+            case SPGIZMO_REVGUARD:
                 ret += "Your AC increases as you Rev (up to +5) and while "
                        "fully Revved, your attacks may disarm enemies.\n";
                 break;
@@ -2933,9 +2937,7 @@ string get_item_description(const item_def &item,
 
     case OBJ_JEWELLERY:
         desc = _describe_jewellery(item, verbose);
-        if (desc.empty())
-            need_extra_line = false;
-        else
+        if (!desc.empty())
             description << desc;
         break;
 
@@ -5365,7 +5367,7 @@ static string _monster_staff_damage_string(const monster_info &mi,
     // From monster::skill
     const int evo_skill = mi.hd;
     int staff_skill;
-    if (staff == STAFF_DEATH)
+    if (staff == STAFF_NECROMANCY)
         staff_skill = mi.has_necromancy_spell() ? mi.hd : mi.hd / 2;
     else
         staff_skill = mi.is_actual_spellcaster() ? mi.hd : mi.hd / 3;
@@ -5377,7 +5379,7 @@ static string _monster_staff_damage_string(const monster_info &mi,
                            : staff == STAFF_COLD          ? "cold"
                            : staff == STAFF_AIR           ? "elec"
                            : staff == STAFF_EARTH         ? "earth"
-                           : staff == STAFF_DEATH         ? "drain"
+                           : staff == STAFF_NECROMANCY    ? "drain" // pain?
                            : staff == STAFF_ALCHEMY       ? "poison"
                            /*staff == STAFF_CONJURATION*/ : "conj";
 
