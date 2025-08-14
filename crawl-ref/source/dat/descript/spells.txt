@@ -69,9 +69,14 @@ of defenders' armour.
 %%%%
 Avatar Song spell
 
-Sings a powerfully haunting song; in addition to making nearby victims
-unwilling to move away from the singer, it calls forth drowned souls from
-any nearby bodies of deep water.
+Sings a powerfully haunting song. Adventurers who fail to resist will become
+unable to move away from the singer (and will sometimes be drawn closer
+involuntarily), while other creatures will become dazed outright.
+
+In addition, it may call forth drowned souls from any nearby bodies of deep
+water.
+
+Leaving the caster's line of sight will end the movement-controlling effect.
 %%%%
 Awaken Armour spell
 
@@ -549,6 +554,16 @@ spell. They will instead lash out randomly for the duration of its effect,
 attacking nearby friend and foe alike before regaining their wits.
 
 This spell can be broken prematurely by the death of its caster.
+%%%%
+Doomsaying spell
+
+Foretells a terrible future, inflicting Doom equal to half of what it would take
+for you to reach 100%. Upon the caster's death, a sliver of this fate will come
+to pass and you will be ambushed by enemies from elsewhere on the floor; if none
+remain, equivalent monsters will be summoned instead.
+
+Can only be cast a single time, but even slaying the messenger in their sleep
+will not avoid what fate has in store for you.
 %%%%
 Doom Bolt spell
 
@@ -1274,8 +1289,11 @@ Tougher, more experienced creatures are less likely to be affected.
 %%%%
 Mesmerise spell
 
-Makes a targeted creature unwilling to move away from the caster. Leaving the
-caster's line of sight will end the effect.
+Attempts to entrance all enemies in sight. Adventurers who fail to resist will
+become unable to move away from the caster, while other creatures will become
+dazed outright.
+
+Leaving the caster's line of sight will end the movement-controlling effect.
 %%%%
 Metabolic Englaciation spell
 
@@ -1846,8 +1864,11 @@ directly lethal. The pain inflicted then heals the user.
 %%%%
 Siren Song spell
 
-Sings a haunting song, making nearby victims unwilling to move away from the
-singer. Leaving the caster's line of sight will end the effect.
+Sings a haunting song that mesmerises nearby listeners. Adventurers who fail to
+resist will become unable to move away from the singer, while other creatures
+will become dazed outright.
+
+Leaving the caster's line of sight will end the movement-controlling effect.
 %%%%
 Sleep spell
 

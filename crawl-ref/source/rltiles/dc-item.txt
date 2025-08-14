@@ -597,8 +597,16 @@ i-command BRAND_ARM_COMMAND
 i-death BRAND_ARM_DEATH
 i-resonance BRAND_ARM_RESONANCE
 i-parrying BRAND_ARM_PARRYING
+<<<<<<< HEAD
 i-conjuring BRAND_ARM_CONJURING
 i-glass BRAND_ARM_GLASS BRAND_ARM_LAST
+=======
+i-glass BRAND_ARM_GLASS
+i-fire BRAND_ARM_PYROMANIA
+i-stardust BRAND_ARM_STARDUST
+i-mesmerism BRAND_ARM_MESMERISM
+i-attunement BRAND_ARM_ATTUNEMENT BRAND_ARM_LAST
+>>>>>>> ae3489853650ac58ff70fd6c1c66b119793ceecb
 %rim 1
 
 ###########OBJ_WANDS
@@ -1413,3 +1421,8 @@ rune_elven UNCOLLECTED_RUNE_ELVEN
 19 GOLD19
 23 GOLD23
 25 GOLD25
+
+#Local tile GUI
+%sdir gui/commands
+page_next ITEM_PAGE_NEXT
+page_previous ITEM_PAGE_PREVIOUS

@@ -57,15 +57,16 @@ The contents of this text are:
                 auto_switch, easy_unequip, equip_unequip, jewellery_prompt,
                 easy_confirm, simple_targeting, force_spell_targeter,
                 force_ability_targeter, allow_self_target, ability_menu,
-                spell_menu, easy_floor_use, sort_menus, spell_slot, item_slot,
-                ability_slot, autofight_stop, autofight_warning,
-                autofight_fires, autofight_nomove_fires, autofight_fire_stop,
-                autofight_caught, autofight_wait, autofight_prompt_range,
-                automagic_enable, automagic_slot, automagic_fight,
-                automagic_stop, fail_severity_to_confirm, easy_door,
-                warn_hatches, enable_recast_spell, confirm_action,
+                spell_menu, easy_floor_use, sort_menus, spell_slot, gear_slot,
+                consumable_shortcut, ability_slot, autofight_stop,
+                autofight_warning, autofight_fires, autofight_nomove_fires,
+                autofight_fire_stop, autofight_caught, autofight_wait,
+                autofight_prompt_range, automagic_enable, automagic_slot,
+                automagic_fight, automagic_stop, fail_severity_to_confirm,
+                easy_door, warn_hatches, enable_recast_spell, confirm_action,
                 regex_search, autopickup_search, bad_item_prompt,
-                auto_hide_spells, menu_arrow_control, single_column_item_menus
+                auto_hide_spells, menu_arrow_control, single_column_item_menus,
+                show_paged_inventory
 3-h     Message and Display Enhancements.
                 hp_warning, mp_warning, hp_colour, mp_colour, stat_colour,
                 status_caption_colour, enemy_hp_colour, clear_messages,
@@ -1197,9 +1198,9 @@ force_spell_targeter = hailstorm, starburst, frozen ramparts, ignition,
         be shown with every spell.
 
 force_ability_targeter = sanctuary, cleansing flame, word of chaos, recite,
-                         elemental force, oozemancy, galvanic breath, 
+                         elemental force, oozemancy, galvanic breath,
                          fathomless shackles, slouch, disaster area, apocalypse,
-                         corrupt, foxfire swarm, siphon essence, shadowslip, 
+                         corrupt, foxfire swarm, siphon essence, shadowslip,
                          watery grave
         Force showing a targeter for the listed abilities when activating them
         normally, even if the ability isn't targeted. This for practical
@@ -1327,9 +1328,15 @@ sort_menus = [menu:](true | false | auto:X)[:sort_order]
           items on the floor.
 
         * charged:
-          Makes wands known or assumed to have some charges left appear
-          before wands known to be empty; irrelevant for all other item
-          types.
+          Makes evokers with available charges appear before those which
+          are empty; irrelevant for all other item types.
+
+	* usefulness:
+	  Sorts consumables by their current 'usefulness' in the
+          following order: Emergency (eg: ?blinking, !heal wounds),
+	  Good (eg: ?acquirement), Normal, Dangerous (eg: !lignification),
+	  Bad (eg: ?torment while worshipping a good god), and finally
+	  permanently useless.
 
         You can ask for a descending order sort by prefixing one or more
         sort criteria with > as:
@@ -1341,10 +1348,6 @@ sort_menus = [menu:](true | false | auto:X)[:sort_order]
              sort_menus = inv: true
         (Menu types must be specified as name:, with no space between
         name and colon.)
-
-        By default only pickup menus are sorted, and the sort criteria are:
-             "equipped, basename, qualname, curse, qty".
-        All other menus (drop, inv) will be sorted by inventory letter.
 
         The menu selectors available are:
 
@@ -1364,6 +1367,11 @@ sort_menus = [menu:](true | false | auto:X)[:sort_order]
         If you define sort_menus differently for two or more selectors,
         the last one matching will always take precedence, i.e. "any"
         as last setting would override any of the others.
+
+        By default pickup menus are sorted, and the sort criteria are:
+             "equipped, basename, qualname, curse, qty".
+        Inv and drop menus are sorted by "equipped, charged, identified,
+             usefulness, slot".
 
 spell_slot ^= <regex>:<list of spell letters>
         (Ordered list option, one value per line)
@@ -1392,15 +1400,23 @@ spell_slot ^= <regex>:<list of spell letters>
           spell_slot lines):
             spell_slot += .*:ABCDEFGHIJKLMNOPQRSTUVWXYZ
 
-item_slot ^= <regex>:<inventory letters>
+gear_slot ^= <regex>:<inventory letters>
         (Ordered list option, one value per line)
         Uses the same interface as spell_slot, except that overwrite mode
         is on by default; overwrite mode can be disabled with a - in the
         list of letters.
 
-        Additionally, the item_slot option is applied on an item when it is
-        identified, so it can be moved to the right place even if it was
-        picked up unidentified.
+consumable_shortcut += <item name>:<inventory letter>
+	(Ordered list option, one value per line)
+	Similar to gear_slot, but accepts only a single letter per consumable
+        name and does not handle regex.
+
+	The game will try very hard to automatically assign a consumable to
+	any letter given a mapping by this option, unless it is an identified
+	item of a different category. (eg: 'potion of curing:c' will result
+	in no other potion ever being auto-assigned to 'c' and unidentified
+	scrolls also avoiding it where possible, since they share the ?id menu
+	together.)
 
 ability_slot ^= <regex>:<ability letters>
         (Ordered list option, one value per line)
@@ -1550,6 +1566,11 @@ single_column_item_menus = true
         to true, all menus will use a single column under any circumstances.
         This option is only available on local tiles and console; on WebTiles
         all menus are single-column regardless of the value of this option.
+
+show_paged_inventory = false
+	If set to true, the 'i' menu will divide the player's items into
+	pages (gear, potions, scrolls, and evocable items) in the same way
+	that the 'd'rop menu does.
 
 3-h     Message and Display Enhancements.
 ------------------------------------------

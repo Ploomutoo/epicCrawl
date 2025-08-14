@@ -27,6 +27,7 @@
 #include "dgn-overview.h"
 #include "english.h"
 #include "env.h"
+#include "evoke.h"
 #include "fineff.h"
 #include "god-abil.h"
 #include "god-blessing.h"
@@ -414,6 +415,7 @@ static void _create_monster_hide(monster_type mtyp, monster_type montype,
     }
 
     item.flags |= ISFLAG_IDENTIFIED;
+    item.flags |= ISFLAG_SEEN;
 }
 
 static void _create_monster_wand(monster_type mtyp, coord_def pos, bool silent)
@@ -2296,7 +2298,7 @@ static void _player_on_kill_effects(monster& mons, killer_type killer,
         makhleb_crucible_kill(mons);
     }
 
-    if (you.has_bane(BANE_SUCCOUR))
+    if (you.has_bane(BANE_SUCCOUR) && !mons.is_firewood() && !mons.wont_attack())
     {
         bool visible_effect = false;
         const int healing = random_range(mons.max_hit_points / 3,
@@ -2320,6 +2322,16 @@ static void _player_on_kill_effects(monster& mons, killer_type killer,
     {
         if (--you.attribute[ATTR_TEMP_MUT_KILLS] <= 0)
             temp_mutation_wanes();
+    }
+
+    if (YOU_KILL(killer)
+        && you.wearing_ego(OBJ_ARMOUR, SPARM_PYROMANIA)
+        && !mons.props.exists(ATTACK_KILL_KEY)
+        && !you.props.exists(PYROMANIA_TRIGGERED_KEY)
+        && x_chance_in_y(pyromania_trigger_chance(), 100))
+    {
+        pyromania_fineff::schedule();
+        you.props[PYROMANIA_TRIGGERED_KEY] = true;
     }
 }
 
@@ -3004,7 +3016,7 @@ item_def* monster_die(monster& mons, killer_type killer,
             else if (mons.type == MONS_FIRE_VORTEX
                      || mons.type == MONS_SPATIAL_VORTEX
                      || mons.type == MONS_TWISTER
-                     || mons.type == MONS_FOXFIRE)
+                     || mons_is_seeker(mons))
             {
                 msg = " dissipates.";
             }
@@ -3083,6 +3095,9 @@ item_def* monster_die(monster& mons, killer_type killer,
             mons.update_ench(summ);
         }
 
+        // Also wake them up if they're asleep
+        mons.behaviour = BEH_SEEK;
+
         // Hack: with cleanup_dead=false, a tentacle [segment] of a dead
         // [malign] kraken has no valid head reference.
         if (!mons_is_tentacle_or_tentacle_segment(mons.type))
@@ -3157,6 +3172,26 @@ item_def* monster_die(monster& mons, killer_type killer,
 
             bennu_revive_fineff::schedule(mons.pos(), revives, att, mons.foe,
                                           duel, gozag_bribe);
+        }
+        else if (mons.type == MONS_CASSANDRA && real_death)
+        {
+            mpr("Foes suddenly leap out to ambush you!");
+
+            // Recall several random monsters from the floor. If none are
+            // available, make some suitable ones instead.
+            if (!mons_word_of_recall(nullptr, random_range(3, 5), 2))
+            {
+                mgen_data mg(RANDOM_MOBILE_MONSTER, SAME_ATTITUDE(&mons),
+                             you.pos(), MHITYOU, MG_FORBID_BANDS);
+                mg.set_place(level_id::current());
+                mg.set_range(4, 5, 2);
+                mg.extra_flags |= (MF_NO_REWARD | MF_HARD_RESET);
+                mg.set_non_actor_summoner("an inevitable fate");
+
+                const int num = random_range(3, 4);
+                for (int i = 0; i < num; ++i)
+                    create_monster(mg);
+            }
         }
     }
 
@@ -3450,6 +3485,7 @@ item_def* monster_die(monster& mons, killer_type killer,
     if (in_bounds(mwhere) && you.see_cell(mwhere))
     {
         view_update_at(mwhere);
+        StashTrack.update_stash(mwhere);
         update_screen();
     }
 

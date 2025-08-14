@@ -330,12 +330,19 @@ player_equip_set::player_equip_set()
     items.clear();
     unrand_active.init(false);
     artprop_cache.init(0);
+    armour_egos.init(0);
+    gizmo_egos.init(false);
     do_unrand_reacts = 0;
     do_unrand_death_effects = 0;
 }
 
 int player_equip_set::wearing_ego(object_class_type obj_type, int ego) const
 {
+    if (obj_type == OBJ_ARMOUR)
+        return armour_egos[ego];
+    else if (obj_type == OBJ_GIZMOS)
+        return gizmo_egos[ego];
+
     int total = 0;
     for (const player_equip_entry& entry : items)
     {
@@ -349,11 +356,6 @@ int player_equip_set::wearing_ego(object_class_type obj_type, int ego) const
             {
                 case OBJ_WEAPONS:
                     if (get_weapon_brand(item) == ego)
-                        ++total;
-                    break;
-
-                case OBJ_ARMOUR:
-                    if (get_armour_ego_type(item) == ego)
                         ++total;
                     break;
 
@@ -557,6 +559,8 @@ void player_equip_set::update()
 {
     unrand_active.reset();
     artprop_cache.init(0);
+    armour_egos.init(0);
+    gizmo_egos.init(false);
 
     artefact_properties_t artprops;
     for (const player_equip_entry& entry : items)
@@ -567,6 +571,14 @@ void player_equip_set::update()
             continue;
 
         const item_def& item = entry.get_item();
+
+        if (!entry.melded)
+        {
+            if (item.base_type == OBJ_ARMOUR)
+                armour_egos[get_armour_ego_type(item)] += 1;
+            else if (item.base_type == OBJ_GIZMOS)
+                gizmo_egos[item.brand] = true;
+        }
 
         if (is_artefact(item))
         {
@@ -587,10 +599,10 @@ void player_equip_set::update()
         }
     }
 
-    if (you.active_talisman.defined() && is_artefact(you.active_talisman)
+    if (you.active_talisman() && is_artefact(*you.active_talisman())
         && you.form == you.default_form)
     {
-        artefact_properties(you.active_talisman, artprops);
+        artefact_properties(*you.active_talisman(), artprops);
 
         for (int j = 0; j < (int)artprops.size(); ++j)
             artprop_cache[j] += artprops[j];
@@ -836,12 +848,14 @@ static bool _forced_removal_goodness(player_equip_entry* entry1, player_equip_en
     else if (is_artefact(item2) && artefact_property(item2, ARTP_FRAGILE))
         return true;
     else if (is_artefact(item1) && (artefact_property(item1, ARTP_CONTAM)
-                                    || artefact_property(item1, ARTP_DRAIN)))
+                                    || artefact_property(item1, ARTP_DRAIN)
+                                    || artefact_property(item1, ARTP_BANE)))
     {
         return false;
     }
     else if (is_artefact(item2) && (artefact_property(item2, ARTP_CONTAM)
-                                    || artefact_property(item2, ARTP_DRAIN)))
+                                    || artefact_property(item2, ARTP_DRAIN)
+                                    || artefact_property(item2, ARTP_BANE)))
     {
         return true;
     }
@@ -1499,7 +1513,7 @@ void autoequip_item(item_def& item)
 void equip_item(equipment_slot slot, int item_slot, bool msg, bool skip_effects)
 {
     ASSERT_RANGE(slot, SLOT_WEAPON, NUM_EQUIP_SLOTS);
-    ASSERT_RANGE(item_slot, 0, ENDOFPACK);
+    ASSERT_RANGE(item_slot, 0, MAX_GEAR);
 
     item_def& item = you.inv[item_slot];
 

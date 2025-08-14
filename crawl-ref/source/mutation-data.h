@@ -222,7 +222,7 @@ static const mutation_def mut_data[] =
 { MUT_SHOCK_VULNERABILITY, 2, 1, mutflag::bad | mutflag::substance,
   "electricity vulnerability",
 
-  {"You are vulnerable to electric shocks.", "", ""},
+  {"You are vulnerable to electric shocks. (rElec-)", "", ""},
   {"You feel vulnerable to electricity.", "", ""},
   {"You feel less vulnerable to electricity.", "", ""},
   TILEG_MUT_SHOCK_VULNERABILITY,
@@ -1638,6 +1638,14 @@ static const mutation_def mut_data[] =
   TILEG_MUT_NO_POTION_HEAL,
 },
 
+{ MUT_RECKLESS, 2, 1, mutflag::bad,
+   "reckless",
+
+   {"You cannot block, but deal more damage with two-handed weapons.", "", ""},
+   {"You feel a sudden disregard for your own safety.", "", ""},
+   {"You feel a little less reckless.", "", ""},
+ },
+
 // Scale mutations
 { MUT_DISTORTION_FIELD, 0, 3, mutflag::good,
   "repulsion field",
@@ -2529,7 +2537,7 @@ static const mutation_def mut_data[] =
 { MUT_NO_DRINK, 0, 1, mutflag::bad,
   "no potions",
 
-  {"You do not drink.", "", ""},
+  {"You cannot drink.", "", ""},
   {"Your mouth dries to ashes.", "", ""},
   {"You gain the ability to drink.", "", ""},
   TILEG_MUT_NO_DRINK,
@@ -2818,6 +2826,7 @@ static const mutation_def mut_data[] =
   {"You recover more slowly from Doom and Banes.", "", ""},
   {"You feel accursed.", "", ""},
   {"You feel less accursed.", "", ""},
+  TILEG_MUT_ACCURSED,
 },
 
 // Makhleb-specific mutations

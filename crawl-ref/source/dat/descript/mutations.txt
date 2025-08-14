@@ -186,6 +186,11 @@ might ignore as mundane. Whenever you encounter a new item on the ground for the
 first time, there is a very tiny chance to discover that it is actually an
 artefact. Each level of this mutation increases that chance.
 %%%%
+reckless mutation
+
+Your SH can never rise above 0, but the damage you deal with two-handed weapons
+is increased by 15%.
+%%%%
 # ------ Auxes -----
 horns mutation
 
@@ -1379,19 +1384,20 @@ spells.
 %%%%
 heatstroke bane
 
-When you are damaged by fire, you have a chance to become slowed for a moderate
-length of time. This chance is decreased by your current level of fire resistance.
+When you are damaged by fire, you have a high chance to become slowed for a
+moderate length of time. This chance is decreased by your current level of fire
+resistance.
 %%%%
 snow-blindness bane
 
-When you are damaged by cold, you have a chance to become weak and blind for a
-moderate length of time. This chance is decreased by your current level of cold
-resistance.
+When you are damaged by cold, you have a high chance to become weak and blind
+for a moderate length of time. This chance is decreased by your current level of
+cold resistance.
 %%%%
 electrospasm bane
 
 When you are damaged by electricity, you have a chance to become bound in place
-and unable to move for a short length of time. This chance is decrease by your
+and unable to move for a short length of time. This chance is decreased by your
 current level of electrical resistance.
 %%%%
 claustrophobia bane
@@ -1403,10 +1409,6 @@ stumbling bane
 
 Your evasion is decreased by 25 on any turn where you either moved or waited in
 place without doing anything else.
-%%%%
-reckless bane
-
-Your SH is always equal to 0 and cannot be raised by any means.
 %%%%
 succour bane
 

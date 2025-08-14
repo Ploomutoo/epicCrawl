@@ -48,6 +48,7 @@
 #include "stringutil.h"
 #include "tag-version.h"
 #include "terrain.h"
+#include "tileview.h"
 #include "rltiles/tiledef-dngn.h"
 #include "rltiles/tiledef-player.h"
 
@@ -643,8 +644,8 @@ void map_lines::apply_grid_overlay(const coord_def &c, bool is_layout)
                 tile_dngn_index(name.c_str(), &floor);
                 if (colour)
                     floor = tile_dngn_coloured(floor, colour);
-                int offset = random2(tile_dngn_count(floor));
-                tile_env.flv(gc).floor = floor + offset;
+                tile_env.flv(gc).floor = floor;
+                tile_init_flavour(gc);
                 has_floor = true;
             }
 
@@ -5804,6 +5805,27 @@ void item_list::parse_random_by_class(string c, item_spec &spec)
     {
         spec.base_type = OBJ_MISCELLANY;
         spec.sub_type = item_for_set(ITEM_SET_CONTROL_MISCELLANY);
+        return;
+    }
+
+    if (c == "body armour")
+    {
+        spec.base_type = OBJ_ARMOUR;
+        spec.sub_type = pick_random_body_armour_type(concretize_item_level(spec.level));
+        return;
+    }
+
+    if (c == "aux armour")
+    {
+        spec.base_type = OBJ_ARMOUR;
+        spec.sub_type = pick_random_aux_armour_type();
+        return;
+    }
+
+    if (c == "shield")
+    {
+        spec.base_type = OBJ_ARMOUR;
+        spec.sub_type = pick_random_shield_type();
         return;
     }
 

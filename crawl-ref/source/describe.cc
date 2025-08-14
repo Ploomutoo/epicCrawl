@@ -263,8 +263,8 @@ const char* jewellery_base_ability_string(int subtype)
     case AMU_FAITH:               return "Faith";
     case AMU_REFLECTION:          return "Reflect";
     case AMU_WILDSHAPE:           return "Wildshape";
-    case AMU_ALCHEMY:             return "Alch+";
     case AMU_DISSIPATION:         return "Dissipate";
+    case AMU_ALCHEMY:             return "Alch+";
 #if TAG_MAJOR_VERSION == 34
     case AMU_INACCURACY:          return "Inacc";
 #endif
@@ -454,7 +454,7 @@ static const vector<property_descriptor> & _get_all_artp_desc_data()
             "It may silence you when you take damage.",
             prop_note::plain },
         { ARTP_BANE,
-            "It inflicts you with a random bane when first equipped.",
+            "It inflicts you with a random bane when you equip it.",
             prop_note::plain },
     };
     return data;
@@ -2360,10 +2360,12 @@ static const char* _item_ego_desc(special_armour_type ego)
         return "it causes witnesses of the wearer's kills to go into a frenzy,"
                " attacking everything nearby with great strength and speed.";
     case SPARM_GUILE:
-        return "it weakens the willpower of the wielder and everyone they hex.";
+        return "it weakens the willpower of the wielder and everyone they hex, "
+               "the latter of which is increased by Evocations skill.";
     case SPARM_ENERGY:
         return "it may return the magic spent to cast spells, but lowers their "
-               "success rate. It always returns the magic spent on miscasts.";
+               "success rate. It always returns the magic spent on miscasts. "
+               "The spell refund chance is increased by Evocations skill.";
     case SPARM_SNIPING:
         return "it increases the wearer's damage with ranged and thrown "
                "weapons against incapacitated targets by 50%.";
@@ -2379,28 +2381,86 @@ static const char* _item_ego_desc(special_armour_type ego)
         return "it has half the normal encumbrance for the purpose of ranged "
                "combat.";
     case SPARM_COMMAND:
-        return "it improves the power and success of the wearer's summoning "
-               "spells in proportion to their armour skill.";
+        return "it improves the power and success of the wearer's Summoning "
+               "spells in proportion to their Armour skill.";
     case SPARM_DEATH:
-        return "it empowers the wearer's necromancy spells and improves their "
-               " success rate, but imposes a health cost for other magic.";
+        return "it empowers the wearer's Necromancy spells and improves their "
+               "success rate, but imposes a health cost for other magic.";
     case SPARM_RESONANCE:
-        return "it improves the success rate of the wearer's forgecraft spells "
-               " and enhances their melee attacks proportionally to forgecraft "
-               " skill";
+        return "it improves the success rate of the wearer's Forgecraft spells "
+               "and enhances their melee attacks proportionally to Forgecraft "
+               "skill.";
     case SPARM_PARRYING:
         return "It shields the wearer if their last action was a melee attack. "
                "The shielding is half as effective if the wielder's offhand is "
                "occupied by an item other than their weapon.";
-    case SPARM_CONJURING:
-        return "It enhances the wearer's conjurations, and "
-               "provides a spellpower boost to all non-conjuration spells that "
-               "depends on the wearer's conjurations skill.";
     case SPARM_GLASS:
-        return "It may vitrify nearby enemies when they take damage. "
-               "Evocations skill increases the likelihood of vitrification.";
+        return "It may vitrify enemies when you injure them, making them more "
+               "vulnerable to further damage. Evocations skill increases the "
+               "likelihood and duration of vitrification.";
+    case SPARM_PYROMANIA:
+        return "It enhances the wearer's Fire magic and may unleash a blast of "
+               "flames around the wearer whenever they kill an enemy through any "
+               "means besides attacks. The explosion chance and damage both scale "
+               "with Evocations and it may trigger no more than once each turn.";
+    case SPARM_STARDUST:
+        return "It conjures a barrage of shooting stars the first time its wearer "
+               "spends MP to use a spell or ability each battle, recharging only "
+               "when their MP is restored and no more enemies remain. Evocations "
+               "skill increases the number and damage of the stars and MP spent "
+               "further increases damage.";
+    case SPARM_MESMERISM:
+        return "When you are struck in melee, it briefly dazes all nearby enemies, "
+               "then must recharged by standing still for a while. Its duration, "
+               "radius, and recharge speed are improved by Evocations skill.";
+    case SPARM_ATTUNEMENT:
+        return "When worn alongside a magical staff, it doubles the effectiveness "
+               "of that staff's spell enhancer and causes melee attacks made with "
+               "it to restore a small amount of MP.";
     default:
         return "it makes the wearer crave the taste of eggplant.";
+    }
+}
+
+static string _orb_ego_details(special_armour_type ego)
+{
+    switch (ego)
+    {
+        case SPARM_ENERGY:
+            return make_stringf("\n\nSpell refund chance: %d%% (max %d%%)",
+                                player_channelling_chance(), player_channelling_chance(true));
+
+        case SPARM_GUILE:
+            return make_stringf("\n\nEnemy Willpower: -%d (max -%d)",
+                                guile_will_reduction(), guile_will_reduction(true));
+
+        case SPARM_GLASS:
+            return make_stringf("\n\nVitrify chance: %d%% (max %d%%)",
+                        (20 + you.skill(SK_EVOCATIONS, 5)) * 100 / 500,
+                        (20 + 135) * 100 / 500);
+
+        case SPARM_PYROMANIA:
+            return make_stringf("\n\nExplosion chance: %d%% (max %d%%)\nExplosion damage: %dd%d (max %dd%d)\n",
+                                pyromania_trigger_chance(), pyromania_trigger_chance(true),
+                                pyromania_damage(false, false).num, pyromania_damage(false, false).size,
+                                pyromania_damage(false, true).num, pyromania_damage(false, true).size);
+
+        case SPARM_STARDUST:
+        {
+            dice_def base_dam = zap_damage(ZAP_SHOOTING_STAR, stardust_orb_power(0), false, false);
+            dice_def max_dam = zap_damage(ZAP_SHOOTING_STAR, stardust_orb_power(0, true), false, false);
+            return make_stringf("\n\nBase shooting star damage: %dd%d (max %dd%d) + 25%% per MP spent"
+                                "\nShooting stars conjured: 1 + 1 per visible enemy, up to %d (%d at max skill)",
+                                    base_dam.num, base_dam.size,
+                                    max_dam.num, max_dam.size,
+                                    stardust_orb_max(), stardust_orb_max(true));
+        }
+
+        case SPARM_MESMERISM:
+            return make_stringf("\n\nMesmerism radius: %d (max %d)", mesmerism_orb_radius(), mesmerism_orb_radius(true));
+
+        default:
+            return "";
     }
 }
 
@@ -2512,6 +2572,13 @@ static string _describe_armour(const item_def &item, bool verbose, bool monster)
 
     }
 
+    if (verbose
+        && item.is_type(OBJ_ARMOUR, ARM_ORB)
+        && item.is_identified())
+    {
+        description += _orb_ego_details(get_armour_ego_type(item));
+    }
+
     // Only displayed if the player exists (not for item lookup from the menu
     // or for morgues).
     if (verbose
@@ -2552,10 +2619,8 @@ static string _describe_lignify_ac()
     // Turn into a tree, check our resulting AC, and then turn back without
     // anyone being the wiser.
     unwind_var<player_equip_set> unwind_eq(you.equipment);
-    unwind_var<item_def> unwind_talisman(you.active_talisman);
-    unwind_var<transformation> unwind_form(you.form);
-    you.active_talisman.clear();
-    you.form = transformation::tree;
+    unwind_var<int8_t> unwind_talisman(you.cur_talisman, -1);
+    unwind_var<transformation> unwind_form(you.form, transformation::tree);
 
     you.equipment.unmeld_all_equipment(true);
     you.equipment.meld_equipment(tree_form->blocked_slots, true);
@@ -3862,6 +3927,7 @@ static vector<command_type> _allowed_actions(const item_def& item)
             actions.push_back(CMD_WEAR_ARMOUR);
         break;
     case OBJ_JEWELLERY:
+    case OBJ_TALISMANS:
         if (item_is_equipped(item))
             actions.push_back(CMD_REMOVE_JEWELLERY);
         else
@@ -4054,7 +4120,8 @@ static bool _do_action(item_def &item, const command_type action)
             return true;
         drop_item(slot, item.quantity);
         break;
-    case CMD_ADJUST_INVENTORY: adjust_item(slot);             break;
+    case CMD_ADJUST_INVENTORY: adjust_item(0, &you.inv[slot]);
+        break;
     case CMD_EVOKE:
         if (!check_warning_inscriptions(you.inv[slot], OPER_EVOKE))
             return true;
@@ -6698,6 +6765,13 @@ static string _desc_foxfire_dam(const monster_info &mi)
     return make_stringf("%dd%d", beam.damage.num, beam.damage.size);
 }
 
+static string _desc_shooting_star_dam(const monster_info &mi)
+{
+    bolt beam;
+    zappy(ZAP_SHOOTING_STAR, mi.hd, mi.attitude != ATT_FRIENDLY, beam);
+    return make_stringf("%dd%d", beam.damage.num, beam.damage.size);
+}
+
 // Fetches the monster's database description and reads it into inf.
 void get_monster_db_desc(const monster_info& mi, describe_info &inf,
                          bool &has_stat_desc, bool mark_spells)
@@ -6818,6 +6892,10 @@ void get_monster_db_desc(const monster_info& mi, describe_info &inf,
 
     case MONS_FOXFIRE:
         inf.body << "\nIt deals " << _desc_foxfire_dam(mi) << " fire damage.\n";
+        break;
+
+    case MONS_SHOOTING_STAR:
+        inf.body << "\nIt deals " << _desc_shooting_star_dam(mi) << " damage.\n";
         break;
 
     case MONS_PROGRAM_BUG:
@@ -7032,7 +7110,33 @@ void get_monster_db_desc(const monster_info& mi, describe_info &inf,
 #endif
 }
 
-int describe_monsters(const monster_info &mi, const string& /*footer*/)
+static formatted_string _get_monster_status_descriptions(const monster_info& mi)
+{
+    vector<string> descriptors = get_monster_status_descriptors(mi);
+    if (descriptors.empty())
+        return formatted_string();
+
+    ostringstream out;
+    for (string& tag : descriptors)
+    {
+        const string key = make_stringf("%s monstatus", tag.c_str());
+        string lookup = getLongDescription(key);
+        if (lookup.empty())
+            continue;
+
+        out << "<w>" << uppercase_first(tag) << ":</w>\n";
+
+        // Wordwrap and indent slightly.
+        linebreak_string(lookup, 77);
+        lookup = replace_all(lookup, "\n", "\n   ");
+
+        out << "   " << lookup << "\n\n";
+    }
+
+    return formatted_string::parse_string(out.str());
+}
+
+int describe_monster(const monster_info &mi, const string& /*footer*/)
 {
     bool has_stat_desc = false;
     describe_info inf;
@@ -7085,28 +7189,48 @@ int describe_monsters(const monster_info &mi, const string& /*footer*/)
 #endif
 
     const formatted_string quote = formatted_string(trimmed_string(inf.quote));
+    const formatted_string status_desc = _get_monster_status_descriptions(mi);
+
 
     auto desc_sw = make_shared<Switcher>();
     auto more_sw = make_shared<Switcher>();
     desc_sw->current() = 0;
     more_sw->current() = 0;
 
-    const char* mores[2] = {
-        "[<w>!</w>]: <w>Description</w>|Quote",
-        "[<w>!</w>]: Description|<w>Quote</w>",
+    const string mores[3] =
+    {
+        "[<w>!</w>]: <w>Description</w>",
+        "[<w>!</w>]: Description",
+        "[<w>!</w>]: Description",
     };
 
-    for (int i = 0; i < (inf.quote.empty() ? 1 : 2); i++)
+    const formatted_string *content[3] = { &desc, &status_desc, &quote };
+    const int num_modes = 1 + !status_desc.empty() + !inf.quote.empty();
+
+    for (int i = 0; i < 3; i++)
     {
-        const formatted_string *content[2] = { &desc, &quote };
-        auto scroller = make_shared<Scroller>();
+        // Skip absent information.
+        if (i == 1 && status_desc.empty())
+            continue;
+        if (i == 2 && inf.quote.empty())
+            break;
+
         auto text = make_shared<Text>(content[i]->trim());
+        auto scroller = make_shared<Scroller>();
         text->set_wrap_text(true);
         scroller->set_child(text);
         desc_sw->add_child(std::move(scroller));
 
+        string more = make_stringf("%s%s%s", mores[i].c_str(),
+            !status_desc.empty()
+                ? i == 1 ? "|<w>Statuses</w>" : "|Statuses"
+                : "",
+            !inf.quote.empty()
+                ? i == 2 ? "|<w>Quote</w>" : "|Quote"
+                : "");
+
         more_sw->add_child(make_shared<Text>(
-                formatted_string::parse_string(mores[i])));
+                formatted_string::parse_string(more)));
     }
 
     more_sw->set_margin_for_sdl(20, 0, 0, 0);
@@ -7114,7 +7238,7 @@ int describe_monsters(const monster_info &mi, const string& /*footer*/)
     desc_sw->expand_h = false;
     desc_sw->align_x = Widget::STRETCH;
     vbox->add_child(desc_sw);
-    if (!inf.quote.empty())
+    if (!inf.quote.empty() || !status_desc.empty())
         vbox->add_child(more_sw);
 
 #ifdef USE_TILE_LOCAL
@@ -7129,9 +7253,13 @@ int describe_monsters(const monster_info &mi, const string& /*footer*/)
         const auto key = ev.key();
         lastch = key;
         done = ui::key_exits_popup(key, true);
-        if (!inf.quote.empty() && key == '!')
+        if (key == '!')
         {
-            int n = (desc_sw->current() + 1) % 2;
+            // Cycle mode (skipping absent ones)
+            int n = (desc_sw->current() + 1);
+            if (n >= num_modes)
+                n = 0;
+
             desc_sw->current() = more_sw->current() = n;
 #ifdef USE_TILE_WEB
             tiles.json_open_object();
@@ -7172,6 +7300,7 @@ int describe_monsters(const monster_info &mi, const string& /*footer*/)
     }
     tiles.json_write_string("body", desc_without_spells);
     tiles.json_write_string("quote", quote);
+    tiles.json_write_string("status", status_desc.to_colour_string());
     write_spellset(spells, nullptr, &mi);
 
     {
@@ -7716,10 +7845,6 @@ static string _describe_talisman(const item_def &item, bool verbose)
         {
             if (crawl_state.need_save && item.is_identified())
                 description << _equipment_property_change(item);
-
-            description << "\n\nA period of sustained concentration is needed to "
-                        "enter or leave forms. To leave this form, evoke the "
-                        "talisman again.";
         }
     }
 

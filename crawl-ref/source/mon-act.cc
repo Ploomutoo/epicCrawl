@@ -284,9 +284,9 @@ static bool _swap_monsters(monster& mover, monster& moved)
     mover.did_deliberate_movement();
     moved.did_deliberate_movement();
 
-    if (moved.type == MONS_FOXFIRE)
+    if (mons_is_seeker(moved))
     {
-        mprf(MSGCH_GOD, "By Zin's power the foxfire is contained!");
+        mprf(MSGCH_GOD, "By Zin's power %s is contained!", moved.name(DESC_THE).c_str());
         monster_die(moved, KILL_RESET, NON_MONSTER, true);
     }
 
@@ -1756,12 +1756,12 @@ static void _pre_monster_move(monster& mons)
     // Dissipate player ball lightnings and foxfires
     // that have left the player's sight
     // (monsters are allowed to 'cheat', as with orb of destruction)
-    if ((mons.type == MONS_BALL_LIGHTNING || mons.type == MONS_FOXFIRE)
+    if ((mons.type == MONS_BALL_LIGHTNING || mons_is_seeker(mons))
         && mons.summoner == MID_PLAYER
         && !cell_see_cell(you.pos(), mons.pos(), LOS_NO_TRANS))
     {
-        if (mons.type == MONS_FOXFIRE)
-            check_place_cloud(CLOUD_FLAME, mons.pos(), 2, &mons);
+        if (mons_is_seeker(mons))
+            check_place_cloud(seeker_trail_type(mons), mons.pos(), 2, &mons);
         monster_die(mons, KILL_RESET, NON_MONSTER);
         return;
     }
@@ -2036,11 +2036,11 @@ void handle_monster_move(monster* mons)
         return;
     }
 
-    if (mons->type == MONS_FOXFIRE)
+    if (mons_is_seeker(*mons))
     {
         if (mons->steps_remaining == 0)
         {
-            check_place_cloud(CLOUD_FLAME, mons->pos(), 2, mons);
+            check_place_cloud(seeker_trail_type(*mons), mons->pos(), 2, mons);
             monster_die(*mons, KILL_TIMEOUT, NON_MONSTER);
             return;
         }
@@ -2211,12 +2211,6 @@ void handle_monster_move(monster* mons)
     }
     if (mons->has_ench(ENCH_CLOCKWORK_BEE_CAST))
     {
-        if (you.can_see(*mons))
-        {
-            mprf("%s continues winding %s clockwork bee....",
-                    mons->name(DESC_THE).c_str(),
-                    mons->pronoun(PRONOUN_POSSESSIVE).c_str());
-        }
         mons->speed_increment -= non_move_energy;
         return;
     }
@@ -2382,7 +2376,7 @@ void handle_monster_move(monster* mons)
             && targ != mons
             && mons->behaviour != BEH_WITHDRAW
             && !_leash_range_exceeded(mons)
-            && (!(mons_aligned(mons, targ) || targ->type == MONS_FOXFIRE)
+            && (!(mons_aligned(mons, targ) || mons_is_seeker(*targ))
                 || mons->has_ench(ENCH_FRENZIED))
             && monster_los_is_valid(mons, targ))
         {
@@ -2636,6 +2630,17 @@ static void _post_monster_move(monster* mons)
 
     if (mons->type == MONS_VAMPIRE_BAT)
         blorkula_bat_merge(*mons);
+
+    // If Nobody is left alone long enough, allow their memories to return.
+    if (mons->type == MONS_NAMELESS_REVENANT && mons->props.exists(NOBODY_RECOVERY_KEY)
+        && you.elapsed_time > mons->props[NOBODY_RECOVERY_KEY].get_int())
+    {
+        mons->props.erase(NOBODY_RECOVERY_KEY);
+        initialize_nobody_memories(*mons);
+    }
+
+    if (mons->type == MONS_SEISMOSAURUS_EGG && egg_is_incubating(*mons))
+        seismosaurus_egg_hatch(mons);
 
     update_mons_cloud_ring(mons);
 
@@ -3113,7 +3118,7 @@ static bool _mons_can_displace(const monster* mpusher,
     if (!(mpushee->has_action_energy()
           || (mpushee->type == MONS_PHALANX_BEETLE && mpusher->mid == mpushee->summoner))
         && !_same_tentacle_parts(mpusher, mpushee)
-        && mpushee->type != MONS_FOXFIRE)
+        && !mons_is_seeker(*mpushee))
     {
         return false;
     }
@@ -3131,8 +3136,8 @@ static bool _mons_can_displace(const monster* mpusher,
         return false;
     }
 
-    // Foxfires can always be pushed
-    if (mpushee->type == MONS_FOXFIRE)
+    // Seekers can always be pushed
+    if (mons_is_seeker(*mpushee))
         return !mons_aligned(mpushee, mpusher); // But allies won't do it
 
     // OODs should crash into things, not push them around.
@@ -3397,7 +3402,7 @@ bool mon_can_move_to_pos(const monster* mons, const coord_def& delta,
             return false;
 
         if ((mons_aligned(mons, targmonster)
-             || targmonster->type == MONS_FOXFIRE)
+             || mons_is_seeker(*targmonster))
             && !mons->has_ench(ENCH_FRENZIED)
             && !_mons_can_displace(mons, targmonster))
         {
@@ -3596,12 +3601,9 @@ static bool _monster_swaps_places(monster* mon, const coord_def& delta)
     mon->did_deliberate_movement();
     m2->did_deliberate_movement();
 
-    // Pushing past a foxfire gets you burned regardless of alignment
-    if (m2->type == MONS_FOXFIRE)
-    {
-        foxfire_attack(m2, mon);
-        monster_die(*m2, KILL_RESET, NON_MONSTER, true);
-    }
+    // Pushing past a seeker gets you hit (since only opposed monsters will try)
+    if (mons_is_seeker(*m2))
+        seeker_attack(*m2, *mon);
 
     return false;
 }
@@ -3799,7 +3801,7 @@ static bool _do_move_monster(monster& mons, const coord_def& delta)
     // The seen context no longer applies if the monster is moving normally.
     mons.seen_context = SC_NONE;
 
-    if (mons.type == MONS_FOXFIRE)
+    if (mons_is_seeker(mons))
         --mons.steps_remaining;
 
     _escape_water_hold(mons);
@@ -4080,7 +4082,7 @@ static bool _monster_move(monster* mons, coord_def& delta)
         // Check for attacking another monster.
         if (monster* targ = monster_at(mons->pos() + delta))
         {
-            if ((mons_aligned(mons, targ) || targ->type == MONS_FOXFIRE)
+            if ((mons_aligned(mons, targ) || mons_is_seeker(*targ))
                 && !(mons->has_ench(ENCH_FRENZIED)
                      || mons->confused()))
             {
@@ -4113,8 +4115,8 @@ static bool _monster_move(monster* mons, coord_def& delta)
         if (mons->type == MONS_BALL_LIGHTNING)
             place_cloud(CLOUD_ELECTRICITY, mons->pos(), random_range(2, 3), mons);
 
-        if (mons->type == MONS_FOXFIRE)
-            check_place_cloud(CLOUD_FLAME, mons->pos(), 2, mons);
+        if (mons_is_seeker(*mons))
+            check_place_cloud(seeker_trail_type(*mons), mons->pos(), 2, mons);
 
         if (mons->type == MONS_CURSE_TOE)
             place_cloud(CLOUD_MIASMA, mons->pos(), 2 + random2(3), mons);

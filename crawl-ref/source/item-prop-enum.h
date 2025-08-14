@@ -537,8 +537,11 @@ enum special_armour_type
     SPARM_DEATH,
     SPARM_RESONANCE,
     SPARM_PARRYING,
-    SPARM_CONJURING,
     SPARM_GLASS,
+    SPARM_PYROMANIA,
+    SPARM_STARDUST,
+    SPARM_MESMERISM,
+    SPARM_ATTUNEMENT,
     NUM_REAL_SPECIAL_ARMOURS,
     NUM_SPECIAL_ARMOURS,
 };
@@ -900,6 +903,7 @@ enum talisman_type
 enum bauble_type
 {
     BAUBLE_FLUX,
+    NUM_BAUBLES,
 };
 
 enum special_gizmo_type
@@ -909,4 +913,5 @@ enum special_gizmo_type
     SPGIZMO_GADGETEER,
     SPGIZMO_REVGUARD,
     SPGIZMO_AUTODAZZLE,
+    NUM_GIZMOS,
 };

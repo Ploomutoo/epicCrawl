@@ -37,6 +37,7 @@
 #include "stringutil.h"
 #include "tag-version.h"
 #include "terrain.h"
+#include "transform.h"
 #include "xom.h"
 #include "xp-evoker-data.h"
 
@@ -92,19 +93,6 @@ static const vector<ego_weight_tuple> HEAVY_BODY_EGOS = {
     { SPARM_COMMAND,            5 },
     { SPARM_DEATH,              5 },
     { SPARM_RESONANCE,          5 },
-};
-
-// Total weight 50
-static const vector<ego_weight_tuple> SHIELD_EGOS = {
-    { SPARM_RESISTANCE,           1 },
-    { SPARM_FIRE_RESISTANCE,      4 },
-    { SPARM_COLD_RESISTANCE,      4 },
-    { SPARM_POISON_RESISTANCE,    4 },
-    { SPARM_POSITIVE_ENERGY,      4 },
-    { SPARM_NORMAL,               4 },
-    { SPARM_CORROSION_RESISTANCE, 4 },
-    { SPARM_REFLECTION,           9 },
-    { SPARM_PROTECTION,           16 },
 };
 
 // would be nice to lookup the name from monster_for_armour, but that
@@ -214,13 +202,12 @@ static const armour_def Armour_prop[] =
 
     { ARM_HAT,                  "hat",                    0,   0,   40,
         SLOT_HELMET,      SIZE_TINY, SIZE_LARGE, true, 0, {
-            { SPARM_NORMAL,        10 },
-            { SPARM_STEALTH,       3 },
             { SPARM_WILLPOWER,     3 },
+            { SPARM_STEALTH,       2 },
             { SPARM_INTELLIGENCE,  2 },
             { SPARM_SEE_INVISIBLE, 2 },
+            { SPARM_ICE,           2 },
             { SPARM_SNIPING,       1 },
-            { SPARM_ICE,           1 },
     }},
 
     // Note that barding size is compared against torso so it currently
@@ -252,11 +239,14 @@ static const armour_def Armour_prop[] =
     // to calculate adjusted shield penalty.
     { ARM_ORB,                 "orb",                     0,   0,   50,
         SLOT_OFFHAND,      SIZE_LITTLE, SIZE_GIANT, true, 0, {
-            { SPARM_CONJURING,  1 },
             { SPARM_GLASS,      1 },
             { SPARM_MAYHEM,     1 },
             { SPARM_GUILE,      1 },
             { SPARM_ENERGY,     1 },
+            { SPARM_PYROMANIA,  1 },
+            { SPARM_STARDUST,   1 },
+            { SPARM_MESMERISM,  1 },
+            { SPARM_ATTUNEMENT, 1 },
     }},
     { ARM_BUCKLER,             "buckler",                 3,  -50,  45,
         SLOT_OFFHAND,      SIZE_LITTLE, SIZE_MEDIUM, true, 0, {
@@ -278,7 +268,7 @@ static const armour_def Armour_prop[] =
             { SPARM_NORMAL,               4 },
             { SPARM_CORROSION_RESISTANCE, 4 },
             { SPARM_REFLECTION,           13 },
-            { SPARM_PROTECTION,           13 },
+            { SPARM_PROTECTION,           10 },
     }},
     { ARM_TOWER_SHIELD,        "tower shield",           13, -150,  80,
         SLOT_OFFHAND,      SIZE_MEDIUM, SIZE_GIANT, true, 0, {
@@ -286,9 +276,9 @@ static const armour_def Armour_prop[] =
             { SPARM_COLD_RESISTANCE,      3 },
             { SPARM_POISON_RESISTANCE,    3 },
             { SPARM_POSITIVE_ENERGY,      3 },
-            { SPARM_PONDEROUSNESS,        3 },
+            { SPARM_PONDEROUSNESS,        5 },
             { SPARM_CORROSION_RESISTANCE, 5 },
-            { SPARM_REFLECTION,           5 },
+            { SPARM_REFLECTION,           9 },
             { SPARM_PROTECTION,           15 },
     }},
 
@@ -310,7 +300,7 @@ static const armour_def Armour_prop[] =
     DRAGON_ARMOUR(STORM,       "storm",                  10, -150,  650,
         ARMF_RES_ELEC),
     DRAGON_ARMOUR(SHADOW,      "shadow",                 11, -150,  650,
-        ard(ARMF_STEALTH, 4)),
+        ARMF_STEALTH),
     DRAGON_ARMOUR(GOLDEN,      "golden",                 12, -230,  800,
         ARMF_RES_FIRE | ARMF_RES_COLD | ARMF_RES_POISON),
 
@@ -1520,6 +1510,12 @@ equipment_slot get_armour_slot(armour_type arm)
     return Armour_prop[ Armour_index[arm] ].slot;
 }
 
+bool armour_is_aux(armour_type arm)
+{
+    const equipment_slot slot = Armour_prop[ Armour_index[arm] ].slot;
+    return slot >= SLOT_MIN_AUX_ARMOUR && slot <= SLOT_MAX_AUX_ARMOUR;
+}
+
 bool jewellery_is_amulet(const item_def &item)
 {
     ASSERT(item.base_type == OBJ_JEWELLERY);
@@ -2020,6 +2016,25 @@ static bool _staff_uses_evocations(const item_def &item)
     return item.base_type == OBJ_STAVES;
 }
 
+static bool _orb_uses_evocations(const item_def &item)
+{
+    if (!item.is_type(OBJ_ARMOUR, ARM_ORB))
+        return false;
+
+    if (is_unrandom_artefact(item, UNRAND_WUCAD_MU)
+        || item.brand == SPARM_ENERGY
+        || item.brand == SPARM_GLASS
+        || item.brand == SPARM_GUILE
+        || item.brand == SPARM_MESMERISM
+        || item.brand == SPARM_PYROMANIA
+        || item.brand == SPARM_STARDUST)
+    {
+        return true;
+    }
+
+    return false;
+}
+
 const char* staff_type_name(stave_type s)
 {
     if (s == NUM_STAVES)
@@ -2102,6 +2117,7 @@ bool item_skills(const item_def &item, set<skill_type> &skills)
                                  && item.base_type != OBJ_TALISMANS
                                  && item.base_type != OBJ_BAUBLES
         || gives_ability(item)
+        || _orb_uses_evocations(item)
         || _staff_uses_evocations(item))
     {
         skills.insert(SK_EVOCATIONS);
@@ -3304,10 +3320,31 @@ void seen_item(item_def &item)
         && item.is_identified()
         && !you.type_ids[item.base_type][item.sub_type])
     {
+        // If items of this type were in our pack, announce that we gained
+        // knowledge of them.
+        item_def* held = nullptr;
+        for (int i = MAX_GEAR; i < ENDOFPACK; ++i)
+        {
+            if (you.inv[i].base_type == item.base_type
+                && you.inv[i].sub_type == item.sub_type)
+            {
+                held = &you.inv[i];
+                mprf("You learned that %s %s actually %s.",
+                        held->name(DESC_YOUR).c_str(),
+                        held->quantity > 1 ? "are" : "is",
+                        held->name(DESC_A, false, true).c_str());
+                break;
+            }
+        }
+
         // Can't cull shop items here -- when called from view, we shouldn't
         // access the UI. Old ziggurat prompts are a very minor case of what
         // could go wrong.
         identify_item_type(item.base_type, item.sub_type);
+
+        // Possibly adjust the letter of a held item.
+        if (held)
+            auto_assign_item_slot(*held);
     }
 }
 
@@ -3732,4 +3769,41 @@ bool item_grants_flight(const item_def& item)
     return item.base_type == OBJ_JEWELLERY && item.sub_type == RING_FLIGHT
            || item.base_type == OBJ_ARMOUR && item.brand == SPARM_FLYING
            || is_artefact(item) && artefact_property(item, ARTP_FLY);
+}
+
+// Returns the maximum number of copies of a particular type of jewellery that
+// could be useful to wear simultaneously, under typical circumstances.
+// (ie: rF over 3 pips can be useful to counteract rF- but is niche enough not
+// to calculate here)
+//
+// (Used for default autopickup exceptions)
+int jewellery_usefulness_limit(jewellery_type type)
+{
+    switch (type)
+    {
+        // Completely non-stacking
+        case RING_SEE_INVISIBLE:
+        case RING_RESIST_CORROSION:
+        case RING_FLIGHT:
+        case AMU_ACROBAT:
+        case AMU_GUARDIAN_SPIRIT:
+        case AMU_FAITH:
+            return 1;
+
+        // Typically caps at 3, under most circumstances
+        case RING_PROTECTION_FROM_FIRE:
+        case RING_PROTECTION_FROM_COLD:
+        case RING_POSITIVE_ENERGY:
+            return 3;
+
+        // Usually doesn't stack, but some forms care.
+        case RING_POISON_RESISTANCE:
+            if (get_form()->res_pois() < 0)
+                return 2;
+            else
+                return 1;
+
+        default:
+            return INT_MAX;
+    }
 }

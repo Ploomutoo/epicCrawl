@@ -899,12 +899,7 @@ int make_mons_weapon(monster_type type, int level, bool melee_only)
         { MONS_ARCANIST,         { { { WPN_DAGGER, 1 } } } },
         { MONS_OCCULTIST,        { { { WPN_DAGGER, 1 } } } },
         { MONS_JOSEPHINE,        { { { WPN_DAGGER, 1 } } } },
-        { MONS_PSYCHE, {
-            { { WPN_DAGGER,             1 }, },
-            { 1, 0, 4 },
-            { { SPWPN_CHAOS, 3 },
-              { SPWPN_DISTORTION, 1 } },
-        } },
+        { MONS_CASSANDRA,        { { { WPN_DAGGER, 1 } } } },
         { MONS_AGNES,       { { { WPN_LAJATANG, 1 } } } },
         { MONS_SONJA, {
             { { WPN_DAGGER,             1 },
@@ -1504,6 +1499,12 @@ static void _give_weapon(monster *mon, int level, bool second_weapon = false)
 
     if (mon->type == MONS_JOSEPHINA)
         make_item_for_monster(mon, OBJ_JEWELLERY, RING_PROTECTION_FROM_COLD, ISPEC_RANDART, true);
+<<<<<<< HEAD
+=======
+
+    if (mon->type == MONS_CASSANDRA && coinflip())
+        make_item_for_monster(mon, OBJ_JEWELLERY, get_random_amulet_type(), 0, 1);
+>>>>>>> ae3489853650ac58ff70fd6c1c66b119793ceecb
 }
 
 // Hands out ammunition fitting the monster's launcher (if any), or else any
@@ -1723,16 +1724,16 @@ static void _give_shield(monster* mon, int level)
         shield = make_item_for_monster(mon, OBJ_ARMOUR, ARM_ORB, level);
         if (shield)
         {
-            // Light is good-coded and Wrath is too vicious.
-            const auto ego = random_choose(SPARM_MAYHEM, SPARM_ENERGY, SPARM_GUILE);
+            const auto ego = random_choose(SPARM_STARDUST, SPARM_MESMERISM,
+                                           SPARM_ENERGY, SPARM_GUILE);
             set_item_ego_type(*shield, OBJ_ARMOUR, ego);
         }
         break;
 
     case MONS_FREDERICK:
     {
-        // Divinity or conjurer support.
-        const auto ego = random_choose(SPARM_LIGHT, SPARM_ENERGY);
+        // Conjurer support.
+        const auto ego = random_choose(SPARM_STARDUST, SPARM_ENERGY);
 
         give_specific_item(mon, items(false, OBJ_ARMOUR,
                            ARM_ORB, ISPEC_RANDART, ego));
@@ -2178,7 +2179,7 @@ int make_mons_armour(monster_type type, int level)
     }
 
     case MONS_JOSEPHINE:
-    case MONS_PSYCHE:
+    case MONS_CASSANDRA:
         if (one_chance_in(5))
             level = ISPEC_GOOD_ITEM;
         item.base_type = OBJ_ARMOUR;

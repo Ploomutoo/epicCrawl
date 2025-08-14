@@ -229,6 +229,7 @@ static const mutation_conflict mut_conflicts[] =
     { MUT_HP_CASTING,          MUT_HIGH_MAGIC,             false},
     { MUT_HP_CASTING,          MUT_LOW_MAGIC,              false},
     { MUT_HP_CASTING,          MUT_EFFICIENT_MAGIC,        false},
+    { MUT_ROLLPAGE,            MUT_INHIBITED_REGENERATION, false},
 
 #if TAG_MAJOR_VERSION == 34
     { MUT_NO_REGENERATION,     MUT_INHIBITED_REGENERATION, false},
@@ -1042,7 +1043,7 @@ private:
             // Special-case the transformation fakemut to put an item popup
             // behind it, so the player can examine form details and artprops
             if (fakemut.first == "--transformation--"
-                && ((you.form == you.default_form && you.active_talisman.defined())
+                && ((you.form == you.default_form && you.active_talisman())
                     || you.form == transformation::flux))
             {
                 me = new MenuEntry(fakemut.second, MEL_ITEM, MUT_ENTRY_TALISMAN, hotkey);
@@ -1182,8 +1183,8 @@ private:
         }
         else if (items[i]->quantity == MUT_ENTRY_TALISMAN)
         {
-            if (you.form == you.default_form && you.active_talisman.defined())
-                describe_item_popup(you.active_talisman);
+            if (you.form == you.default_form && you.active_talisman())
+                describe_item_popup(*you.active_talisman());
             else if (you.form == transformation::flux)
             {
                 item_def bauble;
@@ -3344,9 +3345,10 @@ bane_type bane_from_name(string name)
 
 static bool _bane_is_compatible(bane_type bane)
 {
-    if (bane == BANE_RECKLESS)
-        return player_shield_class(1, false, true) > 0;
-
+#if TAG_MAJOR_VERSION == 34
+    if (bane == BANE_RECKLESS_REMOVED)
+        return false;
+#endif
     return true;
 }
 
@@ -3404,10 +3406,12 @@ static void _init_bane_dilettante()
  * @param reason    The source of this bane (for note-taking)
  * @param duration  The duration (in XP-units) this bane will last. If 0, use
  *                  the default duration for this type of bane.
+ * @param mult      A multiplier to the base duration this bane will last, as a
+ *                  percentage. Defaults to 100.
  *
  * @return  Whether a bane was successfully added.
  */
-bool add_bane(bane_type bane, string reason, int duration)
+bool add_bane(bane_type bane, string reason, int duration, int mult)
 {
     if (bane == NUM_BANES)
     {
@@ -3427,16 +3431,14 @@ bool add_bane(bane_type bane, string reason, int duration)
     if (duration == 0)
         duration = bane_data[bane_index[bane]].duration;
 
+    duration = duration * mult / 100;
+
     if (you.banes[bane] == 0)
         mprf(MSGCH_WARN, "You are stricken with the %s.", bane_name(bane).c_str());
     else
         mprf(MSGCH_WARN, "Your %s grows stronger.", bane_name(bane).c_str());
 
     you.banes[bane] += duration;
-
-    // Actually update SH immediately. (Yes, that is the right flag....)
-    if (bane == BANE_RECKLESS)
-        you.redraw_armour_class = true;
 
     // Choose which skills to penalty
     if (bane == BANE_DILETTANTE)
@@ -3452,16 +3454,16 @@ void remove_bane(bane_type bane)
     mprf(MSGCH_RECOVERY, "The %s upon you is lifted.", bane_name(bane).c_str());
     you.banes[bane] = 0;
 
-    if (bane == BANE_RECKLESS)
-        you.redraw_armour_class = true;
-
     if (bane == BANE_MORTALITY)
         add_daction(DACT_BANE_MORTALITY_CLEANUP);
 
     take_note(Note(NOTE_LOSE_BANE, bane));
 }
 
-int xl_to_remove_bane(bane_type bane)
+// Calculate how many XLs worth of XP it would take for the player to remove a
+// specified bane. If they do not have the bane, this is calculated as if they
+// had it for its default duration (as affected by mult)
+int xl_to_remove_bane(bane_type bane, int mult)
 {
     int progress = 0;
     int you_skill_cost_level = you.skill_cost_level;
@@ -3470,7 +3472,10 @@ int xl_to_remove_bane(bane_type bane)
     const int cost_factor =
         (you.has_mutation(MUT_ACCURSED) || you.undead_state() != US_ALIVE) ? 2
                                                                            : 1;
-    const int bane_xp = you.banes[bane] * cost_factor;
+
+    const int amount = you.banes[bane] > 0 ? you.banes[bane]
+                                           : bane_data[bane_index[bane]].duration * mult / 100;
+    const int bane_xp = amount * cost_factor;
 
     while (progress < bane_xp)
     {
@@ -3526,7 +3531,7 @@ void maybe_apply_bane_to_monster(monster& mons)
 
     if (you.has_bane(BANE_PARADOX) && !mons.has_spell(SPELL_MANIFOLD_ASSAULT)
         && mons_has_attacks(mons)
-        && one_chance_in(12))
+        && one_chance_in(7))
     {
         simple_monster_message(mons, " is touched by paradox!");
         mons.add_ench(mon_enchant(ENCH_PARADOX_TOUCHED, 0, nullptr, INFINITE_DURATION));
@@ -3534,7 +3539,7 @@ void maybe_apply_bane_to_monster(monster& mons)
 
     // Give this one out to entire groups at once, since it does surprisingly
     // little to be given to just one monster in an entire group, on average.
-    if (you.has_bane(BANE_WARDING) && one_chance_in(5))
+    if (you.has_bane(BANE_WARDING) && one_chance_in(7))
     {
         mons.add_ench(mon_enchant(ENCH_WARDING, 0, nullptr, INFINITE_DURATION));
         for (monster_near_iterator mi(mons.pos(), LOS_NO_TRANS); mi; ++mi)

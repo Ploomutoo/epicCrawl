@@ -2115,7 +2115,7 @@ static const struct spell_desc spelldata[] =
     50,
     2, 3,
     0,
-    TILEG_DAZZLING_FLASH,
+    TILEG_GLOOM,
 },
 
 {
@@ -4290,7 +4290,7 @@ static const struct spell_desc spelldata[] =
     9,
     200,
     3, 3,
-    10,
+    15, // XX: uses default explosion noise, this number is just used for UI
     TILEG_PLATINUM_PARAGON,
 },
 
@@ -4593,6 +4593,17 @@ static const struct spell_desc spelldata[] =
     -1, -1,
     0,
     TILEG_PASSAGE_OF_GOLUBRIA,
+},
+
+{
+    SPELL_DOOMSAYING, "Doomsaying",
+    spschool::none,
+    spflag::monster,
+    6,
+    200,
+    -1, -1,
+    0,
+    TILEG_ILL_OMEN,
 },
 
 #if TAG_MAJOR_VERSION == 34

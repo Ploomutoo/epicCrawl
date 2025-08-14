@@ -391,8 +391,15 @@ unsigned int item_value(item_def item, bool ident)
             case SPARM_LIGHT:
             case SPARM_ENERGY:
             case SPARM_PARRYING:
+<<<<<<< HEAD
             case SPARM_CONJURING:
             case SPARM_GLASS:
+=======
+            case SPARM_GLASS:
+            case SPARM_PYROMANIA:
+            case SPARM_STARDUST:
+            case SPARM_MESMERISM:
+>>>>>>> ae3489853650ac58ff70fd6c1c66b119793ceecb
                 valued += 50;
                 break;
 

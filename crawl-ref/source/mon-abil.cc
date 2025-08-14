@@ -918,7 +918,7 @@ static void _weeping_skull_cloud_aura(monster* mons)
         place_cloud(CLOUD_MISERY, pos[i], random2(3) + 2, mons);
 }
 
-static void _seismosaurus_egg_hatch(monster* mons)
+void seismosaurus_egg_hatch(monster* mons)
 {
     mon_enchant hatch = mons->get_ench(ENCH_HATCHING);
     hatch.duration -= 1;
@@ -952,6 +952,7 @@ static void _seismosaurus_egg_hatch(monster* mons)
         // Immediately stomp if anything is in range
         mons->speed_increment = 80;
         try_mons_cast(*mons, SPELL_SEISMIC_STOMP);
+        queue_monster_for_action(mons);
 
         // Clean up range indicator
         for (distance_iterator di(mons->pos(), false, false, 4); di; ++di)
@@ -979,8 +980,7 @@ bool mon_special_ability(monster* mons)
 
     // Slime creatures can split while out of sight.
     if ((!mons->near_foe() || mons->asleep())
-         && mons->type != MONS_SLIME_CREATURE
-         && mons->type != MONS_SEISMOSAURUS_EGG)
+         && mons->type != MONS_SLIME_CREATURE)
     {
         return false;
     }
@@ -1033,16 +1033,14 @@ bool mon_special_ability(monster* mons)
         break;
 
     case MONS_FOXFIRE:
+    case MONS_SHOOTING_STAR:
         if (is_sanctuary(mons->pos()))
             break;
 
         if (mons->attitude == ATT_HOSTILE
             && grid_distance(you.pos(), mons->pos()) == 1)
         {
-            foxfire_attack(mons, &you);
-            check_place_cloud(CLOUD_FLAME, mons->pos(), 2, mons);
-            if (mons->alive())
-                monster_die(*mons, KILL_RESET, NON_MONSTER, true);
+            seeker_attack(*mons, you);
             used = true;
             break;
         }
@@ -1051,16 +1049,14 @@ bool mon_special_ability(monster* mons)
         {
             if (mons_aligned(mons, *targ) || targ->is_firewood()
                 || grid_distance(mons->pos(), targ->pos()) > 1
-                || !you.see_cell(targ->pos()))
+                || (mons->friendly() && !you.see_cell(targ->pos())))
             {
                 continue;
             }
 
             if (!cell_is_solid(targ->pos()))
             {
-                foxfire_attack(mons, *targ);
-                if (mons->alive())
-                    monster_die(*mons, KILL_RESET, NON_MONSTER, true);
+                seeker_attack(*mons, **targ);
                 used = true;
                 break;
             }
@@ -1199,14 +1195,6 @@ bool mon_special_ability(monster* mons)
         _weeping_skull_cloud_aura(mons);
         break;
 
-    case MONS_SEISMOSAURUS_EGG:
-        if (egg_is_incubating(*mons))
-        {
-            _seismosaurus_egg_hatch(mons);
-            used = true;
-        }
-        break;
-
     case MONS_CLOCKWORK_BEE_INACTIVE:
     {
         // Note: the player is not a monster, so this will never happen to them.
@@ -1229,13 +1217,6 @@ bool mon_special_ability(monster* mons)
         {
             pyrrhic_recollection(*mons);
             used = true;
-        }
-
-        // If Nobody is left alone long enough, allow their memories to return.
-        if (you.elapsed_time > mons->props[NOBODY_RECOVERY_KEY].get_int())
-        {
-            mons->props.erase(NOBODY_RECOVERY_KEY);
-            initialize_nobody_memories(*mons);
         }
 
         break;

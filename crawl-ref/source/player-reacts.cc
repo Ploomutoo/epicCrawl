@@ -44,6 +44,7 @@
 #include "dlua.h"
 #include "dungeon.h"
 #include "env.h"
+#include "evoke.h"
 #include "exercise.h"
 #include "files.h"
 #include "god-abil.h"
@@ -568,6 +569,15 @@ void player_reacts_to_monsters()
             you.duration[DUR_BLOOD_FOR_BLOOD] = 1;
     }
 
+    if (you.duration[DUR_STARDUST_COOLDOWN]
+        && you.magic_points == you.max_magic_points
+        && !there_are_monsters_nearby(true, true, false))
+    {
+        if (_decrement_a_duration(DUR_STARDUST_COOLDOWN, you.time_taken))
+            mprf(MSGCH_DURATION, "Your orb has finished recharging its magic.");
+    }
+
+
     if (_decrement_a_duration(DUR_PHALANX_BARRIER, you.time_taken))
         you.redraw_armour_class = true;
 
@@ -591,6 +601,8 @@ void player_reacts_to_monsters()
     _decrement_a_duration(DUR_AUTODODGE, you.time_taken);
 
     _handle_hoarding();
+
+    you.props.erase(PYROMANIA_TRIGGERED_KEY);
 }
 
 static bool _check_recite()

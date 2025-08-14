@@ -1466,6 +1466,7 @@ void monster::apply_enchantment(const mon_enchant &me)
     case ENCH_PARADOX_TOUCHED:
     case ENCH_WARDING:
     case ENCH_DIMINISHED_SPELLS:
+    case ENCH_ORB_COOLDOWN:
         decay_enchantment(en);
         break;
 
@@ -1773,6 +1774,12 @@ void monster::apply_enchantment(const mon_enchant &me)
 
         if (decay_enchantment(en))
             launch_clockwork_bee(*this);
+        else if (you.can_see(*this))
+        {
+            mprf("%s continues winding %s clockwork bee....",
+                    name(DESC_THE).c_str(),
+                    pronoun(PRONOUN_POSSESSIVE).c_str());
+        }
         break;
 
     case ENCH_INJURY_BOND:
@@ -2196,7 +2203,7 @@ static const char *enchant_names[] =
 #if TAG_MAJOR_VERSION == 34
     "ephemeral_infusion",
 #endif
-    "black_mark",
+    "sign_of_ruin",
 #if TAG_MAJOR_VERSION == 34
     "grand_avatar",
 #endif
@@ -2245,10 +2252,10 @@ static const char *enchant_names[] =
     "armed",
     "misdirected", "changed appearance", "shadowless", "doubled_health",
     "grapnel", "tempered", "hatching", "blinkitis", "chaos_laced", "vexed",
-    "deep sleep", "drowsy",
-    "vampire thrall", "pyrrhic recollection", "clockwork bee cast",
-    "phalanx barrier", "figment", "paradox-touched", "warding",
-    "diminished_spells",
+    "deep_sleep", "drowsy",
+    "vampire_thrall", "pyrrhic_recollection", "clockwork_bee_cast",
+    "phalanx_barrier", "figment", "paradox-touched", "warding",
+    "diminished_spells", "orb_cooldown",
     "buggy", // NUM_ENCHANTMENTS
 };
 

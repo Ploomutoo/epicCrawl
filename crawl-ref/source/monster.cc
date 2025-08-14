@@ -634,6 +634,8 @@ void monster::bind_melee_flags()
         flags |= MF_ARCHER;
     if (mons_class_flag(type, M_CAUTIOUS))
         flags |= MF_CAUTIOUS;
+    if (mons_class_flag(type, M_PRIEST))
+        flags |= MF_PRIEST;
 }
 
 static bool _needs_ranged_attack(const monster* mon)
@@ -1206,14 +1208,6 @@ static bool _is_signature_weapon(const monster* mons, const item_def &weapon)
         {
             return wtype == WPN_QUARTERSTAFF
                    && get_weapon_brand(weapon) == SPWPN_CHAOS;
-        }
-
-        // Distortion/chaos is immensely flavourful, and we shouldn't
-        // allow Psyche to switch away from it.
-        if (mons->type == MONS_PSYCHE)
-        {
-            return get_weapon_brand(weapon) == SPWPN_CHAOS
-                   || get_weapon_brand(weapon) == SPWPN_DISTORTION;
         }
 
         // Don't switch Azrael away from the customary scimitar of
@@ -3487,7 +3481,6 @@ int monster::how_unclean(bool check_god) const
 
     // Zin considers insanity unclean. And slugs that speak.
     if (type == MONS_CRAZY_YIUF
-        || type == MONS_PSYCHE
         || type == MONS_LOUISE
         || type == MONS_GASTRONOK)
     {
@@ -3761,7 +3754,7 @@ bool monster::res_water_drowning() const
     habitat_type hab = mons_habitat(*this, true);
 
     return is_unbreathing() || hab == HT_WATER
-        // XXX: Ugly hack to let apostles walk on water inside of through it
+        // XXX: Ugly hack to let apostles walk on water instead of through it
         || (hab == HT_AMPHIBIOUS && type != MONS_ORC_APOSTLE);
 }
 
@@ -4427,10 +4420,26 @@ int monster::hurt(const actor *agent, int amount, beam_type flavour,
                     this->malmutate(&you, "Your corrupting presence");
                 }
             }
+<<<<<<< HEAD
             if (you.wearing_ego(OBJ_ARMOUR, SPARM_GLASS)
                 && x_chance_in_y(40 + you.skill(SK_EVOCATIONS, 10), 500))
             {
                 this->vitrify(&you, 4 + random2(5 + you.skill(SK_EVOCATIONS)));
+=======
+        }
+
+        if (agent && alive() && agent->wearing_ego(OBJ_ARMOUR, SPARM_GLASS))
+        {
+            if (agent->is_player())
+            {
+                if (x_chance_in_y(20 + you.skill(SK_EVOCATIONS, 5), 500))
+                    this->vitrify(agent, 4 + random2(5 + you.skill(SK_EVOCATIONS)));
+            }
+            else if (const monster* mon = agent->as_monster())
+            {
+                if (x_chance_in_y(40 + mon->get_hit_dice() * 5, 500))
+                    this->vitrify(agent, 4 + random2(5 + mon->get_hit_dice()));
+>>>>>>> ae3489853650ac58ff70fd6c1c66b119793ceecb
             }
         }
 
@@ -4841,6 +4850,9 @@ int monster::heads() const
 
 bool monster::is_priest() const
 {
+    if (flags & MF_PRIEST)
+        return true;
+
     return search_slots([] (const mon_spell_slot& slot)
                         { return bool(slot.flags & MON_SPELL_PRIEST); });
 }
@@ -6461,6 +6473,11 @@ bool monster::shove(const char* feat_name)
         }
 
     return false;
+}
+
+bool monster::clarity(bool items) const
+{
+    return type == MONS_CASSANDRA || actor::clarity(items);
 }
 
 bool monster::stasis() const

@@ -3185,11 +3185,11 @@ void bolt::internal_ouch(int dam)
     else if (MON_KILL(thrower))
     {
         ouch(dam, KILLED_BY_BEAM, source_id,
-             aux_source.c_str(), true,
+             what, true,
              source_name.empty() ? nullptr : source_name.c_str());
     }
     else // KILL_NON_ACTOR || (YOU_KILL && aux_source)
-        ouch(dam, KILLED_BY_WILD_MAGIC, source_id, aux_source.c_str());
+        ouch(dam, KILLED_BY_WILD_MAGIC, source_id, what);
 }
 
 // [ds] Apply a fuzz if the monster lacks see invisible and is trying to target
@@ -5181,9 +5181,12 @@ void bolt::monster_post_hit(monster* mon, int dmg)
 
     // Don't annoy friendlies or good neutrals if the player's beam
     // did no damage. Hostiles will still take umbrage.
-    if ((dmg > 0 || !mon->wont_attack()) && !BLAME_KILL(thrower))
+    if (dmg > 0 || !mon->wont_attack() || !YOU_KILL(thrower))
     {
-        behaviour_event(mon, ME_ANNOY, agent());
+        const actor* to_blame = agent();
+        if (thrower == KILL_YOU_CONF)
+            to_blame = actor_by_mid(source_id);
+        behaviour_event(mon, ME_ANNOY, to_blame);
 
         // behaviour_event can make a monster leave the level or vanish.
         if (!mon->alive())
@@ -8012,7 +8015,12 @@ void bolt::set_is_tracer(bool value) noexcept
 int apply_willpower_bypass(const actor& source, int willpower)
 {
     if (source.wearing_ego(OBJ_ARMOUR, SPARM_GUILE))
-        willpower = max(0, willpower - 2 * WL_PIP);
+    {
+        if (source.is_monster())
+            willpower = max(0, willpower - 2 * WL_PIP);
+        else
+            willpower = max(0, willpower - guile_will_reduction());
+    }
 
     if (source.is_player() && you.form == transformation::sphinx)
         willpower = max(0, willpower - WL_PIP);
@@ -8029,4 +8037,10 @@ int apply_willpower_bypass(const monster_info& source, int willpower)
     }
 
     return willpower;
+}
+
+int guile_will_reduction(bool max)
+{
+    const int skill = max ? 27 : you.skill(SK_EVOCATIONS);
+    return 20 + stepdown(skill * 7 / 2, 75);
 }

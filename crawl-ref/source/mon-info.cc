@@ -668,7 +668,8 @@ monster_info::monster_info(const monster* m, int milev)
             mb.set(flag);
     }
 
-    if (!you.visible_to(m))
+    // Similarly, don't set invisibility stab UI for firewood.
+    if (!you.visible_to(m) && !m->is_firewood() && !m->has_ench(ENCH_BLIND))
         mb.set(MB_CANT_SEE_YOU);
 
     if (type == MONS_SILENT_SPECTRE)
@@ -1532,7 +1533,7 @@ vector<string> monster_info::attributes() const
     {
         const int num_memories = props[NOBODY_MEMORIES_KEY].get_vector().size();
         v.push_back(make_stringf("%d %s left", num_memories,
-                                               num_memories > 1 ? "memories" : "memory"));
+                                               num_memories == 1 ? "memory" : "memories"));
     }
 
     return v;
@@ -1866,8 +1867,7 @@ bool monster_info::has_spells() const
     }
 
     // Wand spells
-    const item_def* wand = inv[MSLOT_WAND].get();
-    if (itemuse() >= MONUSE_STARTING_EQUIPMENT && wand)
+    if (get_wand_spell() != SPELL_NO_SPELL)
         return true;
 
     const mon_spellbook_type book = get_spellbook(*this);
@@ -1908,7 +1908,9 @@ spell_type monster_info::get_wand_spell() const
         return SPELL_NO_SPELL;
 
     const wand_type wandtyp = static_cast<wand_type>(wand->sub_type);
-    ASSERT(wandtyp < NUM_WANDS);
+    // Don't count unidentified wands
+    if (wandtyp >= NUM_WANDS)
+        return SPELL_NO_SPELL;
     return spell_in_wand(wandtyp);
 }
 

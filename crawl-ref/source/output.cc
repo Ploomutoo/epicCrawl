@@ -403,7 +403,7 @@ static void _nowrap_eol_cprintf_touchui(const char *format, ...)
 #endif
 
 static string _god_powers();
-static formatted_string _god_asterisks(bool leading_space = false);
+static string _god_asterisks(bool leading_space = false);
 static int _god_status_colour(int default_colour);
 
 // Colour for captions like 'Health:', 'Str:', etc.
@@ -1184,7 +1184,7 @@ static void _print_unarmed_name()
 static void _print_weapon_name(const item_def &weapon, int width)
 {
     textcolour(HUD_CAPTION_COLOUR);
-    const char slot_letter = index_to_letter(weapon.link);
+    const char slot_letter = weapon.slot;
     const string slot_name = make_stringf("%c) ", slot_letter);
     CPRINTF("%s", slot_name.c_str());
     textcolour(_wpn_name_colour(weapon));
@@ -1510,7 +1510,7 @@ static void _redraw_title()
         god += you_worship(GOD_JIYVA) ? god_name_jiyva(true)
                                       : god_name(you.religion);
         NOWRAP_EOL_CPRINTF("%s", god.c_str());
-        formatted_string piety = _god_asterisks(true);
+        formatted_string piety = formatted_string::parse_string(_god_asterisks(true));
         textcolour(_god_status_colour(YELLOW));
         const unsigned int textwidth = (unsigned int)(strwidth(species) + strwidth(god) + strwidth(piety) + 1);
         if (small_layout)
@@ -2095,12 +2095,43 @@ static string _stealth_bar(int label_length, int sw)
 }
 static string _status_mut_rune_list(int sw);
 
+static void _append_overview_screen_item(column_composer& cols,
+                                         vector<char>& equip_chars,
+                                         int sw,
+                                         const item_def& item,
+                                         bool melded)
+{
+    const string prefix = item_prefix(item);
+    const int prefcol = menu_colour(item.name(DESC_INVENTORY), prefix, "resists", false);
+    const int col = prefcol == -1 ? LIGHTGREY : prefcol;
+
+    // Colour melded equipment dark grey.
+    string colname = melded ? "darkgrey" : colour_to_str(col);
+
+    const int item_idx = item.link;
+    const char equip_char = index_to_letter(item_idx);
+
+    string str = make_stringf(
+                    "<w>%c</w> - <%s>%s%s</%s>",
+                    equip_char,
+                    colname.c_str(),
+                    melded ? "melded " : "",
+                    chop_string(item.name(DESC_PLAIN, true),
+                            melded ? sw - 32 : sw - 25, false).c_str(),
+                    colname.c_str());
+    equip_chars.push_back(equip_char);
+
+    cols.add_formatted(1, str.c_str(), false);
+}
+
 // helper for print_overview_screen
 static void _print_overview_screen_equip(column_composer& cols,
                                          vector<char>& equip_chars,
                                          int sw)
 {
     sw = min(max(sw, 79), 640);
+    if (Options.show_resist_percent)
+        sw -= 3;
 
     for (equipment_slot slot : slot_order)
     {
@@ -2138,30 +2169,14 @@ static void _print_overview_screen_equip(column_composer& cols,
 
             const item_def& item = equipped[i].get_item();
             const bool melded    = equipped[i].melded;
-            const string prefix = item_prefix(item);
-            const int prefcol = menu_colour(item.name(DESC_INVENTORY), prefix, "resists", false);
-            const int col = prefcol == -1 ? LIGHTGREY : prefcol;
-
-            // Colour melded equipment dark grey.
-            string colname = melded ? "darkgrey" : colour_to_str(col);
-
-            const int item_idx   = equipped[i].item;
-            const char equip_char = index_to_letter(item_idx);
-            const int equip_width = (melded ? sw - 32 : sw - 25)
-                - (Options.show_resist_percent ? 3 : 0);
-
-            str = make_stringf(
-                     "<w>%c</w> - <%s>%s%s</%s>",
-                     equip_char,
-                     colname.c_str(),
-                     melded ? "melded " : "",
-                     chop_string(item.name(DESC_PLAIN, true), equip_width,
-                        false).c_str(),
-                     colname.c_str());
-            equip_chars.push_back(equip_char);
-
-            cols.add_formatted(1, str.c_str(), false);
+            _append_overview_screen_item(cols, equip_chars, sw, item, melded);
         }
+    }
+
+    if (item_def* item = you.active_talisman())
+    {
+        _append_overview_screen_item(cols, equip_chars, sw, *item,
+                                     you.form != you.default_form);
     }
 }
 
@@ -2235,17 +2250,17 @@ static string _god_powers()
         return colour_string(name, _god_status_colour(god_colour(you.religion)));
 
     return colour_string(chop_string(name, 20, false)
-              + " [" + _god_asterisks().to_colour_string() + "]",
+              + " [" + _god_asterisks() + "]",
               _god_status_colour(god_colour(you.religion)));
 }
 
-static formatted_string _god_asterisks(bool leading_space)
+static string _god_asterisks(bool leading_space)
 {
     if (you_worship(GOD_NO_GOD))
-        return formatted_string("");
+        return "";
 
     if (you_worship(GOD_GOZAG))
-        return formatted_string("");
+        return "";
 
     string str;
     if (you_worship(GOD_XOM))
@@ -2275,7 +2290,7 @@ static formatted_string _god_asterisks(bool leading_space)
             str = string(prank, '*') + string(NUM_PIETY_STARS - prank, '.');
     }
 
-    return formatted_string::parse_string((leading_space ? " " : "") + str);
+    return make_stringf("%s%s", leading_space ? " " : "", str.c_str());
 }
 
 /**
@@ -2808,11 +2823,14 @@ static string _extra_passive_effects()
     if (you.archmagi())
         passives.emplace_back("archmagi");
 
-    const int channel = player_channelling();
-    if (channel)
+    if (you.wearing_ego(OBJ_ARMOUR, SPARM_ENERGY))
     {
-        passives.emplace_back(
-            make_stringf("channel magic (%d%%)", 20 * channel).c_str());
+        const int channel = player_channelling_chance();
+        if (channel)
+        {
+            passives.emplace_back(
+                make_stringf("channel magic (%d%%)", channel).c_str());
+        }
     }
 
     if (you.infusion_amount())

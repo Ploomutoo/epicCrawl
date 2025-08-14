@@ -1299,7 +1299,18 @@ static int _useful_consumable_order(const item_def &item, const string &name)
         if (p.matches(name))
             return -1;
 
-    return order - base_types.begin();
+    // Within each category, sort by usefulness.
+    int subsort = 2;
+    if (is_useless_item(item, true))
+        subsort = 4;
+    if (is_emergency_item(item))
+        subsort = 0;
+    else if (is_good_item(item))
+        subsort = 1;
+    else if (is_dangerous_item(item))
+        subsort = 3;
+
+    return (order - base_types.begin()) * 5 + subsort;
 }
 
 // Returns the name of an item_def field to display on the action panel
@@ -1366,6 +1377,7 @@ void TilesFramework::_send_item(item_def& current, const item_def& next,
                            "flags", false);
     changed |= _update_string(force_full, current.inscription,
                               next.inscription, "inscription", false);
+    changed |= _update_int(force_full, current.slot, next.slot, "letter", false);
 
     // TODO: props?
 

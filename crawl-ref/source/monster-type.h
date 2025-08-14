@@ -914,7 +914,9 @@ enum monster_type                      // env.mons[].type
     MONS_TERENCE,
     MONS_BLORKULA_THE_ORCULA,
     MONS_EDMUND,
+#if TAG_MAJOR_VERSION == 34
     MONS_PSYCHE,
+#endif
     MONS_EROLCHA,
     MONS_DONALD,
     MONS_URUG,
@@ -999,6 +1001,7 @@ enum monster_type                      // env.mons[].type
     MONS_XAKKRIXIS,
     MONS_NAMELESS_REVENANT,  // 'Nobody' (except with a less misleading enum name)
     MONS_SPROZZ,
+    MONS_CASSANDRA,
 #endif
     // Sprint uniques:
     MONS_CHUCK,
@@ -1026,6 +1029,7 @@ enum monster_type                      // env.mons[].type
     MONS_GLOBE_OF_ANNIHILATION,
     MONS_PILE_OF_DEBRIS,
     MONS_PILE_OF_FLESH,
+    MONS_SHOOTING_STAR,
 #endif
     MONS_PILLAR_OF_SALT,
 #if TAG_MAJOR_VERSION > 34
@@ -1370,6 +1374,8 @@ enum monster_type                      // env.mons[].type
     MONS_ORB_OF_ENTROPY,
     MONS_ORB_OF_WINTER,
     MONS_SCREAMING_REFRACTION,
+    MONS_SHOOTING_STAR,
+    MONS_CASSANDRA,
 #endif
 
     NUM_MONSTERS,               // used for polymorph
