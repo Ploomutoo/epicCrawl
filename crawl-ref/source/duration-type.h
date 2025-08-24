@@ -294,10 +294,7 @@ enum duration_type
     DUR_DIMINISHED_SPELLS,
     DUR_DAZED,
     DUR_PARRYING,
-<<<<<<< HEAD
-=======
     DUR_STARDUST_COOLDOWN,
     DUR_MESMERISM_COOLDOWN,
->>>>>>> ae3489853650ac58ff70fd6c1c66b119793ceecb
     NUM_DURATIONS
 };

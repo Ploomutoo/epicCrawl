@@ -1499,12 +1499,9 @@ static void _give_weapon(monster *mon, int level, bool second_weapon = false)
 
     if (mon->type == MONS_JOSEPHINA)
         make_item_for_monster(mon, OBJ_JEWELLERY, RING_PROTECTION_FROM_COLD, ISPEC_RANDART, true);
-<<<<<<< HEAD
-=======
 
     if (mon->type == MONS_CASSANDRA && coinflip())
         make_item_for_monster(mon, OBJ_JEWELLERY, get_random_amulet_type(), 0, 1);
->>>>>>> ae3489853650ac58ff70fd6c1c66b119793ceecb
 }
 
 // Hands out ammunition fitting the monster's launcher (if any), or else any

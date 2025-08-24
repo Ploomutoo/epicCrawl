@@ -4420,12 +4420,6 @@ int monster::hurt(const actor *agent, int amount, beam_type flavour,
                     this->malmutate(&you, "Your corrupting presence");
                 }
             }
-<<<<<<< HEAD
-            if (you.wearing_ego(OBJ_ARMOUR, SPARM_GLASS)
-                && x_chance_in_y(40 + you.skill(SK_EVOCATIONS, 10), 500))
-            {
-                this->vitrify(&you, 4 + random2(5 + you.skill(SK_EVOCATIONS)));
-=======
         }
 
         if (agent && alive() && agent->wearing_ego(OBJ_ARMOUR, SPARM_GLASS))
@@ -4439,7 +4433,6 @@ int monster::hurt(const actor *agent, int amount, beam_type flavour,
             {
                 if (x_chance_in_y(40 + mon->get_hit_dice() * 5, 500))
                     this->vitrify(agent, 4 + random2(5 + mon->get_hit_dice()));
->>>>>>> ae3489853650ac58ff70fd6c1c66b119793ceecb
             }
         }
 

@@ -1538,12 +1538,8 @@ int player_spec_death()
 {
     int sd = 0;
 
-<<<<<<< HEAD
-    sd += you.wearing(OBJ_STAVES, STAFF_NECROMANCY);
-=======
     if (you.wearing(OBJ_STAVES, STAFF_NECROMANCY))
         sd += 1 + you.wearing_ego(OBJ_ARMOUR, SPARM_ATTUNEMENT);
->>>>>>> ae3489853650ac58ff70fd6c1c66b119793ceecb
 
     sd += you.get_mutation_level(MUT_NECRO_ENHANCER);
 
@@ -1562,10 +1558,7 @@ int player_spec_fire()
         sf += 1 + you.wearing_ego(OBJ_ARMOUR, SPARM_ATTUNEMENT);
 
     sf += you.wearing_ego(OBJ_ARMOUR, SPARM_FIRE);
-<<<<<<< HEAD
-=======
     sf += you.wearing_ego(OBJ_ARMOUR, SPARM_PYROMANIA);
->>>>>>> ae3489853650ac58ff70fd6c1c66b119793ceecb
 
     sf += you.scan_artefacts(ARTP_ENHANCE_FIRE);
 
@@ -1636,14 +1629,9 @@ int player_spec_conj()
 {
     int sc = 0;
 
-<<<<<<< HEAD
-    sc += you.wearing(OBJ_STAVES, STAFF_CONJURATION);
-    sc += you.wearing_ego(OBJ_ARMOUR, SPARM_CONJURING);
-=======
     if (you.wearing(OBJ_STAVES, STAFF_CONJURATION))
         sc += 1 + you.wearing_ego(OBJ_ARMOUR, SPARM_ATTUNEMENT);
 
->>>>>>> ae3489853650ac58ff70fd6c1c66b119793ceecb
     sc += you.scan_artefacts(ARTP_ENHANCE_CONJ);
 
     return sc;
