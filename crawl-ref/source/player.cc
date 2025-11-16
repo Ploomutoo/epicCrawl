@@ -1650,6 +1650,8 @@ int player_spec_earth()
 
     se += you.wearing_ego(OBJ_ARMOUR, SPARM_EARTH);
 
+    se += you.wearing_ego(OBJ_ARMOUR, SPARM_EARTH);
+
     se += you.scan_artefacts(ARTP_ENHANCE_EARTH);
 
     if (you.unrand_equipped(UNRAND_ELEMENTAL_STAFF))
@@ -1665,6 +1667,8 @@ int player_spec_air()
     // Staves
     if (you.wearing(OBJ_STAVES, STAFF_AIR))
         sa += 1 + you.wearing_ego(OBJ_ARMOUR, SPARM_ATTUNEMENT);
+
+    sa += you.wearing_ego(OBJ_ARMOUR, SPARM_AIR);
 
     sa += you.wearing_ego(OBJ_ARMOUR, SPARM_AIR);
 
@@ -1715,6 +1719,8 @@ int player_spec_alchemy()
 
     if (you.wearing(OBJ_STAVES, STAFF_ALCHEMY))
         sp += 1 + you.wearing_ego(OBJ_ARMOUR, SPARM_ATTUNEMENT);
+
+    sp += you.wearing_jewellery(AMU_ALCHEMY);
 
     sp += you.wearing_jewellery(AMU_ALCHEMY);
 
@@ -3190,6 +3196,9 @@ void level_change(bool skip_attribute_increase)
             upgrade_hepliaklqana_ancestor();
 
         learned_something_new(HINT_NEW_LEVEL);
+
+        if (you.props.exists(ACQUIRE_ITEMS_KEY))
+            acquirement_clear();
     }
 
     while (you.experience >= exp_needed(you.max_level + 1))
@@ -6143,6 +6152,9 @@ int player::skill(skill_type sk, int scale, bool real, bool temp) const
     {
         level += (10 + get_form()->get_level(10)) * scale / 20;
     }
+
+    if (sk == SK_SHAPESHIFTING)
+        level += you.wearing_jewellery(AMU_WILDSHAPE) * 5 * scale;
 
     if (temp && skill_has_dilettante_penalty(sk))
     {

@@ -173,6 +173,7 @@ static const armour_def Armour_prop[] =
             { SPARM_INVISIBILITY, 1 },
             { SPARM_HARM,         1 },
             { SPARM_SHADOWS,      1 },
+            { SPARM_AIR,          1 },
     }},
 
     { ARM_GLOVES,               "gloves",                 1,   0,   45,
