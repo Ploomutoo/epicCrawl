@@ -18,6 +18,8 @@
 #include "dungeon.h"
 #include "fineff.h"
 #include "god-conduct.h"
+#include "god-passive.h"
+#include "god-wrath.h"
 #include "hints.h"
 #include "item-prop.h"
 #include "item-status-flag-type.h"
@@ -25,18 +27,24 @@
 #include "level-state-type.h"
 #include "libutil.h"
 #include "message.h"
+#include "mon-act.h"
 #include "mon-death.h"
 #include "mon-gear.h"
 #include "mon-place.h"
 #include "mon-tentacle.h"
 #include "mutation.h"
 #include "notes.h"
+#include "output.h"
+#include "player-notices.h"
 #include "religion.h"
+#include "spl-transloc.h"
+#include "shout.h"
 #include "state.h"
 #include "stringutil.h"
 #include "terrain.h"
 #include "transform.h"
 #include "traps.h"
+#include "view.h"
 #include "xom.h"
 
 #define ORIG_HD_KEY "orig_hd"
@@ -252,26 +260,22 @@ void change_monster_type(monster* mons, monster_type targetc, bool do_seen)
     string name;
 
     // Preserve the names of uniques and named monsters.
-    if (mons->type == MONS_ROYAL_JELLY
-        || mons->mname == "shaped Royal Jelly")
+    if (mons_is_mons_class(mons, MONS_ROYAL_JELLY))
     {
         name   = "shaped Royal Jelly";
         flags |= MF_NAME_SUFFIX;
     }
-    else if (mons->type == MONS_LERNAEAN_HYDRA
-             || mons->mname == "shaped Lernaean hydra")
+    else if (mons_is_mons_class(mons, MONS_LERNAEAN_HYDRA))
     {
         name   = "shaped Lernaean hydra";
         flags |= MF_NAME_SUFFIX;
     }
-    else if (mons->type == MONS_ENCHANTRESS
-             || mons->mname == "shaped Enchantress")
+    else if (mons_is_mons_class(mons, MONS_ENCHANTRESS))
     {
         name   = "shaped Enchantress";
         flags |= MF_NAME_SUFFIX;
     }
-    else if (mons->mons_species() == MONS_SERPENT_OF_HELL
-             || mons->mname == "shaped Serpent of Hell")
+    else if (mons_is_mons_species(mons, MONS_SERPENT_OF_HELL))
     {
         name   = "shaped Serpent of Hell";
         flags |= MF_NAME_SUFFIX;
@@ -310,7 +314,7 @@ void change_monster_type(monster* mons, monster_type targetc, bool do_seen)
                                 ? draconian_subspecies(*mons)
                                 : mons->type;
         mons->props[ORIGINAL_TYPE_KEY].get_int() = type;
-        if (mons->mons_species() == MONS_HYDRA)
+        if (mons->has_hydra_multi_attack())
             mons->props[OLD_HEADS_KEY].get_int() = mons->num_heads;
     }
     if (!mons->props.exists(ORIG_HD_KEY))
@@ -701,10 +705,19 @@ bool mon_can_be_slimified(const monster* mons)
 
 static monster_type _slime_target(const monster &mon)
 {
+    // Easter egg!
+    if (mons_genus(mon.type) == MONS_HYDRA)
+        return MONS_SLYMDRA;
+
     const int hd = mon.get_hit_dice();
     const int target = random_range(hd - 4, hd + 4);
     if (!feat_has_solid_floor(env.grid(mon.pos())))
-        return target < 7 ? MONS_JELLY : MONS_SLIME_CREATURE; // Don't drown.
+    {
+        // Don't drown.
+        return target < 7    ? MONS_JELLY
+               : target < 12 ? MONS_SLIME_CREATURE
+                             : MONS_ROCKSLIME;
+    }
 
     if (target < 3)
         return MONS_ENDOPLASM;
@@ -712,9 +725,8 @@ static monster_type _slime_target(const monster &mon)
         return MONS_JELLY;
     if (target < 12)
         return MONS_SLIME_CREATURE;
-    if (coinflip())
-        return MONS_ACID_BLOB;
-    return MONS_AZURE_JELLY;
+    else
+        return royal_jelly_ejectable_monster();
 }
 
 void slimify_monster(monster* mon)
@@ -733,7 +745,11 @@ void slimify_monster(monster* mon)
 
     monster_polymorph(mon, target, PPT_SLIME);
 
-    mon->attitude = ATT_GOOD_NEUTRAL;
+    // If a monster slimifies and you're not with Jiyva, it shouldn't change
+    // that monster's attitude any more than other polymorph does. If you are
+    // with Jiyva, either let it stay friendly or make it non-hostile.
+    if (you_worship(GOD_JIYVA) && mon->attitude != ATT_FRIENDLY)
+        mon->attitude = ATT_GOOD_NEUTRAL;
 
     mons_make_god_gift(*mon, GOD_JIYVA);
 
@@ -745,76 +761,4 @@ void slimify_monster(monster* mon)
 
     if (mons_is_elven_twin(mon))
         elven_twin_died(mon, false, KILL_YOU, MID_PLAYER);
-}
-
-void seen_monster(monster* mons)
-{
-    set_unique_annotation(mons);
-
-    // id equipment (do this every time we see them, it may have changed)
-    view_monster_equipment(mons);
-
-    // Monster was viewed this turn
-    mons->flags |= MF_WAS_IN_VIEW;
-
-    if (mons->flags & MF_SEEN)
-        return;
-
-    // First time we've seen this particular monster.
-    mons->flags |= MF_SEEN;
-
-    if (crawl_state.game_is_hints())
-        hints_monster_seen(*mons);
-
-    if (mons_is_notable(*mons))
-    {
-        string name = mons->name(DESC_A, true);
-        if (mons->type == MONS_PLAYER_GHOST)
-        {
-            name += make_stringf(" (%s)",
-                                 short_ghost_description(mons, true).c_str());
-        }
-        else if (mons->flags & MF_KNOWN_SHIFTER)
-        {
-            name += make_stringf(" (%sshapeshifter)",
-                mons->has_ench(ENCH_GLOWING_SHAPESHIFTER) ? "glowing " : "");
-        }
-        take_note(Note(NOTE_SEEN_MONSTER, mons->type, 0, name));
-    }
-
-    if (you.unrand_equipped(UNRAND_WYRMBANE))
-    {
-        const item_def *wyrmbane = nullptr;
-        const item_def *wpn = you.weapon();
-        const item_def *offhand_wpn = you.offhand_weapon();
-
-        if (wpn && wpn->unrand_idx == UNRAND_WYRMBANE)
-            wyrmbane = wpn;
-        else if (offhand_wpn && offhand_wpn->unrand_idx == UNRAND_WYRMBANE)
-            wyrmbane = offhand_wpn;
-
-        if (wyrmbane && mons->dragon_level() > wyrmbane->plus)
-            mpr("<green>Wyrmbane glows as a worthy foe approaches.</green>");
-    }
-
-    // attempt any god conversions on first sight
-    do_conversions(mons);
-
-    if (!(mons->flags & MF_TSO_SEEN))
-    {
-        if (mons_gives_xp(*mons, you) && !crawl_state.game_is_arena())
-        {
-            did_god_conduct(DID_SEE_MONSTER, mons->get_experience_level(),
-                            true, mons);
-        }
-        mons->flags |= MF_TSO_SEEN;
-    }
-
-    if (mons_offers_beogh_conversion(*mons))
-        env.level_state |= LSTATE_BEOGH;
-
-    if (you.form == transformation::sphinx)
-        sphinx_notice_riddle_target(mons);
-
-    maybe_apply_bane_to_monster(*mons);
 }

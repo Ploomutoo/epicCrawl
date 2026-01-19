@@ -51,6 +51,12 @@ as zombies. The chance of reanimating a monster and the duration of the effect
 increase with spell power. Re-casting this spell will return zombies to dust, as
 will leaving the floor.
 %%%%
+Antimagic Gaze spell
+
+Causes the target's magic to leak into the air, as though they were hit by an
+antimagic weapon, and heals the caster for the amount of magic drained,
+with no direct line of fire required.
+%%%%
 Apportation spell
 
 Pulls the top item or group of similar items from a distant pile to the floor
@@ -477,6 +483,11 @@ Debugging Ray spell
 
 Fires a ray which does massive damage (1500 hp) and always hits.
 %%%%
+Deflect Missiles spell
+
+Envelops the caster in a repulsion field, greatly increasing their evasion
+against all types of projectile - even while otherwise incapacitated.
+%%%%
 Detonation Catalyst spell
 
 Affixes a volatile catalyst to the caster's fists or melee weapon, causing each
@@ -600,9 +611,8 @@ antimagic weapon.
 %%%%
 Draining Gaze spell
 
-Causes the target's magic to leak into the air, as though they were hit by an
-antimagic weapon, and heals the caster for the amount of magic drained,
-with no direct line of fire required.
+Fills a living creature with negative energy, draining them for a fraction of
+their maximum health. This spell requires line of sight but not line of fire.
 %%%%
 Dream Dust spell
 
@@ -706,6 +716,10 @@ A single soul from within the armoury leaps out, striking with their weapon and
 then duelling independently for a short time before returning to the maelstrom
 once more.
 %%%%
+Fleetfoot spell
+
+Calls forth winds to increase the caster's movement speed for a short duration.
+%%%%
 Force Lance spell
 
 Fires a shaft of concussive force. If the impact deals damage, it may knock the
@@ -785,6 +799,11 @@ target may have. This may temporarily slow cold-blooded creatures.
 Freezing Cloud spell
 
 Conjures up a large cloud of lethally cold vapour.
+%%%%
+Freezing Gust spell
+
+Fires a penetrating bolt of frigid air that leaves clouds of lethally cold
+vapour in its wake.
 %%%%
 Frozen Ramparts spell
 
@@ -1035,8 +1054,8 @@ death.
 %%%%
 Injury Bond spell
 
-Binds the caster to nearby allies, redirecting half of any damage they suffer
-to the caster.
+Binds the caster to nearby allies, reducing all damage they take by half in
+exchange for suffering half of the prevented damage themselves.
 %%%%
 Injury Mirror spell
 
@@ -1113,6 +1132,12 @@ on contact with open flame or with creatures - including any caster foolish
 enough to linger in them! The explosion is concussive, knocking adjacent
 creatures away. Damage done rises with the spell's power.
 %%%%
+Landbreaker spell
+
+Violently fractures the landscape, causing rubble to fall upon several nearby
+enemies and also the ground behind them - obstructing their path to flee the
+caster.
+%%%%
 Launch Bomblet spell
 
 Fires a bomblet on a ballistic trajectory that ignores line of fire, dealing
@@ -1133,6 +1158,13 @@ the cost of 1 MP.
 
 Spellpower increases the number of attacks the bee may perform before going
 dormant.
+%%%%
+Launch Sporangium spell
+
+Launches a caustic sporangium which will pursue any intriguing sources of
+nutrients - such as yourself - and engulf them in a massive acidic explosion.
+Nascent plasmodia, capable of firing acid of their own, may take root on any
+walls this explosion touches - though none within 2 tiles of any other.
 %%%%
 Leda's Liquefaction spell
 
@@ -1507,16 +1539,12 @@ otherwise almost indistinguishable from the original.
 Planar Overlay spell
 
 Overlays part of an adjacent reality onto this one, causing random local
-monsters to appear elsewhere on the floor. This occurs rapidly at first, but
-soon slows down to a steady rate.
+monsters to appear elsewhere on the floor. The first time this is used, multiple
+monsters will arrive at once; afterward, they will appear at a slow, steady
+rate.
 
-After many monsters have been generated, they will stop rewarding any experience
-points - though destroying the tesseract early will immediately grant the player
-the sum total of all experience points that could be obtained by allowing it to
-continue.
-
-After even more monsters have been generated, new monsters have a chance to
-appear within the player's sight instead.
+After a considerable amount of time has passed, these monsters may even appear
+near the player.
 %%%%
 Plane Rend spell
 
@@ -1659,11 +1687,6 @@ Casting this spell temporarily drains *all* of the caster's remaining magical
 power to constitute the blade, but this energy will be returned to them as soon
 as the blade ceases to exist. Each point of magical power sequestered this way
 slightly increases the damage the blade inflicts.
-%%%%
-Repel Missiles spell
-
-Envelops the caster in a repulsion field, increasing their evasion against all
-types of projectile - even while otherwise incapacitated.
 %%%%
 Resonance Strike spell
 
@@ -1980,10 +2003,6 @@ Sporulate spell
 Releases a fast, gas-filled floating spore. After seeking out its foe, the
 spore will explode, damaging anything caught in the blast and further confusing
 living creatures.
-%%%%
-Sprint spell
-
-Causes the caster to move across terrain more rapidly for a short duration.
 %%%%
 Starburst spell
 

@@ -228,8 +228,8 @@ walls.
 %%%%
 A slime covered rock wall
 
-A rock wall coated with bright green slime. It is acidic to the touch; just
-standing near it is enough to cause temporary corrosion.
+A rock wall coated with acidic green slime; just standing near it is enough to
+cause temporary corrosion.
 %%%%
 A metal wall
 
@@ -276,6 +276,38 @@ A metal staircase leading up
 A staircase leading up from the grand vaults containing the silver rune of Zot,
 whose wealth attracts the most powerful champions from across the Dungeon to its
 defence.
+%%%%
+A slimy stone staircase leading down
+
+A stone staircase leading further down.
+
+{{
+    if you.god() == "Jiyva" then
+        return "It is slick with slippery slime, but that is no obstacle for one " ..
+               "such as yourself who has embraced the way of all slime."
+    else
+        return "It is slick with slippery slime which will make it impossible " ..
+               "for you to climb back up again until the power ruling this place " ..
+               "is destroyed (or you choose to join it). However, being coated in " ..
+               "this slime will greatly increase your HP and MP regenaration for " ..
+               "short while afterward."
+    end
+}}
+%%%%
+A slimy stone staircase leading up
+
+A stone staircase leading back up.
+
+{{
+    if you.god() == "Jiyva" then
+        return "It is slick with slippery slime, but that is no obstacle for one " ..
+               "such as yourself who has embraced the way of all slime."
+    else
+        return "It is slick with slippery slime, making it impossible for you to " ..
+               "climb until the power ruling this place is destroyed (or you choose " ..
+               "to join it)."
+    end
+}}
 %%%%
 A tree
 
@@ -817,9 +849,17 @@ will avoid stepping on it.
 %%%%
 A dispersal trap
 
-Anyone stepping on this trap will translocate themself and anyone else in view
+Anyone stepping on this trap will translocate themselves and anyone else in view
 to a new location nearby. Hostile monsters may trigger this trap, but your
 allies will avoid stepping on it.
+
+After triggering, it cannot be triggered again for several turns.
+%%%%
+A dispersal trap (recharging)
+
+[[A dispersal trap]]
+
+It is currently recharging and will become active again in a short while.
 %%%%
 A harlequin's trap
 

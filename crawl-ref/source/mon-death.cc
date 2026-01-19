@@ -81,6 +81,7 @@
 #include "traps.h"
 #include "unwind.h"
 #include "viewchar.h"
+#include "viewmap.h"
 #include "view.h"
 
 /**
@@ -256,10 +257,6 @@ static int _calc_player_experience(const monster* mons)
 
     experience = experience * mons->damage_friendly / mons->damage_total;
     ASSERT(mons->damage_friendly <= mons->damage_total);
-
-    // Award the player any XP remaining in the tesseract's XP pool.
-    if (mons->type == MONS_BOUNDLESS_TESSERACT && mons->props.exists(TESSERACT_XP_KEY))
-        experience += mons->props[TESSERACT_XP_KEY].get_int();
 
     return experience;
 }
@@ -763,7 +760,7 @@ static bool _yred_bind_soul(monster* mons, killer_type killer)
     return false;
 }
 
-static bool _vampire_make_thrall(monster* mons)
+static bool _vampire_make_thrall(monster* mons, killer_type killer)
 {
     if (!mons->props.exists(VAMPIRIC_THRALL_KEY) || you.allies_forbidden())
         return false;
@@ -772,6 +769,9 @@ static bool _vampire_make_thrall(monster* mons)
     for (monster_iterator mi; mi; ++mi)
         if (mi->was_created_by(MON_SUMM_THRALL))
             return false;
+
+    const xp_tracking_type xp_tracking = mons->xp_tracking;
+    const unsigned int exp = exp_value(*mons);
 
     // Okay, let's try to make them for real!
     mprf("%s rises to serve you!", mons->name(DESC_THE).c_str());
@@ -802,7 +802,7 @@ static bool _vampire_make_thrall(monster* mons)
     mons->mark_summoned(MON_SUMM_THRALL, 0, false);
     mons->add_ench(mon_enchant(ENCH_SUMMON_TIMER, &you, dur));
     mons_att_changed(mons);
-    gain_exp(exp_value(*mons));
+    _give_player_experience(exp, killer, false, true, xp_tracking);
 
     // Cancel fleeing and such.
     mons->behaviour = BEH_SEEK;
@@ -1163,7 +1163,7 @@ static bool _monster_avoided_death(monster* mons, killer_type killer,
     if (_ely_heal_monster(mons, killer, killer_index))
         return true;
 
-    if (_vampire_make_thrall(mons))
+    if (_vampire_make_thrall(mons, killer))
         return true;
 
     return false;
@@ -1197,15 +1197,9 @@ void fire_monster_death_event(monster* mons,
 {
     int type = mons->type;
 
-    // Treat whatever the Royal Jelly polymorphed into as if it were still
-    // the Royal Jelly (but if a player chooses the character name
-    // "shaped Royal Jelly" don't unlock the vaults when the player's
-    // ghost is killed).
-    if (mons->mname == "shaped Royal Jelly"
-        && !mons_is_pghost(mons->type))
-    {
+    // Handle TRJ properly, even when polymorphed.
+    if (mons_is_mons_class(mons, MONS_ROYAL_JELLY))
         type = MONS_ROYAL_JELLY;
-    }
 
     if (!polymorph)
     {
@@ -1242,6 +1236,16 @@ void fire_monster_death_event(monster* mons,
 
         if (jiyva_is_dead())
             _jiyva_died();
+
+        // Update the stair tiles on this floor so that they properly look like normal stairs again.
+        for (rectangle_iterator ri(1); ri; ++ri)
+        {
+            if (feat_is_stone_stair(env.grid(*ri)))
+            {
+                tile_clear_flavour(*ri);
+                tile_init_flavour(*ri);
+            }
+        }
     }
 }
 
@@ -1329,7 +1333,7 @@ static void _infestation_create_scarab(monster* mons)
 static void _pharaoh_ant_bind_souls(monster *mons)
 {
     bool bound = false;
-    for (monster_near_iterator mi(mons, LOS_NO_TRANS); mi; ++mi)
+    for (monster_near_iterator mi(mons->pos(), LOS_NO_TRANS); mi; ++mi)
     {
         if (!mons_can_bind_soul(mons, *mi))
             continue;
@@ -1551,13 +1555,13 @@ static void _make_derived_undead(monster* mons, bool quiet,
     if (spell == MON_SUMM_WPN_REAP)
         mg.summon_duration = random_range(200, 400);
 
-    if (!mons->mname.empty() && !(mons->flags & MF_NAME_NOCORPSE))
-        mg.mname = mons->mname;
-    else if (mons_is_unique(mons->type))
-        mg.mname = mons_type_name(mons->type, DESC_PLAIN);
-    mg.extra_flags = mons->flags & (MF_NAME_SUFFIX
-                                      | MF_NAME_ADJECTIVE
-                                      | MF_NAME_DESCRIPTOR);
+    // Properly get the name and name flags of the original monster. Since the
+    // function requires a monster to save them to, make a fake one for that
+    // purpose, and then copy the saved name and name flags to mg.
+    monster fake_mons;
+    name_zombie_from_mon(fake_mons, *mons);
+    mg.mname = fake_mons.mname;
+    mg.extra_flags = fake_mons.flags;
 
     // Kiku wrath and Bind Soul simulacrum are permanent and shouldn't give rewards
     if (god == GOD_KIKUBAAQUDGHA || spell == SPELL_BIND_SOULS)
@@ -1573,7 +1577,7 @@ static void _make_derived_undead(monster* mons, bool quiet,
     if (fail_msg.empty())
         fail_msg = "A " + mist + " mist gathers momentarily, then fades.";
 
-    if (mons->mons_species() == MONS_HYDRA)
+    if (mons->mons_species() == MONS_HYDRA || mons->type == MONS_SLYMDRA)
     {
         // No undead 0-headed hydras, sorry.
         if (mons->heads() == 0)
@@ -1604,7 +1608,7 @@ static void _make_derived_undead(monster* mons, bool quiet,
 static void _druid_final_boon(const monster* mons)
 {
     vector<monster*> beasts;
-    for (monster_near_iterator mi(mons); mi; ++mi)
+    for (monster_near_iterator mi(mons->pos()); mi; ++mi)
     {
         if (mons_is_beast(mons_base_type(**mi)) && mons_aligned(mons, *mi))
             beasts.push_back(*mi);
@@ -1697,16 +1701,6 @@ static void _protean_explosion(monster* mons)
     else if (mons_class_hit_dice(target) < 12 && coinflip())
         ++num_children;
 
-    int summoned_duration = 0;
-    int summon_type = 0;
-    bool is_summoned = mons->is_summoned();
-    if (is_summoned)
-    {
-        mon_enchant summ = mons->get_ench(ENCH_SUMMON);
-        summoned_duration = summ.duration;
-        summon_type = summ.degree;
-    }
-
     // Then create and scatter the piles around
     int delay = random_range(2, 4) * BASELINE_DELAY;
     for (int i = 0; i < num_children; ++i)
@@ -1729,11 +1723,8 @@ static void _protean_explosion(monster* mons)
         mgen_data mg = mgen_data(MONS_ASPIRING_FLESH, SAME_ATTITUDE(mons),
                                  spot, MHITNOT, MG_FORCE_PLACE | MG_FORCE_BEH,
                                  mons->god);
-        if (is_summoned)
-        {
-            const actor* const summoner = actor_by_mid(mons->summoner);
-            mg.set_summoned(summoner, summon_type, 1 /* dummy value*/);
-        }
+        mg.copy_from_parent(mons);
+
         monster *child = create_monster(std::move(mg));
 
         if (child)
@@ -1747,13 +1738,6 @@ static void _protean_explosion(monster* mons)
             child->behaviour = BEH_SEEK;
 
             mons_add_blame(child, "spawned from " + mons->name(DESC_A, true), true);
-
-            if (is_summoned)
-            {
-                // Match the original summoned progenitor's duration.
-                mon_enchant summon_duration_ench(ENCH_SUMMON_TIMER, nullptr, summoned_duration);
-                child->update_ench(summon_duration_ench);
-            }
 
             // Make each one shift a little later than the last
             delay += random_range(1, 2) * BASELINE_DELAY;
@@ -1880,7 +1864,7 @@ static void _cassandra_death_ambush()
     // we create a random monster near the player, attempt to place it in a
     // valid location, and then delete it if we fail (and try a different one).
     int placed = 0;
-    for (int tries = 0; tries < 10 && placed <= num; ++tries)
+    for (int tries = 0; tries < 10 && placed < num; ++tries)
     {
         if (monster* mon = create_monster(mg))
         {
@@ -1896,6 +1880,9 @@ static void _cassandra_death_ambush()
                     did_place = true;
                     ++placed;
 
+                    mon->add_ench(mon_enchant(ENCH_HAUNTING, &you, INFINITE_DURATION));
+                    mg.set_place(level_id::current()); // Only the first monster created is from a deeper depth.
+
                     // Effectively erase this position from the list, so we
                     // don't try to reuse it.
                     pos.x = 0;
@@ -1906,8 +1893,6 @@ static void _cassandra_death_ambush()
 
             if (!did_place)
                 monster_die(*mon, KILL_RESET, NON_MONSTER);
-            else
-                mon->add_ench(mon_enchant(ENCH_HAUNTING, &you, INFINITE_DURATION));
         }
     }
 
@@ -2153,7 +2138,7 @@ static void _fire_kill_conducts(const monster &mons, killer_type killer,
         did_kill_conduct(DID_KILL_HOLY, mons);
 
     // Cheibriados hates fast monsters.
-    if (cheibriados_thinks_mons_is_fast(mons) && !mons.cannot_act())
+    if (cheibriados_thinks_mons_is_fast(mons))
         did_kill_conduct(DID_KILL_FAST, mons);
 }
 
@@ -2730,9 +2715,9 @@ item_def* monster_die(monster& mons, killer_type killer,
             mons.flags |= MF_PERSISTS;
             mons.flags &= ~MF_ACTUAL_SUMMON;
 
-            // Give exactly enough energy to act immediately after the player's
-            // next action, but never blow up during the same action that the
-            // golem died.
+            // Make sure the core doesn't have enough energy to act again on the
+            // same turn that it died, but enough (with its high speed) that
+            // any action at all afterward will cause it to detonate.
             mons.speed_increment = 79;
 
             // Short-circuiting death, since we didn't 'die'
@@ -2810,6 +2795,7 @@ item_def* monster_die(monster& mons, killer_type killer,
     else if (mons.type == MONS_PLAYER_SHADOW)
         dithmenos_cleanup_player_shadow(&mons);
     else if (mons.type == MONS_ORB_GUARDIAN
+             && real_death
              && level_id::current() == level_id(BRANCH_ZOT, 5)
              && !player_on_orb_run()
              && !you.props.exists(TESSERACT_SPAWN_COUNTER_KEY))
@@ -2839,6 +2825,8 @@ item_def* monster_die(monster& mons, killer_type killer,
             activate_tesseracts();
         }
     }
+    else if (mons.type == MONS_ERYTHROSPITE && !mons.is_abjurable())
+        bleed_onto_floor(mons.pos(), MONS_ERYTHROSPITE, 100, false);
 
     if (mons.has_ench(ENCH_MAGNETISED))
     {
@@ -3221,6 +3209,13 @@ item_def* monster_die(monster& mons, killer_type killer,
                 msg = " expends the last of its power.";
             else if (mons.type == MONS_RENDING_BLADE)
                 msg = " implodes with a snap.";
+            else if (mons.type == MONS_ERYTHROSPITE)
+                msg = " expends the last of its anger.";
+            else if (mons.type == MONS_CREEPING_PLASMODIUM
+                     || mons.type == MONS_NASCENT_PLASMODIUM)
+            {
+                msg = " shrivels and dies.";
+            }
             else
             {
                 if (mons.props.exists(KIKU_WRETCH_KEY))
@@ -3340,62 +3335,49 @@ item_def* monster_die(monster& mons, killer_type killer,
         else if (mons.type == MONS_BENNU && !mons.pacified() && real_death
                  && mons_bennu_can_revive(&mons))
         {
-            // All this information may be lost by the time the monster revives.
-            const int revives = (mons.props.exists(BENNU_REVIVES_KEY))
-                                ? mons.props[BENNU_REVIVES_KEY].get_byte() : 0;
-            const bool duel = mons.props.exists(OKAWARU_DUEL_CURRENT_KEY);
-            const beh_type att = mons.has_ench(ENCH_CHARM)
-                                 ? BEH_HOSTILE : SAME_ATTITUDE(&mons);
-
-            // Carry over bribe enchantments (as otherwise revived bribed
-            // bennu will follow the player out of their branch)
-            const mon_enchant gozag_bribe = mons.get_ench(ENCH_NEUTRAL_BRIBED,
-                                                          ENCH_FRIENDLY_BRIBED);
-
-            // Don't consider this a victory yet, and duel the new bennu.
-            if (duel)
-                mons.props.erase(OKAWARU_DUEL_CURRENT_KEY);
-
-            schedule_bennu_revive_fineff(mons.pos(), revives, att, mons.foe,
-                                         duel, gozag_bribe);
+            schedule_bennu_revive_fineff(&mons);
         }
         else if (mons_is_mons_class(&mons, MONS_CASSANDRA) && real_death)
             _cassandra_death_ambush();
     }
 
     // Must be done after health is set to zero and monster is properly marked dead.
-    if (mons.type == MONS_BOUNDLESS_TESSERACT)
+    if (mons.type == MONS_BOUNDLESS_TESSERACT && killer != KILL_RESET)
     {
-        // Remove all non-rewarding spawns, along with the other tesseract.
+        you.props.erase(TESSERACT_SPAWN_COUNTER_KEY);
+
+        mprf(MSGCH_ORB, "A wave of disorienting energy ripples outward as you feel the reach of Zot diminish.");
+        mark_milestone("tesseract.kill", "destroyed the tesseracts.");
+
+        draw_ring_animation(mons.pos(), LOS_RADIUS, MAGENTA, BLUE, true, 5);
+
+        // Remove all tesseract spawns, along with the other tesseract.
         for (monster_iterator mi; mi; ++mi)
         {
-            if (mi->type == MONS_BOUNDLESS_TESSERACT && mi->mid != mons.mid
-                && !(mi->flags & MF_BANISHED))
+            if (mi->type == MONS_BOUNDLESS_TESSERACT && mi->mid != mons.mid)
             {
-                monster_die(**mi, killer, killer_index);
+                env.map_knowledge(mi->pos()).clear();
+                view_update_at(mi->pos());
+#ifdef USE_TILE
+                tiles.update_minimap(mi->pos());
+#endif
+                monster_die(**mi, KILL_RESET, NON_MONSTER);
             }
-            else if ((mi->flags & (MF_HARD_RESET | MF_NO_REWARD)
-                     && mi->props.exists(BLAME_KEY)))
+            else if ((mi->flags & MF_TESSERACT_SPAWN))
             {
-                const CrawlVector& blame = mi->props[BLAME_KEY].get_vector();
-                if (blame[blame.size() - 1].get_string() == "created by a Boundless Tesseract")
+                if (you.can_see(**mi))
                 {
-                    if (you.can_see(**mi))
-                    {
-                        mprf(MSGCH_MONSTER_TIMEOUT, "%s is pulled back into %s original reality.",
-                             mi->name(DESC_THE).c_str(), mi->pronoun(PRONOUN_POSSESSIVE).c_str());
-                        }
-                    monster_die(**mi, KILL_RESET, NON_MONSTER);
+                    mprf(MSGCH_MONSTER_TIMEOUT, "%s is cast back into %s original reality.",
+                            mi->name(DESC_THE).c_str(), mi->pronoun(PRONOUN_POSSESSIVE).c_str());
                 }
+                monster_die(**mi, KILL_RESET, NON_MONSTER);
             }
         }
 
-        if (you.props.exists(TESSERACT_SPAWN_COUNTER_KEY))
-        {
-            mprf(MSGCH_ORB, "You feel the reach of Zot diminish.");
-            mark_milestone("tesseract.kill", "destroyed the tesseracts.");
-            you.props.erase(TESSERACT_SPAWN_COUNTER_KEY);
-        }
+        for (distance_iterator di(mons.pos(), false, true, LOS_RADIUS); di; ++di)
+            if (monster* mon = monster_at(*di))
+                if (!mon->wont_attack())
+                    mon->daze(random_range(7, 12));
     }
     if (mons_is_tentacle_head(mons_base_type(mons)))
     {
@@ -3445,8 +3427,11 @@ item_def* monster_die(monster& mons, killer_type killer,
     }
 
     // Activate various on-kill effects for the player (like divine healing,
-    // Powered by Death, berserk extension, etc.)
-    _player_on_kill_effects(mons, killer, gives_player_xp, pet_kill);
+    // Powered by Death, berserk extension, etc.).
+    // Tesseract spawns give no XP, but still trigger kill effects as though they did.
+    _player_on_kill_effects(mons, killer,
+                            gives_player_xp || (mons.flags & MF_TESSERACT_SPAWN),
+                            pet_kill);
 
     if (mons.has_ench(ENCH_RIMEBLIGHT) && !was_banished && !mons_reset)
     {
@@ -3725,7 +3710,7 @@ void monster_cleanup(monster* mons)
         invalidate_agrid();
     }
 
-    if (mons->type == MONS_PLATINUM_PARAGON)
+    if (mons->type == MONS_PLATINUM_PARAGON && mons->was_created_by(you, SPELL_PLATINUM_PARAGON))
         you.duration[DUR_PARAGON_ACTIVE] = 0;
     if (mons->type == MONS_SEISMOSAURUS_EGG)
         for (distance_iterator di(mons->pos(), false, false, 4); di; ++di)
@@ -4003,6 +3988,23 @@ bool mons_is_mons_class(const monster* mons, monster_type type)
     return mons->type == type
            || mons->props.exists(ORIGINAL_TYPE_KEY)
               && mons->props[ORIGINAL_TYPE_KEY].get_int() == type;
+}
+
+/**
+ * Determine if a specified monster is or was a specified monster species.
+ *
+ * Checks the species of both the monster type and the ORIGINAL_TYPE_KEY
+ * prop, thus allowing the type to be transferred through polymorph.
+ *
+ * @param mons    The monster to be checked.
+ * @param spec    The species it might be.
+ * @return        True if the monster was or is the species, otherwise false.
+**/
+bool mons_is_mons_species(const monster* mons, monster_type spec)
+{
+    return mons_species(mons->type) == spec
+           || mons->props.exists(ORIGINAL_TYPE_KEY)
+              && mons_species(static_cast<monster_type>(mons->props[ORIGINAL_TYPE_KEY].get_int())) == spec;
 }
 
 /**

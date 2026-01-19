@@ -145,6 +145,9 @@ enum band_type
     BAND_BES_KEMWAR,
     BAND_ROCK_FISH,
     BAND_UNDERTAKERS,
+    BAND_AMOEBA_ORGANS,
+    BAND_DRAINING_EYE_CORPS,
+    BAND_MORPHOGENIC_OOZE,
     NUM_BANDS                   // always last
 };
 
@@ -175,5 +178,7 @@ enum mgen_flag
                              ///  instead.
     MG_SEE_SUMMONER = 0x800, ///< will always be generated in sight of its
                              ///  summoner
+    MG_COPY_PARENT  = 0x1000, ///< if the summoner is summoned or charmed, will
+                              ///  take on those properties themselves
 };
 DEF_BITFIELD(mgen_flags, mgen_flag);

@@ -78,7 +78,7 @@ void wizard_create_spec_monster_name()
         if (strlen(specs) >= 3 && partial != MONS_PROGRAM_BUG)
         {
             mlist.clear();
-            newerr = mlist.add_mons(mons_type_name(partial, DESC_PLAIN));
+            newerr = mlist.add_mons(remove_prepended_the(mons_type_name(partial, DESC_PLAIN)));
         }
 
         if (!newerr.empty())
@@ -648,10 +648,7 @@ static void _move_monster(const coord_def& where, int idx1)
         mon1->check_redraw(where);
     }
     if (!you.see_cell(moves.target))
-    {
-        mon1->flags &= ~(MF_WAS_IN_VIEW | MF_SEEN);
-        mon1->seen_context = SC_NONE;
-    }
+        mon1->flags &= ~(MF_WAS_IN_VIEW | MF_SEEN | MF_SENSED);
 }
 
 void wizard_move_player_or_monster(const coord_def& where)

@@ -66,6 +66,7 @@
 #include "level-state-type.h"
 #include "libutil.h"
 #include "macro.h"
+#include "map-knowledge.h"
 #include "mapmark.h"
 #include "message.h"
 #include "mon-behv.h"
@@ -2044,7 +2045,7 @@ static void _fixup_transmuters()
         { SPELL_BEASTLY_APPENDAGE, TALISMAN_QUILL },
         { SPELL_SPIDER_FORM,       TALISMAN_SPIDER },
         { SPELL_ICE_FORM,          TALISMAN_SERPENT },
-        { SPELL_BLADE_HANDS,       TALISMAN_BLADE },
+        { SPELL_BLADE_HANDS,       TALISMAN_EEL },
         { SPELL_STATUE_FORM,       TALISMAN_STATUE },
         { SPELL_DRAGON_FORM,       TALISMAN_DRAGON },
         { SPELL_STORM_FORM,        TALISMAN_STORM },
@@ -2250,8 +2251,11 @@ bool load_level(dungeon_feature_type stair_taken, load_mode_type load_mode,
         env.markers.activate_all(message);
     }
 
-    if (make_changes && env.elapsed_time && !just_created_level && !descent_peek)
+    if (make_changes && env.elapsed_time && !just_created_level && !descent_peek
+        && stair_taken != DNGN_EXIT_ARENA)
+    {
         update_level(you.elapsed_time - env.elapsed_time);
+    }
 
     // Apply all delayed actions, if any. TODO: logic for marshalling this is
     // kind of odd.
@@ -2543,16 +2547,16 @@ void save_level(const level_id& lid)
 }
 
 #if TAG_MAJOR_VERSION == 34
-# define CHUNK(short, long) short
+# define CHUNK(short_name, long_name) short_name
 #else
-# define CHUNK(short, long) long
+# define CHUNK(short_name, long_name) long_name
 #endif
 
-#define SAVEFILE(short, long, savefn)           \
-    do                                          \
-    {                                           \
-        writer w(you.save, CHUNK(short, long)); \
-        savefn(w);                              \
+#define SAVEFILE(short_name, long_name, savefn)           \
+    do                                                    \
+    {                                                     \
+        writer w(you.save, CHUNK(short_name, long_name)); \
+        savefn(w);                                        \
     } while (false)
 
 // Stack allocated string's go in separate function, so Valgrind doesn't
@@ -2580,6 +2584,9 @@ static void _save_game_base()
 
     /* messages */
     SAVEFILE("msg", "messages", save_messages);
+
+    /* dlua errors */
+    SAVEFILE("de", "dlua_errors", save_dlua_errors);
 
     /* tile dolls (empty for ASCII)*/
 #ifdef USE_TILE
@@ -3318,6 +3325,13 @@ static bool _restore_game(const string& filename)
     {
         reader inf(you.save, CHUNK("msg", "messages"), minorVersion);
         load_messages(inf);
+    }
+
+    /* dlua errors */
+    if (you.save->has_chunk(CHUNK("de", "dlua_errors")))
+    {
+        reader inf(you.save, CHUNK("de", "dlua_errors"), minorVersion);
+        load_dlua_errors(inf);
     }
 
     // Handle somebody SIGHUP'ing out of the skill menu with every skill

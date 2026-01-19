@@ -740,7 +740,7 @@ private:
     mons_spec drac_monspec(string name) const;
     mons_spec soh_monspec(string name) const;
     void get_zombie_type(string s, mons_spec &spec) const;
-    mons_spec get_hydra_spec(const string &name) const;
+    mons_spec get_hydra_spec(const string &name, monster_type type) const;
     mons_spec get_slime_spec(const string &name) const;
     mons_spec get_shaped_spec(const string &name, monster_type type) const;
     mons_spec get_zombified_monster(const string &name,
@@ -1229,19 +1229,15 @@ public:
     // Executes post-generation lua code.
     bool run_lua_epilogue(bool croak = false);
 
-    string validate_map_def(const depth_ranges &);
+    string validate_map_def();
     string validate_temple_map();
     // Returns true if this map is in the middle of validation.
     bool is_validating() const { return validating_map_flag; }
-
-    void add_prelude_line(int line,  const string &s);
-    void add_main_line(int line, const string &s);
 
     void hmirror();
     void vmirror();
     void rotate(bool clockwise);
     void normalise();
-    string resolve();
     void fixup();
 
     bool is_usable_in(const level_id &lid) const;

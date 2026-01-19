@@ -260,7 +260,7 @@ bool xom_is_nice(int tension)
         // Whether Xom is nice depends largely on his mood (== piety).
         return x_chance_in_y(effective_piety, MAX_PIETY);
     }
-    else // CARD_XOM
+    else // CARD_XOM (XXX: There is no Xom card anymore. Is this needed?)
         return coinflip();
 }
 
@@ -2735,7 +2735,7 @@ static vector<monster*> _xom_find_weak_monsters(bool range)
 static void _xom_hyper_enchant_monster(int sever)
 {
     vector<enchant_type> buff_list { ENCH_MIGHT, ENCH_HASTE, ENCH_INVIS,
-                                     ENCH_EMPOWERED_SPELLS, ENCH_REPEL_MISSILES,
+                                     ENCH_EMPOWERED_SPELLS, ENCH_DEFLECT_MISSILES,
                                      ENCH_RESISTANCE, ENCH_REGENERATION,
                                      ENCH_STRONG_WILLED, ENCH_TOXIC_RADIANCE,
                                      ENCH_DOUBLED_VIGOUR, ENCH_MIRROR_DAMAGE,
@@ -2817,7 +2817,7 @@ static void _xom_hyper_enchant_monster(int sever)
                 continue;
             }
 
-            if (apply == ENCH_REPEL_MISSILES || apply == ENCH_REGENERATION
+            if (apply == ENCH_DEFLECT_MISSILES || apply == ENCH_REGENERATION
                 || apply == ENCH_TOXIC_RADIANCE || apply == ENCH_MIRROR_DAMAGE
                 || apply == ENCH_SWIFT)
             {
@@ -2875,7 +2875,7 @@ static void _xom_mass_charm(int sever)
         }
     }
 
-    hd_target /= target_count;
+    hd_target /= max(1, target_count);
     shuffle_array(targetable);
 
     god_speaks(GOD_XOM, _get_xom_speech("mass charm").c_str());
@@ -2930,21 +2930,7 @@ static void _xom_wave_of_despair(int sever)
     if (skeleton_count)
         mpr("Skeletons, inanimate yet cursed, drop down from the ceiling.");
 
-    for (int i = 0; i <= you.current_vision; ++i)
-    {
-        for (distance_iterator di(you.pos(), false, false, i); di; ++di)
-        {
-            if (grid_distance(you.pos(), *di) == i && !feat_is_solid(env.grid(*di))
-                && you.see_cell_no_trans(*di))
-            {
-                flash_tile(*di, random_choose(DARKGRAY, MAGENTA), 0);
-            }
-        }
-
-        animation_delay(35, true);
-        view_clear_overlays();
-    }
-
+    draw_ring_animation(you.pos(), you.current_vision, DARKGRAY, MAGENTA, true, 35);
     mprf(MSGCH_DANGER, "A draining tide of despair and horror washes over you and your surroundings!");
 
     const int pow = 50 + random_range(sever / 2, sever);
@@ -3157,6 +3143,9 @@ static void _xom_pseudo_miscast(int /*sever*/)
             str = replace_all(str, "@The_feature@",
                               uppercase_first(in_view_name[iv]));
 
+            // For name-related bits in graffiti.
+            str = do_mon_name_replacements(str);
+
             messages.push_back(str);
         }
     }
@@ -3335,8 +3324,8 @@ static void _xom_pseudo_miscast(int /*sever*/)
         str = replace_all(str, "@your_item@", name);
         str = replace_all(str, "@Your_item@", uppercase_first(name));
 
-        /* XXX: The formless mutation doesn't technically mean you don't have a
-         * form; it means you don't have a head. */
+        // XXX: The formless mutation doesn't technically mean you don't have a
+        // form; it means you don't have a head.
         str = replace_all(str, "@head@",
                           you.has_mutation(MUT_FORMLESS) ? "form" : "head");
 
@@ -3351,8 +3340,8 @@ static void _xom_pseudo_miscast(int /*sever*/)
         str = replace_all(str, "@your_item@", name);
         str = replace_all(str, "@Your_item@", uppercase_first(name));
 
-        /* XXX: The formless mutation doesn't technically mean you don't have a
-         * form; it means you don't have a head. */
+        // XXX: The formless mutation doesn't technically mean you don't have a
+        // form; it means you don't have a head.
         str = replace_all(str, "@head@",
                           you.has_mutation(MUT_FORMLESS) ? "form" : "head");
 
@@ -3389,8 +3378,8 @@ static void _xom_pseudo_miscast(int /*sever*/)
         str = replace_all(str, "@your_item@", name);
         str = replace_all(str, "@Your_item@", uppercase_first(name));
 
-        /* XXX: The formless mutation doesn't technically mean you don't have a
-         * form; it means you don't have a head. */
+        // XXX: The formless mutation doesn't technically mean you don't have a
+        // form; it means you don't have a head.
         str = replace_all(str, "@head@",
                           you.has_mutation(MUT_FORMLESS) ? "form" : "head");
 
@@ -4230,19 +4219,7 @@ static void _xom_grants_word_of_recall(int /*sever*/)
     take_note(Note(NOTE_XOM_EFFECT, you.raw_piety, -1, note), true);
 }
 
-static bool _has_min_banishment_level()
-{
-    int min = you.penance[GOD_XOM] ? 6 : 9;
-    return you.experience_level >= min;
-}
-
-// Rolls whether banishment will be averted.
-static bool _will_not_banish()
-{
-    return x_chance_in_y(5, you.experience_level);
-}
-
-// Disallow early banishment and make it much rarer later-on.
+// Disallow early banishment and make it rarer at lower XL in general.
 // While Xom is bored, the chance is increased.
 static bool _allow_xom_banishment()
 {
@@ -4250,20 +4227,11 @@ static bool _allow_xom_banishment()
     if (player_under_penance(GOD_XOM))
         return true;
 
-    // If Xom is bored or wrathful, banishment becomes viable earlier.
-    if (_xom_feels_nasty())
-        return !_will_not_banish();
+    if (you.experience_level < 9)
+        return false;
 
-    // Below the minimum experience level, only fake banishment is allowed.
-    if (!_has_min_banishment_level())
-    {
-        // Allow banishment; it will be retracted right away.
-        if (one_chance_in(5) && x_chance_in_y(you.raw_piety, 1000))
-            return true;
-        else
-            return false;
-    }
-    else if (_will_not_banish())
+    const int lv = min(you.experience_level - 9, 11) + (_xom_is_bored() ? 10 : 0);
+    if (!x_chance_in_y(lv, lv + 5))
         return false;
 
     return true;
@@ -4291,10 +4259,8 @@ static void _xom_do_banishment(bool real)
 {
     god_speaks(GOD_XOM, _get_xom_speech("banishment").c_str());
 
-    int power = _xom_feels_nasty() ? you.experience_level * 3 / 2 - 10
-                                   : you.experience_level * 5 / 4 - 13;
-    // Handles note taking, scales depth by XL
-    banished("Xom", max(1, power));
+    // Handles note taking
+    banished("Xom");
     if (!real)
         _revert_banishment();
 }
@@ -4955,7 +4921,7 @@ static const vector<xom_event_data> _list_xom_bad_actions = {
     },
     {
         XOM_BAD_PSEUDO_BANISHMENT, 2, 1, [](int /*sv*/, int /*tn*/)
-        {return !_xom_feels_nasty() && _allow_xom_banishment()
+        {return !_xom_feels_nasty()
                 && !player_in_branch(BRANCH_ABYSS)
                 && !(is_level_on_stack(level_id(BRANCH_ABYSS)));}
     },

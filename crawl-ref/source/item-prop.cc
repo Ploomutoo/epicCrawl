@@ -237,7 +237,7 @@ static const armour_def Armour_prop[] =
 
     // Note: shields use ac-value as sh-value, EV pen is used as the basis
     // to calculate adjusted shield penalty.
-    { ARM_ORB,                 "orb",                     0,   0,   50,
+    { ARM_ORB,                 "orb",                     0,   0,   150,
         SLOT_OFFHAND,      SIZE_LITTLE, SIZE_GIANT, true, 0, {
             { SPARM_GLASS,      1 },
             { SPARM_MAYHEM,     1 },
@@ -291,7 +291,7 @@ static const armour_def Armour_prop[] =
         ARMF_WILLPOWER),
     DRAGON_ARMOUR(SWAMP,       "swamp",                   7,  -70,  450,
         ARMF_RES_POISON),
-    DRAGON_ARMOUR(FIRE,        "fire",                    8, -110,  500,
+    DRAGON_ARMOUR(FIRE,        "fire",                    8,  -90,  500,
         ard(ARMF_RES_FIRE, 2) | ARMF_VUL_COLD),
     DRAGON_ARMOUR(ICE,         "ice",                     9, -110,  500,
         ard(ARMF_RES_COLD, 2) | ARMF_VUL_FIRE),
@@ -329,8 +329,6 @@ struct weapon_def
     size_type           min_2h_size;
     /// The smallest creature that can wield the weapon one-handed.
     size_type           min_1h_size;
-    /// The ammo fired by the weapon; MI_NONE for non-launchers.
-    missile_type        ammo;
 
     /// A union of vorpal_damage_type flags (slash, crush, etc)
     int                 dam_type;
@@ -390,6 +388,7 @@ static const vector<brand_weight_tuple> SBL_BRANDS = {
     { SPWPN_PROTECTION,      6 },
     { SPWPN_ELECTROCUTION,   6 },
     { SPWPN_HOLY_WRATH,      5 },
+    { SPWPN_DEVIOUS,         5 },
     { SPWPN_VAMPIRISM,       4 },
     { SPWPN_FLAMING,         4 },
     { SPWPN_FREEZING,        4 },
@@ -404,6 +403,7 @@ static const vector<brand_weight_tuple> M_AND_F_BRANDS = {
     { SPWPN_HOLY_WRATH,     15 },
     { SPWPN_HEAVY,          14 },
     { SPWPN_DRAINING,       10 },
+    { SPWPN_CONCUSSION,      5 },
     { SPWPN_VENOM,           5 },
     { SPWPN_DISTORTION,      1 },
     { SPWPN_ANTIMAGIC,       1 },
@@ -431,7 +431,7 @@ static const vector<brand_weight_tuple> DEMON_BRANDS = {
 
 /// brand weights for long blades.
 static const vector<brand_weight_tuple> LBL_BRANDS = {
-    { SPWPN_HOLY_WRATH,     23 },
+    { SPWPN_HOLY_WRATH,     19 },
     { SPWPN_NORMAL,         19 },
     { SPWPN_ELECTROCUTION,  12 },
     { SPWPN_PROTECTION,     10 },
@@ -439,6 +439,7 @@ static const vector<brand_weight_tuple> LBL_BRANDS = {
     { SPWPN_FLAMING,         8 },
     { SPWPN_HEAVY,           5 },
     { SPWPN_DRAINING,        5 },
+    { SPWPN_VALOUR,          5 },
     { SPWPN_VAMPIRISM,       4 },
     { SPWPN_VENOM,           2 },
     { SPWPN_DISTORTION,      2 },
@@ -455,6 +456,7 @@ static const vector<brand_weight_tuple> AXE_BRANDS = {
     { SPWPN_FREEZING,       10 },
     { SPWPN_VENOM,           8 },
     { SPWPN_VAMPIRISM,       5 },
+    { SPWPN_SUNDERING,       5 },
     { SPWPN_DRAINING,        3 },
     { SPWPN_DISTORTION,      2 },
     { SPWPN_ANTIMAGIC,       2 },
@@ -471,6 +473,7 @@ static const vector<brand_weight_tuple> POLEARM_BRANDS = {
     { SPWPN_FLAMING,     7 },
     { SPWPN_FREEZING,    7 },
     { SPWPN_VAMPIRISM,   5 },
+    { SPWPN_ENTANGLING,  5 },
     { SPWPN_DISTORTION,  2 },
     { SPWPN_PAIN,        2 },
     { SPWPN_ANTIMAGIC,   2 },
@@ -499,15 +502,15 @@ static const weapon_def Weapon_prop[] =
 {
     // Maces & Flails
     { WPN_CLUB,              "club",                5,  3, 13,
-        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_CRUSHING, 10, 0, 5, CLUB_BRANDS },
 #if TAG_MAJOR_VERSION == 34
     { WPN_SPIKED_FLAIL,      "old spiked flail",    5,  3, 13,
-        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_CRUSHING, 0, 0, 0, {} },
 #endif
     { WPN_WHIP,              "whip",                6,  2, 11,
-        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_SLASHING, 4, 0, 25, {
             { SPWPN_NORMAL,        34 },
             { SPWPN_VENOM,         16 },
@@ -523,23 +526,24 @@ static const weapon_def Weapon_prop[] =
         }},
 #if TAG_MAJOR_VERSION == 34
     { WPN_HAMMER,            "old hammer",          7,  3, 13,
-        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_CRUSHING, 0, 0, 0, M_AND_F_BRANDS },
 #endif
     { WPN_MACE,              "mace",                8,  3, 14,
-        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_CRUSHING, 9, 0, 30, M_AND_F_BRANDS },
     { WPN_FLAIL,             "flail",              10,  0, 14,
-        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_CRUSHING, 8, 10, 35, M_AND_F_BRANDS },
     { WPN_MORNINGSTAR,       "morningstar",        13, -2, 15,
-        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_CRUSHING | DAM_PIERCE, 7, 20, 60, {
             { SPWPN_PROTECTION,     30 },
             { SPWPN_NORMAL,         15 },
             { SPWPN_HOLY_WRATH,     15 },
             { SPWPN_DRAINING,       10 },
             { SPWPN_HEAVY,           9 },
+            { SPWPN_CONCUSSION,      8 },
             { SPWPN_VENOM,           5 },
             { SPWPN_FLAMING,         4 },
             { SPWPN_FREEZING,        4 },
@@ -549,21 +553,22 @@ static const weapon_def Weapon_prop[] =
             { SPWPN_VAMPIRISM,       2 },
         }},
     { WPN_DEMON_WHIP,        "demon whip",         11,  1, 11,
-        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_SLASHING, 0, 13, 250, DEMON_BRANDS },
     { WPN_SACRED_SCOURGE,    "sacred scourge",     12,  0, 11,
-        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_SLASHING, 0, 0, 300, HOLY_BRANDS },
     { WPN_DIRE_FLAIL,        "dire flail",         13, -3, 13,
-        SK_MACES_FLAILS, SIZE_MEDIUM, NUM_SIZE_LEVELS, MI_NONE,
+        SK_MACES_FLAILS, SIZE_MEDIUM, NUM_SIZE_LEVELS,
         DAMV_CRUSHING | DAM_PIERCE, 2, 20, 50, M_AND_F_BRANDS },
     { WPN_EVENINGSTAR,       "eveningstar",        15, -1, 15,
-        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_MACES_FLAILS, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_CRUSHING | DAM_PIERCE, 0, 13, 270, {
             { SPWPN_PROTECTION,     30 },
             { SPWPN_DRAINING,       19 },
             { SPWPN_HOLY_WRATH,     15 },
             { SPWPN_NORMAL,          8 },
+            { SPWPN_CONCUSSION,      8 },
             { SPWPN_HEAVY,           6 },
             { SPWPN_VENOM,           6 },
             { SPWPN_FLAMING,         6 },
@@ -574,23 +579,24 @@ static const weapon_def Weapon_prop[] =
             { SPWPN_VAMPIRISM,       2 },
         }},
     { WPN_GREAT_MACE,        "great mace",         17, -4, 17,
-        SK_MACES_FLAILS, SIZE_MEDIUM, NUM_SIZE_LEVELS, MI_NONE,
+        SK_MACES_FLAILS, SIZE_MEDIUM, NUM_SIZE_LEVELS,
         DAMV_CRUSHING, 3, 24, 100, M_AND_F_BRANDS },
     { WPN_GIANT_CLUB,        "giant club",         20, -6, 16,
-        SK_MACES_FLAILS, SIZE_LARGE, NUM_SIZE_LEVELS, MI_NONE,
+        SK_MACES_FLAILS, SIZE_LARGE, NUM_SIZE_LEVELS,
         DAMV_CRUSHING, 1, 25, 21, CLUB_BRANDS },
     { WPN_GIANT_SPIKED_CLUB, "giant spiked club",  22, -7, 18,
-        SK_MACES_FLAILS, SIZE_LARGE, NUM_SIZE_LEVELS, MI_NONE,
+        SK_MACES_FLAILS, SIZE_LARGE, NUM_SIZE_LEVELS,
         DAMV_CRUSHING | DAM_PIERCE, 1, 25, 26, CLUB_BRANDS },
 
     // Short Blades
     { WPN_DAGGER,            "dagger",              4,  6, 10,
-        SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_PIERCING, 10, 50, 20, {
             { SPWPN_VENOM,          28 },
             { SPWPN_NORMAL,         20 },
             { SPWPN_SPEED,          10 },
             { SPWPN_DRAINING,        9 },
+            { SPWPN_DEVIOUS,         7 },
             { SPWPN_PROTECTION,      6 },
             { SPWPN_ELECTROCUTION,   6 },
             { SPWPN_HOLY_WRATH,      5 },
@@ -601,8 +607,8 @@ static const weapon_def Weapon_prop[] =
             { SPWPN_DISTORTION,      1 },
             { SPWPN_ANTIMAGIC,       1 },
         }},
-    { WPN_QUICK_BLADE,       "quick blade",         4,  6, 12,
-        SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+    { WPN_QUICK_BLADE,       "quick blade",         4,  6, 15,
+        SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_PIERCING, 0, 25, 250, {
             { SPWPN_NORMAL,         43 },
             { SPWPN_VENOM,          17 },
@@ -610,6 +616,7 @@ static const weapon_def Weapon_prop[] =
             { SPWPN_PROTECTION,      6 },
             { SPWPN_ELECTROCUTION,   6 },
             { SPWPN_HOLY_WRATH,      5 },
+            { SPWPN_DEVIOUS,         5 },
             { SPWPN_VAMPIRISM,       4 },
             { SPWPN_FLAMING,         4 },
             { SPWPN_FREEZING,        4 },
@@ -617,83 +624,83 @@ static const weapon_def Weapon_prop[] =
             { SPWPN_ANTIMAGIC,       1 },
         }},
     { WPN_SHORT_SWORD,       "short sword",         5,  4, 10,
-        SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_PIERCING, 8, 0, 30, SBL_BRANDS },
     { WPN_RAPIER,           "rapier",               7,  4, 12,
-        SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_PIERCING, 8, 25, 55, SBL_BRANDS },
 #if TAG_MAJOR_VERSION == 34
     { WPN_CUTLASS,          "old cutlass",          8,  4, 12,
-        SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_SLICING | DAM_PIERCE, 0, 0, 0, {}},
 #endif
 
     // Long Blades
     { WPN_FALCHION,              "falchion",               8,  2, 13,
-        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE,
         DAMV_SLICING, 7, 0, 30, LBL_BRANDS }, // DAMV_CHOPPING...?
     { WPN_LONG_SWORD,            "long sword",            10,  1, 14,
-        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE,
         DAMV_SLICING, 7, 10, 35, LBL_BRANDS },
     { WPN_SCIMITAR,              "scimitar",              12, 0, 14,
-        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE,
         DAMV_SLICING, 6, 20, 60, LBL_BRANDS },
     { WPN_DEMON_BLADE,           "demon blade",           13, -1, 13,
-        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE,
         DAMV_SLICING, 0, 13, 250, DEMON_BRANDS },
     { WPN_EUDEMON_BLADE,         "eudemon blade",         14, -2, 12,
-        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE,
         DAMV_SLICING, 0, 0, 300, HOLY_BRANDS },
     { WPN_DOUBLE_SWORD,          "double sword",          15, -1, 15,
-        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_MEDIUM, MI_NONE,
+        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_MEDIUM,
         DAMV_SLICING, 0, 13, 270, LBL_BRANDS },
     { WPN_GREAT_SWORD,           "great sword",           17, -3, 17,
-        SK_LONG_BLADES,  SIZE_MEDIUM, NUM_SIZE_LEVELS, MI_NONE,
+        SK_LONG_BLADES,  SIZE_MEDIUM, NUM_SIZE_LEVELS,
         DAMV_SLICING, 6, 20, 100, LBL_BRANDS },
     { WPN_TRIPLE_SWORD,          "triple sword",          19, -4, 18,
-        SK_LONG_BLADES,  SIZE_MEDIUM, NUM_SIZE_LEVELS, MI_NONE,
+        SK_LONG_BLADES,  SIZE_MEDIUM, NUM_SIZE_LEVELS,
         DAMV_SLICING, 0, 24, 150, LBL_BRANDS },
 #if TAG_MAJOR_VERSION == 34
     { WPN_BLESSED_FALCHION,      "old falchion",         8,  2, 13,
-        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE,
         DAMV_SLICING, 0, 0, 0, {} },
     { WPN_BLESSED_LONG_SWORD,    "old long sword",      10,  1, 14,
-        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE,
         DAMV_SLICING, 0, 0, 0, {} },
     { WPN_BLESSED_SCIMITAR,      "old scimitar",        12, -2, 14,
-        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_LITTLE,
         DAMV_SLICING, 0, 0, 0, {} },
     { WPN_BLESSED_DOUBLE_SWORD, "old double sword",     15, -1, 15,
-        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_MEDIUM, MI_NONE,
+        SK_LONG_BLADES,  SIZE_LITTLE, SIZE_MEDIUM,
         DAMV_SLICING, 0, 0, 0, {} },
     { WPN_BLESSED_GREAT_SWORD,   "old great sword",     17, -3, 16,
-        SK_LONG_BLADES,  SIZE_MEDIUM, NUM_SIZE_LEVELS,  MI_NONE,
+        SK_LONG_BLADES,  SIZE_MEDIUM, NUM_SIZE_LEVELS,
         DAMV_SLICING, 0, 0, 0, {} },
     { WPN_BLESSED_TRIPLE_SWORD,      "old triple sword", 19, -4, 18,
-        SK_LONG_BLADES,  SIZE_MEDIUM, NUM_SIZE_LEVELS,  MI_NONE,
+        SK_LONG_BLADES,  SIZE_MEDIUM, NUM_SIZE_LEVELS,
         DAMV_SLICING, 0, 0, 0, {} },
 #endif
 
     // Axes
     { WPN_HAND_AXE,          "hand axe",            7,  3, 13,
-        SK_AXES,       SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_AXES,       SIZE_LITTLE, SIZE_LITTLE,
         DAMV_CHOPPING, 9, 0, 30, AXE_BRANDS },
     { WPN_WAR_AXE,           "war axe",            11,  0, 15,
-        SK_AXES,       SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_AXES,       SIZE_LITTLE, SIZE_LITTLE,
         DAMV_CHOPPING, 7, 25, 35, AXE_BRANDS },
     { WPN_BROAD_AXE,         "broad axe",          13, -2, 16,
-        SK_AXES,       SIZE_LITTLE, SIZE_MEDIUM, MI_NONE,
+        SK_AXES,       SIZE_LITTLE, SIZE_MEDIUM,
         DAMV_CHOPPING, 4, 25, 90, AXE_BRANDS },
     { WPN_BATTLEAXE,         "battleaxe",          15, -4, 17,
-        SK_AXES,       SIZE_MEDIUM, NUM_SIZE_LEVELS, MI_NONE,
+        SK_AXES,       SIZE_MEDIUM, NUM_SIZE_LEVELS,
         DAMV_CHOPPING, 6, 25, 100, AXE_BRANDS },
     { WPN_EXECUTIONERS_AXE,  "executioner's axe",  18, -6, 19,
-        SK_AXES,       SIZE_MEDIUM, NUM_SIZE_LEVELS, MI_NONE,
+        SK_AXES,       SIZE_MEDIUM, NUM_SIZE_LEVELS,
         DAMV_CHOPPING, 0, 25, 150, AXE_BRANDS },
 
     // Polearms
     { WPN_SPEAR,             "spear",               6,  4, 11,
-        SK_POLEARMS,     SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_POLEARMS,     SIZE_LITTLE, SIZE_LITTLE,
         DAMV_PIERCING, 8, 0, 30, {
             { SPWPN_NORMAL,     46 },
             { SPWPN_VENOM,      17 },
@@ -701,65 +708,68 @@ static const weapon_def Weapon_prop[] =
             { SPWPN_FLAMING,     7 },
             { SPWPN_FREEZING,    7 },
             { SPWPN_VAMPIRISM,   5 },
+            { SPWPN_ENTANGLING,  4 },
             { SPWPN_DISTORTION,  2 },
             { SPWPN_PAIN,        2 },
             { SPWPN_ANTIMAGIC,   2 },
         }},
     { WPN_TRIDENT,           "trident",             9,  1, 13,
-        SK_POLEARMS,     SIZE_LITTLE, SIZE_MEDIUM, MI_NONE,
+        SK_POLEARMS,     SIZE_LITTLE, SIZE_MEDIUM,
         DAMV_PIERCING, 6, 20, 35, POLEARM_BRANDS },
     { WPN_HALBERD,           "halberd",            13, -3, 15,
-        SK_POLEARMS,     SIZE_MEDIUM, NUM_SIZE_LEVELS,  MI_NONE,
+        SK_POLEARMS,     SIZE_MEDIUM, NUM_SIZE_LEVELS,
         DAMV_CHOPPING | DAM_PIERCE, 5, 15, 40, POLEARM_BRANDS },
 #if TAG_MAJOR_VERSION == 34
     { WPN_SCYTHE,            "old scythe",         14, -4, 20,
-        SK_POLEARMS,     SIZE_MEDIUM, NUM_SIZE_LEVELS, MI_NONE,
+        SK_POLEARMS,     SIZE_MEDIUM, NUM_SIZE_LEVELS,
         DAMV_SLICING, 0, 0, 0, POLEARM_BRANDS },
 #endif
     { WPN_PARTISAN,           "partisan",          14, 1, 17,
-        SK_POLEARMS,     SIZE_LITTLE, SIZE_MEDIUM, MI_NONE,
+        SK_POLEARMS,     SIZE_LITTLE, SIZE_MEDIUM,
         DAMV_PIERCING, 3, 25, 70, POLEARM_BRANDS },
     { WPN_DEMON_TRIDENT,     "demon trident",      12,  1, 13,
-        SK_POLEARMS,     SIZE_LITTLE, SIZE_MEDIUM, MI_NONE,
+        SK_POLEARMS,     SIZE_LITTLE, SIZE_MEDIUM,
         DAMV_PIERCING, 0, 25, 250, DEMON_BRANDS },
     { WPN_TRISHULA,          "trishula",           13,  0, 13,
-        SK_POLEARMS,     SIZE_LITTLE, SIZE_MEDIUM, MI_NONE,
+        SK_POLEARMS,     SIZE_LITTLE, SIZE_MEDIUM,
         DAMV_PIERCING, 0, 0, 300, HOLY_BRANDS },
     { WPN_GLAIVE,            "glaive",             15, -3, 17,
-        SK_POLEARMS,     SIZE_MEDIUM, NUM_SIZE_LEVELS, MI_NONE,
+        SK_POLEARMS,     SIZE_MEDIUM, NUM_SIZE_LEVELS,
         DAMV_CHOPPING, 5, 15, 100, POLEARM_BRANDS },
     { WPN_BARDICHE,          "bardiche",           18, -6, 19,
-        SK_POLEARMS,     SIZE_MEDIUM, NUM_SIZE_LEVELS, MI_NONE,
+        SK_POLEARMS,     SIZE_MEDIUM, NUM_SIZE_LEVELS,
         DAMV_CHOPPING, 1, 25, 150, POLEARM_BRANDS },
 
     // Staves
     // WPN_STAFF is for weapon stats for magical staves only.
     { WPN_STAFF,             "staff",               5,  5, 12,
-        SK_STAVES,       SIZE_LITTLE, SIZE_LITTLE, MI_NONE,
+        SK_STAVES,       SIZE_LITTLE, SIZE_LITTLE,
         DAMV_CRUSHING, 0, 0, 15, {} },
     { WPN_QUARTERSTAFF,      "quarterstaff",        10, 3, 13,
-        SK_STAVES,       SIZE_LITTLE, NUM_SIZE_LEVELS,  MI_NONE,
+        SK_STAVES,       SIZE_LITTLE, NUM_SIZE_LEVELS,
         DAMV_CRUSHING, 8, 50, 50, {
-            { SPWPN_NORMAL,     50 },
+            { SPWPN_NORMAL,     44 },
             { SPWPN_SPECTRAL,   18 },
             { SPWPN_DRAINING,    8 },
             { SPWPN_HEAVY,       8 },
             { SPWPN_SPEED,       8 },
+            { SPWPN_REBUKE,      6 },
             { SPWPN_DISTORTION,  2 },
             { SPWPN_PAIN,        2 },
             { SPWPN_HOLY_WRATH,  2 },
             { SPWPN_ANTIMAGIC,   2 },
         }},
     { WPN_LAJATANG,          "lajatang",            16,-3, 14,
-        SK_STAVES,       SIZE_LITTLE, NUM_SIZE_LEVELS, MI_NONE,
+        SK_STAVES,       SIZE_LITTLE, NUM_SIZE_LEVELS,
         DAMV_SLICING, 2, 50, 150, {
-            { SPWPN_NORMAL,         34 },
+            { SPWPN_NORMAL,         28 },
             { SPWPN_SPEED,          12 },
             { SPWPN_ELECTROCUTION,  12 },
             { SPWPN_VAMPIRISM,      12 },
             { SPWPN_SPECTRAL,        9 },
             { SPWPN_VENOM,           7 },
             { SPWPN_PAIN,            7 },
+            { SPWPN_REBUKE,          6 },
             { SPWPN_ANTIMAGIC,       4 },
             { SPWPN_DISTORTION,      3 },
         }},
@@ -767,15 +777,15 @@ static const weapon_def Weapon_prop[] =
     // Range weapons
 #if TAG_MAJOR_VERSION == 34
     { WPN_BLOWGUN,           "old blowgun",         0,  2, 10,
-        SK_THROWING,     SIZE_LITTLE, SIZE_LITTLE, MI_NEEDLE,
+        SK_THROWING,     SIZE_LITTLE, SIZE_LITTLE,
         DAMV_NON_MELEE, 0, 0, 0, {}, },
 #endif
 
     { WPN_SLING,             "sling",               7,  0, 14,
-        SK_RANGED_WEAPONS,   SIZE_LITTLE, SIZE_LITTLE, MI_SLING_BULLET,
+        SK_RANGED_WEAPONS,   SIZE_LITTLE, SIZE_LITTLE,
         DAMV_NON_MELEE, 8, 10, 15, RANGED_BRANDS },
     { WPN_HAND_CANNON,       "hand cannon",      16,  3, 19,
-        SK_RANGED_WEAPONS,   SIZE_LITTLE, SIZE_LITTLE, MI_SLUG,
+        SK_RANGED_WEAPONS,   SIZE_LITTLE, SIZE_LITTLE,
         DAMV_NON_MELEE, 0, 24, 270, {
             // Hand cannons appear late, so encourage use by reducing
             // SPWPN_NORMAL weight relative to other ranged weapons.
@@ -789,24 +799,24 @@ static const weapon_def Weapon_prop[] =
         } },
 #if TAG_MAJOR_VERSION == 34
     { WPN_FUSTIBALUS,        "old fustibalus",     10, -2, 16,
-        SK_RANGED_WEAPONS,   SIZE_LITTLE, SIZE_SMALL, MI_SLING_BULLET,
+        SK_RANGED_WEAPONS,   SIZE_LITTLE, SIZE_SMALL,
         DAMV_NON_MELEE, 0, 0, 150, RANGED_BRANDS },
 #endif
 
     { WPN_SHORTBOW,          "shortbow",            8,  2, 14,
-        SK_RANGED_WEAPONS,   SIZE_LITTLE, NUM_SIZE_LEVELS, MI_ARROW,
+        SK_RANGED_WEAPONS,   SIZE_LITTLE, NUM_SIZE_LEVELS,
         DAMV_NON_MELEE, 8, 0, 30, RANGED_BRANDS },
     { WPN_ORCBOW,            "orcbow",             11, -3, 15,
-        SK_RANGED_WEAPONS,   SIZE_LITTLE, NUM_SIZE_LEVELS, MI_ARROW,
+        SK_RANGED_WEAPONS,   SIZE_LITTLE, NUM_SIZE_LEVELS,
         DAMV_NON_MELEE, 8, 20, 40, RANGED_BRANDS },
     { WPN_ARBALEST,          "arbalest",           16, -2, 19,
-        SK_RANGED_WEAPONS,   SIZE_LITTLE, NUM_SIZE_LEVELS, MI_BOLT,
+        SK_RANGED_WEAPONS,   SIZE_LITTLE, NUM_SIZE_LEVELS,
         DAMV_NON_MELEE, 5, 20, 75, RANGED_BRANDS },
     { WPN_LONGBOW,           "longbow",            14,  0, 17,
-        SK_RANGED_WEAPONS,   SIZE_MEDIUM, NUM_SIZE_LEVELS, MI_ARROW,
+        SK_RANGED_WEAPONS,   SIZE_MEDIUM, NUM_SIZE_LEVELS,
         DAMV_NON_MELEE, 2, 13, 110, RANGED_BRANDS },
     { WPN_TRIPLE_CROSSBOW,   "triple crossbow",    23, -2, 23,
-        SK_RANGED_WEAPONS,   SIZE_SMALL, NUM_SIZE_LEVELS, MI_BOLT,
+        SK_RANGED_WEAPONS,   SIZE_SMALL, NUM_SIZE_LEVELS,
         DAMV_NON_MELEE, 0, 13, 200, RANGED_BRANDS },
 
 };
@@ -867,18 +877,19 @@ static int Missile_index[NUM_MISSILES];
 static const missile_def Missile_prop[] =
 {
     { MI_DART,          "dart",          0, 12, 3  },
-#if TAG_MAJOR_VERSION == 34
-    { MI_NEEDLE,        "needle",        0, 12, 2  },
-#endif
     { MI_STONE,         "stone",         2, 8,  1  },
-    { MI_ARROW,         "arrow",         0, 1,  2  },
-    { MI_BOLT,          "bolt",          0, 1,  2  },
-    { MI_SLUG,          "slug",          0, 1,  2  },
     { MI_LARGE_ROCK,    "large rock",   20, 25, 15 },
-    { MI_SLING_BULLET,  "sling bullet",  0, 1,  5  },
     { MI_JAVELIN,       "javelin",      10, 20, 30 },
     { MI_THROWING_NET,  "throwing net",  0, 0,  30 },
     { MI_BOOMERANG,     "boomerang",     6, 20, 20 },
+
+#if TAG_MAJOR_VERSION == 34
+    { MI_NEEDLE,        "needle",        0, 12, 2  },
+    { MI_ARROW,         "arrow",         0, 1,  2  },
+    { MI_BOLT,          "bolt",          0, 1,  2  },
+    { MI_SLUG,          "slug",          0, 1,  2  },
+    { MI_SLING_BULLET,  "sling bullet",  0, 1,  5  },
+#endif
 };
 
 #if TAG_MAJOR_VERSION == 34
@@ -942,7 +953,7 @@ static const gem_def Gem_prop[] =
     { GEM_SNAKE,   "jade",        BRANCH_SNAKE,   6000 },
     { GEM_SPIDER,  "milky-white", BRANCH_SPIDER,  6000 },
 
-    { GEM_SLIME,   "starry",      BRANCH_SLIME,   1200 }, // usually dived fast
+    { GEM_SLIME,   "starry",      BRANCH_SLIME,   1500 }, // usually dived fast
     { GEM_VAULTS,  "shining",     BRANCH_VAULTS,  7500 }, // big, travel time
     { GEM_CRYPT,   "ivory",       BRANCH_CRYPT,   6000 },
     { GEM_TOMB,    "sanguine",    BRANCH_TOMB,    6000 },
@@ -1271,6 +1282,20 @@ brand_type get_weapon_brand(const item_def &item)
         return static_cast<brand_type>(artefact_property(item, ARTP_BRAND));
 
     return static_cast<brand_type>(item.brand);
+}
+
+brand_type get_special_brand_for(weapon_type wpn_type)
+{
+    switch (item_attack_skill(OBJ_WEAPONS, wpn_type))
+    {
+        case SK_SHORT_BLADES:       return SPWPN_DEVIOUS;
+        case SK_LONG_BLADES:        return SPWPN_VALOUR;
+        case SK_MACES_FLAILS:       return SPWPN_CONCUSSION;
+        case SK_AXES:               return SPWPN_SUNDERING;
+        case SK_POLEARMS:           return SPWPN_ENTANGLING;
+        case SK_STAVES:             return SPWPN_REBUKE;
+        default:                    return SPWPN_NORMAL;
+    }
 }
 
 special_missile_type get_ammo_brand(const item_def &item)
@@ -1795,7 +1820,7 @@ bool is_giant_club_type(int wpn_type)
  */
 bool is_ranged_weapon_type(int wpn_type)
 {
-    return Weapon_prop[Weapon_index[wpn_type]].ammo != MI_NONE;
+    return Weapon_prop[Weapon_index[wpn_type]].skill == SK_RANGED_WEAPONS;
 }
 
 /**
@@ -2151,34 +2176,48 @@ bool is_slowed_by_armour(const item_def *item)
     return item && is_range_weapon(*item);
 }
 
-const char *ammo_name(missile_type ammo)
+const char *missile_name(missile_type ammo)
 {
     return ammo < 0 || ammo >= NUM_MISSILES ? "eggplant"
            : Missile_prop[ Missile_index[ammo] ].name;
 }
 
-// TODO: derive this from Weapon_prop (or remove the concept of launcher ammo)
-bool is_launcher_ammo(const item_def &wpn)
+// Returns the name of the projectiles launched by a given item, or the item
+// itself if it's a throwing weapon.
+string launched_projectile_name(const item_def &item)
 {
-    if (wpn.base_type != OBJ_MISSILES)
-        return false;
+    if (item.base_type == OBJ_MISSILES)
+        return missile_name(static_cast<missile_type>(item.sub_type));
 
-    switch (wpn.sub_type)
+    if (is_unrandom_artefact(item, UNRAND_DAMNATION))
+        return "damnation bolt";
+
+    switch (item.sub_type)
     {
-    case MI_ARROW:
-    case MI_BOLT:
-    case MI_SLING_BULLET:
-    case MI_SLUG:
-        return true;
-    default:
-        return false;
+        case WPN_SLING:
+            return "sling bullet";
+
+        case WPN_SHORTBOW:
+        case WPN_ORCBOW:
+        case WPN_LONGBOW:
+            return "arrow";
+
+        case WPN_ARBALEST:
+        case WPN_TRIPLE_CROSSBOW:
+            return "bolt";
+
+        case WPN_HAND_CANNON:
+            return "slug";
+
+        default:
+            return "eggplant";
     }
 }
 
 // Returns true if item can be reasonably thrown without a launcher.
 bool is_throwable(const actor *actor, const item_def &wpn)
 {
-    if (wpn.base_type != OBJ_MISSILES || is_launcher_ammo(wpn))
+    if (wpn.base_type != OBJ_MISSILES)
         return false;
     if (!actor)
         return true;
@@ -2186,24 +2225,6 @@ bool is_throwable(const actor *actor, const item_def &wpn)
     if (wpn.sub_type == MI_LARGE_ROCK)
         return actor->can_throw_large_rocks();
     return wpn.sub_type != MI_JAVELIN || actor->body_size() >= SIZE_MEDIUM;
-}
-
-// Decide if something is launched or thrown.
-launch_retval is_launched(const actor *actor, const item_def &missile)
-{
-    return is_throwable(actor, missile) ? launch_retval::THROWN : launch_retval::FUMBLED;
-}
-
-// Sorry about this.
-void populate_fake_projectile(const item_def &wep, item_def &fake_proj)
-{
-    ASSERT(is_weapon(wep) && is_ranged_weapon_type(wep.sub_type));
-    fake_proj.base_type = OBJ_MISSILES;
-    fake_proj.sub_type  = Weapon_prop[Weapon_index[wep.sub_type]].ammo;
-    fake_proj.quantity  = 1;
-    fake_proj.rnd       = 1;
-    if (is_unrandom_artefact(wep, UNRAND_DAMNATION))
-        fake_proj.props[DAMNATION_BOLT_KEY] = true;
 }
 
 /**
@@ -2218,8 +2239,7 @@ bool ammo_always_destroyed(const item_def &missile)
     const int brand = get_ammo_brand(missile);
     return missile.sub_type == MI_STONE
            || brand == SPMSL_CHAOS
-           || brand == SPMSL_DISPERSAL
-           || brand == SPMSL_EXPLODING;
+           || brand == SPMSL_DISPERSAL;
 }
 
 /**
@@ -3099,7 +3119,7 @@ bool is_offhand(const item_def &item)
 bool is_shield_incompatible(const item_def &weapon, const item_def *shield)
 {
     // If there's no shield or off-hand weapon, there's no problem.
-    if (!shield && !(shield = you.shield()) && !you.offhand_weapon())
+    if (!shield && !you.shield() && !you.offhand_weapon())
         return false;
 
     hands_reqd_type hand = you.hands_reqd(weapon);
@@ -3138,7 +3158,7 @@ bool is_mana_regen_item(const item_def& item)
 {
     return is_artefact(item) && artefact_property(item, ARTP_MANA_REGENERATION)
             || item.is_type(OBJ_JEWELLERY, AMU_MANA_REGENERATION)
-            || item.is_type(OBJ_JEWELLERY, AMU_ALCHEMY);
+            || item.is_type(OBJ_JEWELLERY, AMU_CHEMISTRY);
 }
 
 string talisman_type_name(int type)
@@ -3153,8 +3173,10 @@ string talisman_type_name(int type)
     case TALISMAN_AQUA:     return "wellspring talisman";
     case TALISMAN_SCARAB:   return "scarab talisman";
     case TALISMAN_MEDUSA:   return "medusa talisman";
+    case TALISMAN_SPORE:    return "spore talisman";
     case TALISMAN_MAW:      return "maw talisman";
     case TALISMAN_SERPENT:  return "serpent talisman";
+    case TALISMAN_EEL:      return "eel talisman";
     case TALISMAN_BLADE:    return "blade talisman";
     case TALISMAN_WEREWOLF: return "lupine talisman";
     case TALISMAN_FORTRESS: return "fortress talisman";
@@ -3178,10 +3200,12 @@ static const pair<talisman_type, int> _talisman_tiers[] =
     { TALISMAN_RIMEHORN,    2 },
     { TALISMAN_SCARAB,      2 },
     { TALISMAN_MEDUSA,      2 },
+    { TALISMAN_SPORE,       2 },
     { TALISMAN_MAW,         2 },
 
     { TALISMAN_SERPENT,     3 },
     { TALISMAN_BLADE,       3 },
+    { TALISMAN_EEL,         3 },
     { TALISMAN_FORTRESS,    3 },
     { TALISMAN_WEREWOLF,    3 },
     { TALISMAN_SPIDER,      3 },
@@ -3497,7 +3521,7 @@ int weapon_base_price(weapon_type type)
 /**
  * For store pricing purposes, how much is the given type of missile worth?
  *
- * @param type      The type of missile in question; e.g. MI_ARROW.
+ * @param type      The type of missile in question; e.g. MI_DART.
  * @return          A value in gold for each missile; e.g. 20.
  */
 int missile_base_price(missile_type type)

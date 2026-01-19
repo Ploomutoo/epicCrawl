@@ -577,6 +577,7 @@ static void _add_randart_weapon_brand(const item_def &item,
         item_props[ARTP_BRAND] = random_choose_weighted(
             47, SPWPN_FLAMING,
             47, SPWPN_FREEZING,
+            35, NUM_SPECIAL_WEAPONS,
             26, SPWPN_HEAVY,
             26, SPWPN_VENOM,
             26, SPWPN_DRAINING,
@@ -591,6 +592,9 @@ static void _add_randart_weapon_brand(const item_def &item,
              6, SPWPN_REAPING,
              3, SPWPN_DISTORTION,
              3, SPWPN_CHAOS);
+
+        if (item_props[ARTP_BRAND] == NUM_SPECIAL_WEAPONS)
+            item_props[ARTP_BRAND] = get_special_brand_for(static_cast<weapon_type>(item.sub_type));
     }
 
     // no brand = magic flag to reject and retry
@@ -760,10 +764,12 @@ static bool _artp_can_go_on_item(artefact_prop_type prop, int prop_val,
             return extant_props[ARTP_BRAND] != SPWPN_ANTIMAGIC;
         case ARTP_BLINK:
             return !_any_artps_in_item_props({ ARTP_PREVENT_TELEPORTATION },
-                                             intrinsic_props, extant_props);
+                                             intrinsic_props, extant_props)
+                    && !item.is_type(OBJ_TALISMANS, TALISMAN_SPIDER);
         case ARTP_PREVENT_TELEPORTATION:
             return !_any_artps_in_item_props({ ARTP_BLINK },
                                                 intrinsic_props, extant_props)
+                   && !item.is_type(OBJ_TALISMANS, TALISMAN_SPIDER)
                    && !item.is_type(OBJ_TALISMANS, TALISMAN_STORM);
         // only on melee weapons
         case ARTP_ANGRY:

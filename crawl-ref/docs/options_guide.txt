@@ -56,8 +56,9 @@ The contents of this text are:
 3-g     Command Enhancements.
                 auto_switch, easy_unequip, equip_unequip, jewellery_prompt,
                 easy_confirm, simple_targeting, force_spell_targeter,
-                force_ability_targeter, allow_self_target, ability_menu,
-                spell_menu, easy_floor_use, sort_menus, spell_slot, gear_slot,
+                force_ability_targeter, force_scroll_targeter,
+                show_invis_targeter allow_self_target, ability_menu, spell_menu,
+                easy_floor_use, sort_menus, spell_slot, gear_slot,
                 consumable_shortcut, ability_slot, autofight_stop,
                 autofight_warning, autofight_fires, autofight_nomove_fires,
                 autofight_fire_stop, autofight_caught, autofight_wait,
@@ -80,12 +81,12 @@ The contents of this text are:
                 monster_list_colour, view_delay, reduce_animations,
                 use_animations, unusual_monster_items, darken_beyond_range,
                 show_blood, food_snacking_frequency, fountain_line_frequency,
-                force_more_message, flash_screen_message, cloud_status,
-                always_show_zot, always_show_gems, more_gem_info, action_panel,
-                action_panel_filter, action_panel_show_unidentified,
-                action_panel_scale, action_panel_orientation,
-                action_panel_font_family, action_panel_font_size,
-                show_resist_percent
+                force_more_message, flash_screen_message, monster_alert,
+                cloud_status, always_show_zot, always_show_gems, more_gem_info,
+                action_panel, action_panel_filter,
+                action_panel_show_unidentified, _panel_scale,
+                action_panel_orientation, action_panel_font_family,
+                action_panel_font_size, show_resist_percent
 3-i     Colours (messages and menus).
                 menu_colour, message_colour
 3-j     Quivers, firing, and ammo.
@@ -589,6 +590,7 @@ autopickup = $?!+"/♦
         + or :  Books
         |       Staves
         0       Orbs
+        %       Talismans
         }       Misc. items
         $       Gold
         ♦       Gems
@@ -1050,15 +1052,15 @@ interrupt_<delay> += <activity_interrupt_type>, <activity_interrupt_type>, ...
             interrupt_travel -= sense_monster
         to not interrupt autotravel when a monster is sensed but not seen.
 
-        Possible delay types are: armour_on, armour_off, ascending_stairs,
-        descending_stairs, drop_item, exsanguinate, jewellery_on, macro,
-        macro_process_key, memorise, multidrop, passwall, rest, revivify,
-        run, shaft_self, travel. (These are derived from the `name()`
-        functions in delay.h.)
+        Possible delay types are: equip_on, equip_off, ascending_stairs,
+        descending_stairs, imbue_servitor, imprint_weapon, macro,
+	macro_process_key, memorise, multidrop, passwall, rest, run,
+	shaft_self, transform, travel. (These are derived from the `name()`
+	functions in delay.h.)
 
         Possible interrupt types are: abyss_exit_spawned, ally_attacked,
         ancestor_hp, force, full_hp, full_mp, hp_loss, hit_monster, keypress,
-        message, mimic, monster, monster_attack, stat, sense_monster, teleport.
+        message, mimic, monster, monster_attack, sense_monster, teleport.
         (These are derived from the `activity_interrupt_names` array in
         delay.cc.)
 
@@ -1161,11 +1163,10 @@ equip_unequip = true
         respectively) will unequip that item.
 
 jewellery_prompt = false
-        If this is true, equipping rings will always prompt for the slot to
-        use, instead of automatically equipping the ring if there is an
-        available empty slot. Unequipping jewellery will also always prompt for
-        an item to remove, instead of skipping the prompt if only one item
-        of jewellery is equipped.
+        If this is true, unequipping jewellery will always prompt for an item
+        to remove, instead of skipping the prompt if only one item of jewellery
+        is equipped. Also, if all slots are filled when equipping a jewellery
+        item, it will prompt for which you remove even if they are all identical.
 
 easy_confirm = (none | safe | all)
         Make confirmation questions easier to answer:
@@ -1210,6 +1211,18 @@ force_ability_targeter = sanctuary, cleansing flame, word of chaos, recite,
         with an unusual targeting pattern. If "all" appears in the options list,
         the rest of the list (however constructed) will be ignored, and
         targeters will be shown with every ability.
+
+force_scroll_targeter = fear, silence, vulnerability, immolation, torment
+        Force showing a targeter for the listed scrolls when reading them
+        normally (since these are unaimed, this is generally to show success
+        chance or what targets might be affected). If "all" appears in the
+        options list, the rest of the list (however constructed) will be
+        ignored, and targeters will be shown for every scroll that has one.
+
+show_invis_targeter = true
+        Before turning invisible, show a targeter indicating what monsters in
+        view would actually lose sight of you (and prompt if all enemies in
+        line of sight have sInv).
 
 allow_self_target = prompt
         Allow targeting yourself with risky magic (e.g., the spell Stone Arrow
@@ -1568,7 +1581,7 @@ single_column_item_menus = true
         This option is only available on local tiles and console; on WebTiles
         all menus are single-column regardless of the value of this option.
 
-show_paged_inventory = false
+show_paged_inventory = true
         If set to true, the 'i' menu will divide the player's items into
         pages (gear, potions, scrolls, and evocable items) in the same way
         that the 'd'rop menu does.
@@ -1868,6 +1881,17 @@ flash_screen_message += <regex>, <regex>
         screen yellow, so it can be used to highlight very important events
         indeed.
         The syntax is identical to that of force_more_message.
+
+monster_alert += <monster name or symbol>
+        (List option)
+        Any monster listed here by name will cause a --More-- prompt whenever it
+        is first encountered by the player. Several special values are also
+        available, which will match groups of monsters:
+          -nasty, tough, easy, trivial  Any monster whose threat level is
+                                        at least as high.
+          -uniques                      All uniques.
+          -unusual                      Any monster carrying usual items
+                                        (as defined by unusual_monster_items)
 
 cloud_status = true
         Whether to show the "Cloud" status light; defaults to true, except if
@@ -2235,14 +2259,14 @@ macros += M \{9} za
 
 flush.failure = true
 flush.command = false
-flush.message = false
+flush.lua     = true
         These are useful when using macros. Setting one of these
         sub-options to true will cause the entire input buffer to be
         dumped and thus effectively stop the macro. The sub-options
         currently are
            failure -- when spells/abilities get miscast
            command -- whenever the game is about to get the next command
-           message -- whenever the game outputs a non-mute message
+           lua     -- whenever crawl.flush_input() is called from lua
 
 additional_macro_file = path/to/filename
         Add an additional macro file to be loaded after macro.txt.
@@ -2617,8 +2641,8 @@ tile_player_tile = (normal | playermons | mons:<monster> | tile:<monster-tile>)
         of monster with multiple tiles, such as hydra and large abominations,
         or special tiles like Cigotuvi's Monster or player transformations that
         don't have their own base monster. The tile name must be the full name,
-        e.g. mons_hydra_7. For example, to use the hydra tile with many heads,
-        use a value of tile:mons_hydra_7. The tile names can be found in the
+        e.g. mons_slymdra_7. For example, to use the hydra tile with many heads,
+        use a value of tile:mons_slymdra_7. The tile names can be found in the
         source tree folder source/rltiles in the files dc-mon.txt,
         dc-demon.txt, and dc-player.txt. In these files, the tile name is in
         the second word in each entry after the file name of the image, and

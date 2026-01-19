@@ -317,6 +317,17 @@ static const struct spell_desc spelldata[] =
 },
 
 {
+    SPELL_FREEZING_GUST, "Freezing Gust",
+    spschool::conjuration | spschool::ice | spschool::air,
+    spflag::target | spflag::needs_tracer | spflag::cloud | spflag::monster,
+    5,
+    200,
+    5, 5,
+    2,
+    TILEG_FREEZING_CLOUD,
+},
+
+{
     SPELL_MEPHITIC_CLOUD, "Mephitic Cloud",
     spschool::conjuration | spschool::alchemy | spschool::air,
     spflag::dir_or_target | spflag::needs_tracer | spflag::cloud,
@@ -731,14 +742,14 @@ static const struct spell_desc spelldata[] =
 },
 
 {
-    SPELL_REPEL_MISSILES, "Repel Missiles",
+    SPELL_DEFLECT_MISSILES, "Deflect Missiles",
     spschool::air,
     spflag::monster | spflag::selfench,
-    2,
+    6,
     50,
     -1, -1,
     0,
-    TILEG_REPEL_MISSILES,
+    TILEG_DEFLECT_MISSILES,
 },
 
 {
@@ -2095,7 +2106,7 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_GLOOM, "Gloom",
     spschool::hexes | spschool::necromancy,
-    spflag::none,
+    spflag::silent,
     3,
     50,
     2, 3,
@@ -2617,18 +2628,6 @@ static const struct spell_desc spelldata[] =
 },
 
 {
-    SPELL_DRAIN_MAGIC, "Drain Magic",
-    spschool::hexes,
-    spflag::dir_or_target | spflag::monster | spflag::needs_tracer
-        | spflag::WL_check,
-    5,
-    200,
-    LOS_RADIUS, LOS_RADIUS,
-    0,
-    TILEG_DRAIN_MAGIC,
-},
-
-{
     SPELL_CORROSIVE_BOLT, "Corrosive Bolt",
     spschool::conjuration | spschool::alchemy,
     spflag::dir_or_target | spflag::needs_tracer,
@@ -2924,15 +2923,27 @@ static const struct spell_desc spelldata[] =
 },
 
 {
-    SPELL_DRAINING_GAZE, "Draining Gaze",
+    SPELL_ANTIMAGIC_GAZE, "Antimagic Gaze",
     spschool::hexes,
     spflag::target | spflag::monster,
     5,
     200,
     LOS_RADIUS, LOS_RADIUS,
     0,
+    TILEG_ANTIMAGIC_GAZE,
+},
+
+{
+    SPELL_DRAINING_GAZE, "Draining Gaze",
+    spschool::necromancy,
+    spflag::target | spflag::monster,
+    4,
+    200,
+    LOS_RADIUS, LOS_RADIUS,
+    0,
     TILEG_DRAINING_GAZE,
 },
+
 
 {
     SPELL_WEAKENING_GAZE, "Weakening Gaze",
@@ -3101,14 +3112,14 @@ static const struct spell_desc spelldata[] =
 },
 
 {
-    SPELL_SPRINT, "Sprint",
-    spschool::hexes,
+    SPELL_FLEETFOOT, "Fleetfoot",
+    spschool::air,
     spflag::hasty | spflag::selfench | spflag::monster,
     2,
     100,
     -1, -1,
     0,
-    TILEG_SPRINT,
+    TILEG_SWIFTNESS,
 },
 
 {
@@ -3342,6 +3353,17 @@ static const struct spell_desc spelldata[] =
     -1, -1,
     0,
     TILEG_SPORULATE,
+},
+
+{
+    SPELL_LAUNCH_SPORANGIUM, "Launch Sporangium",
+    spschool::conjuration,
+    spflag::monster,
+    5,
+    200,
+    -1, -1,
+    0,
+    TILEG_LAUNCH_SPORANGIUM,
 },
 
 {
@@ -3759,7 +3781,7 @@ static const struct spell_desc spelldata[] =
     spflag::target | spflag::not_self,
     4,
     100,
-    1, 1,
+    LOS_RADIUS, LOS_RADIUS,
     0,
     TILEG_BOULDER,
 },
@@ -4354,7 +4376,7 @@ static const struct spell_desc spelldata[] =
     spflag::destructive,
     6,
     75,
-    2, 2,
+    3, 3,
     20,
     TILEG_FORTRESS_BLAST,
 },
@@ -4507,7 +4529,8 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_WARP_BODY, "Warp Body",
     spschool::hexes,
-    spflag::dir_or_target | spflag::needs_tracer | spflag::monster,
+    spflag::dir_or_target | spflag::needs_tracer | spflag::monster
+    | spflag::chaotic,
     4,
     200,
     LOS_RADIUS, LOS_RADIUS,
@@ -4521,7 +4544,7 @@ static const struct spell_desc spelldata[] =
     spflag::monster | spflag::target,
     7,
     200,
-    1, 1,
+    3, 3,
     0,
     TILEG_OSTRACISE,
 },
@@ -4529,7 +4552,7 @@ static const struct spell_desc spelldata[] =
 {
     SPELL_MUTAGENIC_GAZE, "Mutagenic Gaze",
     spschool::hexes,
-    spflag::target | spflag::monster,
+    spflag::target | spflag::monster | spflag::chaotic,
     5,
     200,
     LOS_RADIUS, LOS_RADIUS,
@@ -4604,6 +4627,17 @@ static const struct spell_desc spelldata[] =
     TILEG_SLEETSTRIKE,
 },
 
+{
+    SPELL_LANDBREAKER, "Landbreaker",
+    spschool::earth,
+    spflag::monster,
+    5,
+    200,
+    LOS_RADIUS, LOS_RADIUS,
+    8,
+    TILEG_SEISMIC_STOMP,
+},
+
 #if TAG_MAJOR_VERSION == 34
 #define AXED_SPELL(tag, name) \
     { tag, name, spschool::none, spflag::none, 7, 0, -1, -1, 0, TILEG_ERROR },
@@ -4621,7 +4655,7 @@ AXED_SPELL(SPELL_CONTROL_WINDS, "Control Winds")
 AXED_SPELL(SPELL_CORRUPT_BODY, "Corrupt Body")
 AXED_SPELL(SPELL_CURE_POISON, "Cure Poison")
 AXED_SPELL(SPELL_DARKNESS, "Darkness")
-AXED_SPELL(SPELL_DEFLECT_MISSILES, "Deflect Missiles")
+AXED_SPELL(SPELL_OLD_DEFLECT_MISSILES, "Old Deflect Missiles")
 AXED_SPELL(SPELL_DELAYED_FIREBALL, "Delayed Fireball")
 AXED_SPELL(SPELL_DEMONIC_HORDE, "Demonic Horde")
 AXED_SPELL(SPELL_DRACONIAN_BREATH, "Draconian Breath")
@@ -4706,6 +4740,7 @@ AXED_SPELL(SPELL_DRAGON_FORM, "Dragon Form")
 AXED_SPELL(SPELL_NECROMUTATION, "Necromutation")
 AXED_SPELL(SPELL_AWAKEN_EARTH, "Awaken Earth")
 AXED_SPELL(SPELL_ANIMATE_SKELETON, "Animate Skeleton")
+AXED_SPELL(SPELL_DRAIN_MAGIC, "Drain Magic")
 #endif
 
 };

@@ -169,9 +169,9 @@ enum enchant_type
     ENCH_GOLD_LUST,
 #endif
     ENCH_DRAINED,
-    ENCH_REPEL_MISSILES,
-#if TAG_MAJOR_VERSION == 34
     ENCH_DEFLECT_MISSILES,
+#if TAG_MAJOR_VERSION == 34
+    ENCH_OLD_DEFLECT_MISSILES,
     ENCH_NEGATIVE_VULN,
     ENCH_CONDENSATION_SHIELD,
 #endif
@@ -251,6 +251,7 @@ enum enchant_type
     ENCH_WARDING,
     ENCH_DIMINISHED_SPELLS,
     ENCH_ORB_COOLDOWN,
+    ENCH_SUNDER_CHARGE,
     // Update enchant_names[] in mon-ench.cc when adding or removing
     // enchantments.
     NUM_ENCHANTMENTS

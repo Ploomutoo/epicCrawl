@@ -6,7 +6,6 @@ conjure_ball_lightning CONJURE_BALL_LIGHTNING
 lightning_bolt LIGHTNING_BOLT
 magnavolt MAGNAVOLT
 maxwells MAXWELLS_COUPLING
-repel_missiles REPEL_MISSILES
 shock SHOCK
 silence SILENCE
 static_discharge STATIC_DISCHARGE
@@ -204,6 +203,7 @@ warp_space WARP_SPACE
 generic GENERIC_MONSTER_SPELL
 acid_ball ACID_BALL
 air_elementals AIR_ELEMENTALS
+antimagic_gaze ANTIMAGIC_GAZE
 avatar_song AVATAR_SONG
 awaken_flesh AWAKEN_FLESH
 awaken_forest AWAKEN_FOREST
@@ -234,6 +234,7 @@ create_tentacles CREATE_TENTACLES
 creeping_frost CREEPING_FROST
 crystallising_shot CRYSTALLISING_SHOT
 death_rattle DEATH_RATTLE
+deflect_missiles DEFLECT_MISSILES
 dimensional_anchor DIMENSIONAL_ANCHOR
 diminish_spells DIMINISH_SPELLS
 dominate_undead DOMINATE_UNDEAD
@@ -269,6 +270,7 @@ ink_cloud INK_CLOUD
 injury_bond INJURY_BOND
 iron_elementals IRON_ELEMENTALS
 launch_bomblet LAUNCH_BOMBLET
+launch_sporangium LAUNCH_SPORANGIUM
 magma_barrage MAGMA_BARRAGE
 malmutate MALMUTATE
 march_of_sorrows MARCH_OF_SORROWS
@@ -313,7 +315,6 @@ spit_acid SPIT_ACID
 spit_poison SPIT_POISON
 spit_lava SPIT_LAVA
 sporulate SPORULATE
-sprint SPRINT
 steam_ball STEAM_BALL
 sticky_flame_range STICKY_FLAME_RANGE
 sticks_to_snakes STICKS_TO_SNAKES

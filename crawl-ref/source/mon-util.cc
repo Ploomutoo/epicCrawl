@@ -60,6 +60,7 @@
 #include "random.h"
 #include "religion.h"
 #include "showsymb.h"
+#include "skills.h"
 #include "species.h"
 #include "spl-util.h"
 #include "state.h"
@@ -678,6 +679,7 @@ bool mons_gives_xp(const monster& victim, const actor& agent)
             && (!testbits(victim.flags, MF_WAS_NEUTRAL) // no neutral monsters
                 || victim.has_ench(ENCH_MAD))           // ...except frenzied ones
             && !testbits(victim.flags, MF_NO_REWARD)    // no reward for no_reward
+            && !testbits(victim.flags, MF_TESSERACT_SPAWN)
             && !mon_killed_friend;
 }
 
@@ -1471,13 +1473,15 @@ int mons_class_regen_amount(monster_type mc)
 {
     switch (mc)
     {
-    case MONS_PARGHIT:            return 27;
+    case MONS_PARGHIT:              return 27;
     case MONS_DEMONIC_CRAWLER:
+    case MONS_COLOSSAL_AMOEBA:
     case MONS_PROTEAN_PROGENITOR:
-    case MONS_ASPIRING_FLESH:
-    case MONS_MARTYRED_SHADE:     return 6;
-    case MONS_BOUNDLESS_TESSERACT: return 10;
-    default:                      return 1;
+    case MONS_ASPIRING_FLESH:       return 6;
+    case MONS_SLYMDRA:
+    case MONS_MARTYRED_SHADE:       return 4;
+    case MONS_BOUNDLESS_TESSERACT:  return 10;
+    default:                        return 1;
     }
 }
 
@@ -1665,13 +1669,20 @@ bool mons_can_use_stairs(const monster& mon, dungeon_feature_type stair)
     return true;
 }
 
-void name_zombie_from_class(monster& mon, monster_type mc, const string &mon_name)
+void name_zombie_from_class(monster& mon, monster_type mc, const string& mon_name)
 {
     mon.mname = mon_name;
 
-    // For the Lernaean hydra: treat Lernaean as an adjective to
+    // For the Royal Jelly: treat Royal Jelly as a replacement name to
+    // avoid mentions of "Royal Jelly the spectral jelly".
+    if (mc == MONS_ROYAL_JELLY)
+    {
+        mon.mname = "Royal Jelly";
+        mon.flags |= MF_NAME_REPLACE;
+    }
+    // Also for the Lernaean hydra: treat Lernaean as an adjective to
     // avoid mentions of "Lernaean hydra the X-headed hydra zombie".
-    if (mc == MONS_LERNAEAN_HYDRA)
+    else if (mc == MONS_LERNAEAN_HYDRA)
     {
         mon.mname = "Lernaean";
         mon.flags |= MF_NAME_ADJECTIVE;
@@ -1701,16 +1712,23 @@ void name_zombie_from_mon(monster& mon, const monster& orig)
         return;
 
     string name;
+    monster_flags_t orig_mon_flags = orig.flags;
 
     if (!orig.mname.empty())
-        name = orig.mname;
+    {
+        if (!(orig.flags & MF_NAME_NOCORPSE))
+            name = orig.mname;
+        else
+            // Remove all the monster's name flags, since it lost its name.
+            orig_mon_flags &= ~MF_ALL_NAMES;
+    }
     else
         name = mons_type_name(orig.type, DESC_PLAIN);
 
     name_zombie_from_class(mon, orig.type, name);
-    mon.flags |= orig.flags & (MF_NAME_SUFFIX
-                                 | MF_NAME_ADJECTIVE
-                                 | MF_NAME_DESCRIPTOR);
+    mon.flags |= orig_mon_flags & (MF_NAME_SUFFIX
+                                     | MF_NAME_ADJECTIVE
+                                     | MF_NAME_DESCRIPTOR);
 }
 
 // Derived undead deal 80% of the damage of the base form.
@@ -1906,11 +1924,6 @@ mon_attack_def mons_attack_spec(const monster& m, int attk_number,
 
     if (attk_number == 0)
     {
-        if (m.has_ench(ENCH_FIRE_CHAMPION))
-            attk.flavour = AF_FIRE;
-        else if (m.has_ench(ENCH_CHAOS_LACE))
-            attk.flavour = AF_CHAOTIC;
-
         if (mon.type == MONS_PLAYER_SHADOW)
         {
             if (mon.props.exists(DITH_SHADOW_ATTACK_KEY))
@@ -1989,6 +2002,8 @@ mon_attack_def mons_attack_spec(const monster& m, int attk_number,
         else
             attk.damage = 2 + (m.get_hit_dice() * 3 / 2);
     }
+    else if (mon.type == MONS_ERYTHROSPITE)
+        attk.damage = 3 + m.get_experience_level();
 
     // Vampires get a bite aux in addition to normal attacks.
     if (mon.has_ench(ENCH_VAMPIRE_THRALL)
@@ -2126,7 +2141,8 @@ bool flavour_triggers_damageless(attack_flavour flavour)
         || flavour == AF_AIRSTRIKE
         || flavour == AF_SHADOWSTAB
         || flavour == AF_DROWN
-        || flavour == AF_CORRODE;
+        || flavour == AF_CORRODE
+        || flavour == AF_DIM;
 }
 
 /**
@@ -2473,6 +2489,10 @@ int exp_value(const monster& mon, bool real, bool legacy)
     if (mon.type == MONS_SLIME_CREATURE && mon.blob_size > 1)
         x_val *= mon.blob_size;
 
+    // Give real XP for all real slime creatures eaten.
+    if (mon.type == MONS_SLYMDRA && mon.props.exists(SLYMDRA_SLIMES_EATEN_KEY))
+        x_val += mon.props[SLYMDRA_SLIMES_EATEN_KEY].get_int() * 236;
+
     if (mon.has_ench(ENCH_FIGMENT))
         x_val /= 3;
 
@@ -2728,6 +2748,10 @@ void define_monster(monster& mons, bool friendly)
     case MONS_LERNAEAN_HYDRA:
         // The Lernaean hydra starts off with 27 heads.
         mons.num_heads = 27;
+        break;
+
+    case MONS_SLYMDRA:
+        mons.num_heads = random_range(3, 5);
         break;
 
     case MONS_TIAMAT:
@@ -3070,10 +3094,11 @@ static string _get_proper_monster_name(const monster& mon)
         return "";
 
     string name = getRandMonNameString(me->name);
-    if (!name.empty())
-        return name;
+    if (name.empty())
+        name = getRandMonNameString(get_monster_data(mons_genus(mon.type))->name);
+    name = do_mon_name_replacements(name);
 
-    return getRandMonNameString(get_monster_data(mons_genus(mon.type))->name);
+    return name;
 }
 
 // Names a monster (will rename it if it already had a name)
@@ -3090,7 +3115,9 @@ bool give_monster_proper_name(monster& mon)
 static bool _give_apostle_proper_name(monster& mon, apostle_type type)
 {
     string apostle_key = "orc apostle " + apostle_type_names[type] + " name";
-    mon.mname = getRandMonNameString(apostle_key);
+    string name = getRandMonNameString(apostle_key);
+    name = do_mon_name_replacements(name);
+    mon.mname = name;
 
     // XXX: The rest of this is duplicated from give_monster_proper_name().
     if (!mon.props.exists(DBNAME_KEY))
@@ -3147,21 +3174,15 @@ int mons_class_zombie_base_speed(monster_type zombie_base_mc, bool slow)
  * What's this monster's base speed, before temporary effects are applied?
  *
  * @param mon       The monster in question.
- * @param known     Whether to include only information the player knows about,
- *                  i.e. not the speed of certain monsters with varying speeds
- *                  (abominations, hell beasts)
  * @return          The speed of the monster.
  */
-int mons_base_speed(const monster& mon, bool known)
+int mons_base_speed(const monster& mon)
 {
     if (mon.ghost)
         return mon.ghost->speed;
 
-    if (mon.props.exists(MON_SPEED_KEY)
-        && (!known || mon.type == MONS_MUTANT_BEAST))
-    {
+    if (mon.props.exists(MON_SPEED_KEY))
         return mon.props[MON_SPEED_KEY];
-    }
 
     if (mon.mons_species() == MONS_SPECTRAL_THING
         || mon.mons_species() == MONS_DRAUGR)
@@ -3288,23 +3309,13 @@ bool mons_self_destructs(const monster& m)
     return mons_blows_up(m) || mons_destroyed_on_impact(m);
 }
 
-/// Does this monster trigger your shoutitis? (Random.)
-bool should_shout_at_mons(const monster &m)
-{
-    return !m.is_peripheral()
-        && x_chance_in_y(you.get_mutation_level(MUT_SCREAM) * 6, 100);
-}
-
 /// Does this monster trigger your attractitis? (Random.)
 bool should_attract_mons(const monster &m)
 {
-    return you.has_mutation(MUT_INITIALLY_ATTRACTIVE)
-        && one_chance_in(3)
-        && grid_distance(you.pos(), m.pos()) > 2
-        && !mons_is_tentacle_or_tentacle_segment(m.type)
-        && !m.is_peripheral()
-        && !m.is_summoned() // XXX: unsure about this
-        && !m.no_tele();
+    return x_chance_in_y(you.get_mutation_level(MUT_INITIALLY_ATTRACTIVE), 3)
+            && grid_distance(you.pos(), m.pos()) > 2
+            && !m.is_peripheral()
+            && !m.no_tele();
 }
 
 bool mons_att_wont_attack(mon_attitude_type fr)
@@ -3563,35 +3574,14 @@ bool mons_should_fire(const bolt& beam, const targeting_tracer &tracer,
  * @param spell         The spell in question.
  * @param needs_lof     Whether the spell is allowed to need direct line of fire
  *                      or not.
- * @param damage_only   Whether to exlude hexes and summoning effects.
- *                      (This is very approximate.)
  */
-bool is_offensive_spell(spell_type spell, maybe_bool needs_lof, bool damage_only)
+bool is_offensive_spell(spell_type spell, maybe_bool needs_lof)
 {
     const spell_flags flags = get_spell_flags(spell);
-    const spschools_type schools = get_spell_disciplines(spell);
 
     // These are not offensive spells.
     if (flags & (spflag::escape | spflag::helpful | spflag::selfench))
         return false;
-
-    // Spells in these schools may be directly targeted, but are rarely direct
-    // damage.
-    if (damage_only && (schools && (spschool::hexes | spschool::summoning | spschool::forgecraft)))
-    {
-        switch (spell)
-        {
-            // The only monster-castable exceptions as of now.
-            // If there are more in future, perhaps we could add a flag.
-            case SPELL_BRAIN_BITE:
-            case SPELL_DOOM_BOLT:
-            case SPELL_CRYSTALLISING_SHOT:
-                return true;
-
-            default:
-                return false;
-        }
-    }
 
     // Assume that spflag::target and untagged spells both ignore line of
     // fire, while spflag::dir_or_target requires it (regardless of whether it
@@ -3611,22 +3601,6 @@ bool mons_has_los_ability(monster_type mon_type)
 {
     return mons_is_siren_beholder(mon_type)
            || mon_type == MONS_STARCURSED_MASS;
-}
-
-bool mons_has_ranged_damage_spell(const monster& mon)
-{
-    for (const mon_spell_slot &slot : mon.spells)
-    {
-        if (is_offensive_spell(slot.spell, maybe_bool::maybe, true)
-            // Assume spells with no defined range are always effective at
-            // range.
-            && spell_range(slot.spell, &mon) != 1)
-        {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 /**
@@ -3994,7 +3968,8 @@ monster_type royal_jelly_ejectable_monster()
     return random_choose(MONS_ACID_BLOB,
                          MONS_AZURE_JELLY,
                          MONS_ROCKSLIME,
-                         MONS_VOID_OOZE);
+                         MONS_VOID_OOZE,
+                         MONS_STAR_JELLY);
 }
 
 // Replaces @foe_god@ and @god_is@ with foe's god name.
@@ -4025,6 +4000,12 @@ static string _replace_god_name(god_type god, bool need_verb = false,
     return result;
 }
 
+static bool _is_any_god(god_type god)
+{
+    UNUSED(god);
+    return true;
+}
+
 static string _random_class_of_god_name(bool (*class_of_god)(god_type god))
 {
     string result;
@@ -4038,6 +4019,29 @@ static string _random_class_of_god_name(bool (*class_of_god)(god_type god))
 
     const string godname = god_name(some_god, false);
     result = godname;
+
+    return result;
+}
+
+static bool _is_any_skill(skill_type skill)
+{
+    UNUSED(skill);
+    return true;
+}
+
+static string _random_class_of_skill_name(bool (*class_of_skill)(skill_type skill))
+{
+    string result;
+    skill_type some_skill;
+
+    do
+    {
+        some_skill = random_skill();
+    }
+    while (!class_of_skill(some_skill));
+
+    const string skillname = skill_name(some_skill);
+    result = skillname;
 
     return result;
 }
@@ -4240,7 +4244,7 @@ static string _replace_speech_tag(string msg, string from, const string &to)
 
 // Replaces the "@foo@" strings in monster shout and monster speak
 // definitions.
-string do_mon_str_replacements(const string &in_msg, const monster& mons,
+string do_mon_str_replacements(const string& in_msg, const monster& mons,
                                int s_type)
 {
     string msg = in_msg;
@@ -4310,7 +4314,7 @@ string do_mon_str_replacements(const string &in_msg, const monster& mons,
             foe_name = foe->name(DESC_THE);
 
         string prep = "at";
-        if (s_type == S_SILENT || s_type == S_SHOUT || s_type == S_NORMAL)
+        if (s_type == S_SILENT || s_type == S_SHOUT || s_type == S_NORMAL_VOLUME)
             prep = "to";
         msg = replace_all(msg, "@says@ @to_foe@", "@says@ " + prep + " @foe@");
 
@@ -4551,14 +4555,29 @@ string do_mon_str_replacements(const string &in_msg, const monster& mons,
         msg = replace_all(msg, "@My_God@", godcap);
     }
 
-    if (msg.find("@random_god_") != string::npos)
+    // For randomly generated names.
+    msg = replace_all_func(msg, "@RANDGEN@", make_name_randgen);
+
+    if (msg.find("@random_god") != string::npos)
     {
+        msg = replace_all(msg, "@random_god@",
+                          _random_class_of_god_name(_is_any_god));
         msg = replace_all(msg, "@random_god_chaotic@",
                           _random_class_of_god_name(is_chaotic_god));
         msg = replace_all(msg, "@random_god_evil@",
                           _random_class_of_god_name(is_evil_god));
         msg = replace_all(msg, "@random_god_good@",
                           _random_class_of_god_name(is_good_god));
+    }
+
+    if (msg.find("@random_skill") != string::npos)
+    {
+        msg = replace_all(msg, "@random_skill@",
+                          _random_class_of_skill_name(_is_any_skill));
+        msg = replace_all(msg, "@random_skill_magic@",
+                          _random_class_of_skill_name(is_magic_skill));
+        msg = replace_all(msg, "@random_skill_mundane@",
+                          _random_class_of_skill_name(is_mundane_skill));
     }
 
     if (msg.find("@random_body_part") != string::npos)
@@ -4618,7 +4637,7 @@ string do_mon_str_replacements(const string &in_msg, const monster& mons,
         "buggily says", // NUM_SHOUTS
         "breathes",     // S_VERY_SOFT
         "whispers",     // S_SOFT
-        "says",         // S_NORMAL
+        "says",         // S_NORMAL_VOLUME
         "shouts",       // S_LOUD
         "screams",      // S_VERY_LOUD
         "caws",
@@ -4637,6 +4656,39 @@ string do_mon_str_replacements(const string &in_msg, const monster& mons,
     msg = maybe_capitalise_substring(msg);
 
     return msg;
+}
+
+// This should take a small subset of what do_mon_str_replacements() does.
+string do_mon_name_replacements(const string& in_name)
+{
+    string name = in_name;
+
+    // For randomly generated names.
+    name = replace_all_func(name, "@RANDGEN@", make_name_randgen);
+
+    if (name.find("@random_god") != string::npos)
+    {
+        name = replace_all(name, "@random_god@",
+                           _random_class_of_god_name(_is_any_god));
+        name = replace_all(name, "@random_god_chaotic@",
+                           _random_class_of_god_name(is_chaotic_god));
+        name = replace_all(name, "@random_god_evil@",
+                           _random_class_of_god_name(is_evil_god));
+        name = replace_all(name, "@random_god_good@",
+                           _random_class_of_god_name(is_good_god));
+    }
+
+    if (name.find("@random_skill") != string::npos)
+    {
+        name = replace_all(name, "@random_skill@",
+                           _random_class_of_skill_name(_is_any_skill));
+        name = replace_all(name, "@random_skill_magic@",
+                           _random_class_of_skill_name(is_magic_skill));
+        name = replace_all(name, "@random_skill_mundane@",
+                           _random_class_of_skill_name(is_mundane_skill));
+    }
+
+    return name;
 }
 
 /**

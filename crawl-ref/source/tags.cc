@@ -412,6 +412,12 @@ void marshallInt(writer &th, int32_t data)
     th.writeByte(b4);
 }
 
+// Useful for using marshallMap with ints.
+static void marshallIntReference(writer &th, const int32_t &data)
+{
+    marshallInt(th, data);
+}
+
 // Unmarshall 4 byte signed int in network order.
 int32_t unmarshallInt(reader &th)
 {
@@ -892,6 +898,12 @@ void marshallFloat(writer &th, float data)
     float_marshall_kludge k;
     k.f_num = data;
     marshallInt(th, k.l_num);
+}
+
+// Useful for using marshallMap with floats.
+static void marshallFloatReference(writer &th, const float &data)
+{
+    marshallFloat(th, data);
 }
 
 // single precision float -- unmarshall in network order.
@@ -2082,6 +2094,89 @@ static void marshallLevelXPInfo(writer &th, LevelXPInfo xp_info)
     marshallInt(th, xp_info.vault_count);
 }
 
+static void marshallRankPietyInfo(writer &th, RankPietyInfo r)
+{
+    marshallByte(th, r.god);
+    marshallInt(th, r.initial_piety);
+    marshallInt(th, r.start_time);
+    marshallInt(th, r.piety_lost);
+    marshallInt(th, r.piety_gained);
+    marshallInt(th, r.piety_decayed);
+    marshallInt(th, r.piety_on_penance);
+    marshallInt(th, r.piety_on_gifts);
+    marshallInt(th, r.piety_on_stepdowns);
+}
+
+static void marshallConductInfo(writer &th, const ConductPietyInfo &cp_info)
+{
+    marshallMap(th, cp_info.conducts_count,
+                _marshall_as_int<conduct_type>, marshallIntReference);
+    marshallMap(th, cp_info.piety_from_conducts,
+                _marshall_as_int<conduct_type>, marshallFloatReference);
+}
+
+static void marshallXLToConductMap(writer &th,
+    const map<int, ConductPietyInfo> &conduct_info_by_xl)
+{
+    marshallMap(th, conduct_info_by_xl,
+                marshallIntReference, marshallConductInfo);
+}
+
+static void marshallPietyInfo(writer &th, PietyInfo piety_info)
+{
+    marshallShort(th, piety_info.rank_info.size());
+    for (auto &r : piety_info.rank_info)
+        marshallRankPietyInfo(th, r);
+    marshallMap(th, piety_info.conduct_info_by_god, _marshall_as_int<god_type>,
+                marshallXLToConductMap);
+    marshallInt(th, piety_info.rank);
+}
+
+static RankPietyInfo unmarshallRankPietyInfo(reader &th)
+{
+    RankPietyInfo r;
+    r.god = static_cast<god_type>(unmarshallUByte(th));
+    r.initial_piety = unmarshallInt(th);
+    r.start_time = unmarshallInt(th);
+    r.piety_lost = unmarshallInt(th);
+    r.piety_gained = unmarshallInt(th);
+    r.piety_decayed = unmarshallInt(th);
+    r.piety_on_penance = unmarshallInt(th);
+    r.piety_on_gifts = unmarshallInt(th);
+    r.piety_on_stepdowns = unmarshallInt(th);
+    return r;
+}
+
+static ConductPietyInfo unmarshallConductInfo(reader &th)
+{
+    ConductPietyInfo cp_info;
+    unmarshallMap(th, cp_info.conducts_count,
+                  unmarshall_int_as<conduct_type>, unmarshallInt);
+    unmarshallMap(th, cp_info.piety_from_conducts,
+                  unmarshall_int_as<conduct_type>, unmarshallFloat);
+    return cp_info;
+}
+
+static map<int, ConductPietyInfo> unmarshallXLToConductInfo(reader &th)
+{
+    map<int, ConductPietyInfo> conduct_info_by_xl;
+    unmarshallMap(th, conduct_info_by_xl,
+                  unmarshallInt, unmarshallConductInfo);
+    return conduct_info_by_xl;
+}
+
+static PietyInfo unmarshallPietyInfo(reader &th)
+{
+    PietyInfo piety_info;
+    int rank_info_size = unmarshallShort(th);
+    for (int i = 0; i < rank_info_size; ++i)
+        piety_info.rank_info.push_back(unmarshallRankPietyInfo(th));
+    unmarshallMap(th, piety_info.conduct_info_by_god,
+        unmarshall_int_as<god_type>, unmarshallXLToConductInfo);
+    piety_info.rank = unmarshallInt(th);
+    return piety_info;
+}
+
 static void _tag_construct_you_dungeon(writer &th)
 {
     // how many unique creatures?
@@ -2150,6 +2245,8 @@ static void _tag_construct_you_dungeon(writer &th)
 
     marshallMonType(th, you.zot_orb_monster);
     marshallBoolean(th, you.zot_orb_monster_known);
+
+    marshallPietyInfo(th, you.piety_info);
 }
 
 static void marshall_follower(writer &th, const follower &f)
@@ -2638,6 +2735,8 @@ static void _cap_mutation_at(mutation_type mut, int cap)
     }
     if (you.innate_mutation[mut] > cap)
         you.innate_mutation[mut] = cap;
+    if (you.sacrifices[mut] > cap)
+        you.sacrifices[mut] = cap;
 }
 
 static void _clear_mutation(mutation_type mut)
@@ -3910,8 +4009,8 @@ static void _tag_read_you(reader &th)
         if (you.mutation[MUT_BERSERK] > 2)
             you.mutation[MUT_BERSERK] = 2;
 
-        if (you.mutation[MUT_TELEPORT] > 2)
-            you.mutation[MUT_TELEPORT] = 2;
+        if (you.mutation[MUT_TELEPORTITIS] > 2)
+            you.mutation[MUT_TELEPORTITIS] = 2;
     }
 
     if (th.getMinorVersion() < TAG_MINOR_RAMPAGE_HEAL
@@ -3935,6 +4034,12 @@ static void _tag_read_you(reader &th)
     {
         _clear_mutation(MUT_INHIBITED_REGENERATION);
     }
+
+    if (you.mutation[MUT_STOCHASTIC_TORMENT_RESISTANCE])
+        you.mutation[MUT_TORMENT_RESISTANCE] = 1;
+
+    _cap_mutation_at(MUT_RENOUNCE_SCROLLS, 1);
+    _cap_mutation_at(MUT_RENOUNCE_POTIONS, 1);
 
     // fully clean up any removed mutations
     for (auto m : get_removed_mutations())
@@ -5439,6 +5544,11 @@ static void _tag_read_you_dungeon(reader &th)
     else
 #endif
     you.zot_orb_monster_known = unmarshallBoolean(th);
+
+#if TAG_MAJOR_VERSION == 34
+    if (th.getMinorVersion() >= TAG_MINOR_PIETY_LOGGING)
+        you.piety_info = unmarshallPietyInfo(th);
+#endif
 }
 
 static void _tag_read_lost_monsters(reader &th)
@@ -6607,8 +6717,6 @@ void _marshallMonsterInfo(writer &th, const monster_info& mi)
     marshallUnsigned(th, mi.threat);
     marshallUnsigned(th, mi.dam);
     marshallUnsigned(th, mi.fire_blocker);
-    marshallString(th, mi.description);
-    marshallString(th, mi.quote);
     marshallUnsigned(th, mi.holi.flags);
     marshallUnsigned(th, mi.mintel);
     marshallUnsigned(th, mi.hd);
@@ -6616,6 +6724,8 @@ void _marshallMonsterInfo(writer &th, const monster_info& mi)
     marshallUnsigned(th, mi.ev);
     marshallUnsigned(th, mi.base_ev);
     marshallUnsigned(th, mi.sh);
+    marshallUnsigned(th, mi.wl);
+    marshallUnsigned(th, mi.slay);
     marshallInt(th, mi.mresists);
     marshallUnsigned(th, mi.mitemuse);
     marshallByte(th, mi.mbase_speed);
@@ -6690,8 +6800,14 @@ void _unmarshallMonsterInfo(reader &th, monster_info& mi)
     unmarshallUnsigned(th, mi.threat);
     unmarshallUnsigned(th, mi.dam);
     unmarshallUnsigned(th, mi.fire_blocker);
-    mi.description = unmarshallString(th);
-    mi.quote = unmarshallString(th);
+
+#if TAG_MAJOR_VERSION == 34
+    if (th.getMinorVersion() < TAG_MINOR_MONINFO_CLEANUP)
+    {
+        unmarshallString(th);
+        unmarshallString(th);
+    }
+#endif
 
     uint64_t holi_flags = unmarshallUnsigned(th);
 #if TAG_MAJOR_VERSION == 34
@@ -6750,8 +6866,19 @@ void _unmarshallMonsterInfo(reader &th, monster_info& mi)
 #endif
         mi.sh = 0;
 
-    mi.mr = mons_class_willpower(mi.type, mi.base_type);
-    mi.can_see_invis = mons_class_sees_invis(mi.type, mi.base_type);
+#if TAG_MAJOR_VERSION == 34
+    if (th.getMinorVersion() < TAG_MINOR_MONINFO_CLEANUP)
+        mi.wl = mons_class_willpower(mi.type, mi.base_type);
+    else
+#endif
+    unmarshallUnsigned(th, mi.wl);
+
+#if TAG_MAJOR_VERSION == 34
+    if (th.getMinorVersion() < TAG_MINOR_MONINFO_CLEANUP)
+        mi.slay = 0;
+    else
+#endif
+    unmarshallUnsigned(th, mi.slay);
 
     mi.mresists = unmarshallInt(th);
 #if TAG_MAJOR_VERSION == 34
@@ -7653,6 +7780,16 @@ void unmarshallMonster(reader &th, monster& m)
             slot.spell = SPELL_SPIT_ACID;
             m.spells.push_back(slot);
         }
+        else if (slot.spell == SPELL_FREEZING_CLOUD)
+        {
+            slot.spell = SPELL_FREEZING_GUST;
+            m.spells.push_back(slot);
+        }
+        else if (slot.spell == SPELL_SWIFTNESS)
+        {
+            slot.spell = SPELL_FLEETFOOT;
+            m.spells.push_back(slot);
+        }
 #if TAG_MAJOR_VERSION == 34
         else if (slot.spell != SPELL_DELAYED_FIREBALL
                  && slot.spell != SPELL_GRAVITAS
@@ -7992,8 +8129,6 @@ void unmarshallMonster(reader &th, monster& m)
 
     // If an upgrade synthesizes ghost_demon, please mark it in "parts" above.
     ASSERT(parts & MP_GHOST_DEMON || !mons_is_ghost_demon(m.type));
-
-    m.check_speed();
 }
 
 static void _tag_read_level_monsters(reader &th)
@@ -8546,9 +8681,14 @@ static ghost_demon _unmarshallGhost(reader &th)
     {
         if (th.getMinorVersion() < TAG_MINOR_GHOST_MAGIC)
             slot.spell = _fixup_positional_monster_spell(slot.spell);
+        if (slot.spell == SPELL_FREEZING_CLOUD)
+        {
+            slot.spell = SPELL_FREEZING_GUST;
+            ghost.spells.push_back(slot);
+        }
         // Gravitas needs special handling, since it was removed for monsters
         // but NOT players (and thus isn't a 'removed spell' in general)
-        if (!spell_removed(slot.spell) && slot.spell != SPELL_GRAVITAS)
+        else if (!spell_removed(slot.spell) && slot.spell != SPELL_GRAVITAS)
             ghost.spells.push_back(slot);
     }
 #endif

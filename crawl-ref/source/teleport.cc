@@ -58,24 +58,20 @@ bool monster::blink_to(const coord_def& dest, bool quiet, bool jump)
     if (dest == pos())
         return false;
 
-    bool was_constricted = false;
     const string verb = (jump ? mons_genus(type) == MONS_FROG ? "hop" : "leap" : "blink");
 
     if (is_constricted())
     {
-        was_constricted = true;
-        stop_being_constricted(false, "blinks");
+        // Constriction escape will already produce an appropriate message.
+        quiet = true;
+        stop_being_constricted(false, verb + "s");
     }
 
     if (!quiet)
     {
-        string message = " " + conj_verb(verb)
-                         + (was_constricted ? " free!" : "!");
+        string message = " " + conj_verb(verb) + "!";
         simple_monster_message(*this, message.c_str());
     }
-
-    if (!(flags & MF_WAS_IN_VIEW))
-        seen_context = jump ? SC_LEAP_IN : SC_TELEPORT_IN;
 
     const coord_def oldplace = pos();
     if (!move_to(dest, MV_TRANSLOCATION, true))
@@ -256,24 +252,13 @@ void monster_teleport(monster* mons, bool instan, bool silent, bool away_from_pl
     // Move it to its new home.
     mons->move_to(newpos, MV_TRANSLOCATION, true);
 
-    const bool now_visible = you.see_cell(newpos);
-    if (!silent && now_visible)
+    if (!silent && you.can_see(*mons))
     {
         if (was_seen)
             simple_monster_message(*mons, " reappears nearby!");
         else
-        {
-            // Even if it doesn't interrupt an activity (the player isn't
-            // delayed, the monster isn't hostile) we still want to give
-            // a message.
-            activity_interrupt_data ai(mons, SC_TELEPORT_IN);
-            if (!interrupt_activity(activity_interrupt::see_monster, ai))
-                simple_monster_message(*mons, " appears out of thin air!");
-        }
+            mprf("%s appears out of thin air!", mons->name(DESC_A).c_str());
     }
-
-    if (mons->visible_to(&you) && now_visible)
-        handle_seen_interrupt(mons);
 
     // Leave a purple cloud.
     // XXX: If silent is true, this is not an actual teleport, but

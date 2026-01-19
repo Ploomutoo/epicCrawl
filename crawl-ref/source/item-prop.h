@@ -92,6 +92,7 @@ bool set_item_ego_type(item_def &item, object_class_type item_type,
 brand_type get_weapon_brand(const item_def &item) PURE;
 special_armour_type get_armour_ego_type(const item_def &item) PURE;
 special_missile_type get_ammo_brand(const item_def &item) PURE;
+brand_type get_special_brand_for(weapon_type wpn_type) PURE;
 
 // staff functions:
 const char* staff_type_name(stave_type staff) PURE;
@@ -177,10 +178,9 @@ bool item_skills(const item_def &item, set<skill_type> &skills);
 bool is_range_weapon(const item_def &item) PURE;
 bool is_crossbow(const item_def &item) PURE;
 bool is_slowed_by_armour(const item_def *item) PURE;
-const char *ammo_name(missile_type ammo) IMMUTABLE;
+const char *missile_name(missile_type ammo) IMMUTABLE;
+string launched_projectile_name(const item_def &item);
 bool is_throwable(const actor *actor, const item_def &wpn) PURE;
-bool is_launcher_ammo(const item_def &wpn) PURE;
-launch_retval is_launched(const actor *actor, const item_def &missile) PURE;
 
 bool ammo_always_destroyed(const item_def &missile) PURE;
 bool ammo_never_destroyed(const item_def &missile) PURE;
@@ -297,7 +297,5 @@ bool is_equippable_item(const item_def& item);
 bool is_usable_talisman(const item_def& item);
 
 void remove_whitespace(string &str);
-
-void populate_fake_projectile(const item_def &wep, item_def &fake_proj);
 
 int jewellery_usefulness_limit(jewellery_type type);

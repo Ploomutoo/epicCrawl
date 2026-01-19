@@ -275,8 +275,11 @@ bool feat_is_traversable_now(dungeon_feature_type grid, bool try_fallback,
             return false;
 
         // Swimmers and water-walkers get deep water.
+        // Note that checking whether your base form can swim is not good enough;
+        // your current form must *also* be able to swim.
         if (grid == DNGN_DEEP_WATER
-            && (player_likes_water(true) || have_passive(passive_t::water_walk)))
+            && ((player_likes_water(true) && you.can_swim())
+                 || have_passive(passive_t::water_walk)))
         {
             return true;
         }
@@ -415,7 +418,6 @@ static bool _is_reseedable(const coord_def& c, bool ignore_danger = false)
            || _feat_is_blocking_door(grid)
            || is_trap(c)
            || !ignore_danger && _monster_blocks_travel(cell.monsterinfo())
-           || g_Slime_Wall_Check && slime_wall_neighbour(c)
            || !_is_safe_cloud(c);
 }
 
@@ -519,12 +521,6 @@ bool is_travelsafe_square(const coord_def& c, bool ignore_hostile,
     // Excluded squares are only safe if marking stairs, i.e. another level.
     if (!ignore_danger && !ignore_hostile && is_excluded(c)
         && !is_stair_exclusion(c))
-    {
-        return false;
-    }
-
-    if (g_Slime_Wall_Check && slime_wall_neighbour(c)
-        && !actor_slime_wall_immune(&you))
     {
         return false;
     }
@@ -1461,7 +1457,8 @@ coord_def travel_pathfind::pathfind(run_mode_type rmode, bool fallback_explore)
         return start;
 
     unwind_bool slime_wall_check(g_Slime_Wall_Check,
-                                 !actor_slime_wall_immune(&you));
+                                 !ignore_player_traversability
+                                 && !actor_slime_wall_immune(&you));
     unwind_slime_wall_precomputer slime_neighbours(g_Slime_Wall_Check);
 
     // How many points we'll consider next iteration.
@@ -1622,7 +1619,12 @@ bool travel_pathfind::square_slows_movement(const coord_def &c)
     //
     // Walking through shallow water and opening closed doors is considered to
     // have the cost of two normal moves for travel purposes.
-    const int feat_cost = _feature_traverse_cost(feature);
+    int feat_cost = _feature_traverse_cost(feature);
+
+    // Areas next to slime walls are traversible, but we'd prefer not to if possible.
+    if (g_Slime_Wall_Check && slime_wall_neighbour(c))
+        feat_cost += 5;
+
     if (feat_cost > 1
         && point_distance[c.x][c.y] > traveled_distance - feat_cost)
     {
@@ -4721,9 +4723,6 @@ bool runrest::run_should_stop() const
 
     const monster_info* mon = tcell.monsterinfo();
     if (mon && !fedhas_passthrough(tcell.monsterinfo()))
-        return true;
-
-    if (slime_wall_neighbour(targ) && !actor_slime_wall_immune(&you))
         return true;
 
     for (int i = 0; i < 3; i++)

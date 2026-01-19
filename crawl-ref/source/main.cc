@@ -107,6 +107,7 @@
 #include "options.h"
 #include "output.h"
 #include "player.h"
+#include "player-notices.h"
 #include "player-reacts.h"
 #include "prompt.h"
 #include "quiver.h"
@@ -350,6 +351,9 @@ int main(int argc, char *argv[])
 
 static void _reset_game()
 {
+    clua.close();
+    dlua.close();
+
     clrscr();
     // Unset by death, but not by saving with restart_after_save.
     crawl_state.reset_game();
@@ -368,6 +372,7 @@ static void _reset_game()
     overview_clear();
     clear_message_window();
     note_list.clear();
+    dlua_errors.clear();
     msg::deinitialise_mpr_streams();
     quiver::reset_state();
 
@@ -1054,6 +1059,19 @@ static void _update_place_stats()
     curr_PlaceInfo.assert_validity();
 }
 
+// How much time should pass this turn because the player cannot act?
+// (Pass time in increments of 10 aut, but never more than our remaining stun duration.)
+static int _stun_delay()
+{
+    int stun_dur = you.duration[DUR_PARALYSIS];
+    stun_dur = max(stun_dur, you.duration[DUR_SLEEP]);
+    stun_dur = max(stun_dur, you.duration[DUR_VEXED]);
+    stun_dur = max(stun_dur, you.duration[DUR_DAZED]);
+    stun_dur = max(stun_dur, you.duration[DUR_PETRIFIED]);
+
+    return min(stun_dur, BASELINE_DELAY);
+}
+
 //
 //  This function handles the player's input. It's called from main(),
 //  from inside an endless loop.
@@ -1107,25 +1125,32 @@ static void _input()
 
     update_monsters_in_view();
 
-    // Monster update can cause a weapon swap.
-    if (you.turn_is_over)
-    {
-        world_reacts();
-        return;
-    }
-
     hints_new_turn();
 
-    if (you.duration[DUR_VEXED])
-        do_vexed_attack(you);
-
-    if (you.cannot_act() || you.duration[DUR_VEXED] || you.duration[DUR_DAZED])
+    if (you.cannot_act())
     {
         if (crawl_state.repeat_cmd != CMD_WIZARD)
         {
             crawl_state.cancel_cmd_repeat("Cannot control self, cancelling command "
                                           "repetition.");
         }
+
+        // If the player has enough Vexed time left to make a proper attack, do
+        // so. Otherwise, just wait out the rest of it.
+        if (you.duration[DUR_VEXED])
+        {
+            const int attk_delay = you.melee_attack_delay().roll();
+            if (you.duration[DUR_VEXED] >= attk_delay)
+            {
+                do_vexed_attack(you);
+                you.time_taken = attk_delay;
+            }
+            else
+                you.time_taken = _stun_delay();
+        }
+        else
+            you.time_taken = _stun_delay();
+
         world_reacts();
         return;
     }
@@ -1343,7 +1368,7 @@ static bool _can_take_stairs(dungeon_feature_type ftype, bool down,
     }
 
     // Immobile
-    if (!you.is_motile())
+    if (you.cannot_move())
     {
         canned_msg(MSG_CANNOT_MOVE);
         return false;
@@ -1417,6 +1442,13 @@ static bool _can_take_stairs(dungeon_feature_type ftype, bool down,
         break;
     default:
         break;
+    }
+
+    if (player_in_branch(BRANCH_SLIME) && !down && you.depth > 1
+            && !you_worship(GOD_JIYVA) && !you.royal_jelly_dead)
+    {
+        mpr("The stairs are too slimy for you to climb back up!");
+        return false;
     }
 
     return true;
@@ -1582,6 +1614,18 @@ static bool _prompt_stairs(dungeon_feature_type ygrd, bool down, bool shaft)
         if (!confirm_prompt("yes", "You cannot leave the Vaults without holding a Rune of "
                                    "Zot, and the runes within are jealously guarded."
                                    " Continue?"))
+        {
+            canned_msg(MSG_OK);
+            return false;
+        }
+    }
+
+    // Only give the slimy stair warning on Slime:1. If below that, they're already stuck anyway.
+    if (down && player_in_branch(BRANCH_SLIME) && you.depth == 1
+        && !you.royal_jelly_dead && !you_worship(GOD_JIYVA))
+    {
+        if (!yesno("You will be unable to climb back up again until you either destroy or join "
+                   "the power ruling this place. Continue?", true, 'n'))
         {
             canned_msg(MSG_OK);
             return false;
@@ -2468,6 +2512,9 @@ static void _prep_input()
     you.turn_is_over = false;
     you.time_taken = player_speed();
     you.shield_blocks = 0;              // no blocks this round
+    you.reprisals.clear();
+    you.triggers_done.init(0);
+    you.attempted_attack = false;
 
     you.redraw_status_lights = true;
     you.redraw_title = true;
@@ -2629,6 +2676,11 @@ void world_reacts()
 
     handle_time();
     manage_clouds();
+
+    // This needs to happen after `manage_clouds` is called as fog clouds
+    // decaying will affect whether a monster is still in view
+    print_mons_left_view_messages();
+
     if (env.level_state & LSTATE_GOLUBRIA)
         _update_golubria_traps(you.time_taken);
     if (env.level_state & LSTATE_STILL_WINDS)
@@ -2640,12 +2692,12 @@ void world_reacts()
 
     add_auto_excludes();
 
-    _check_trapped();
-
     viewwindow();
     update_screen();
 
-    if ((you.cannot_act() || you.duration[DUR_DAZED] || you.duration[DUR_VEXED])
+    _check_trapped();
+
+    if (you.cannot_act()
         && any_messages()
         && crawl_state.repeat_cmd != CMD_WIZARD)
     {
@@ -2985,6 +3037,8 @@ static void _do_cmd_repeat()
         return;
     }
 
+    const bool is_safe = i_feel_safe();
+
     keyseq repeat_keys;
     int i = 0;
     if (cmd != CMD_PREV_CMD_AGAIN)
@@ -3000,7 +3054,15 @@ static void _do_cmd_repeat()
         repeat_keys = crawl_state.prev_cmd_keys;
 
     crawl_state.repeat_cmd                = real_cmd;
-    crawl_state.cmd_repeat_started_unsafe = !i_feel_safe();
+    crawl_state.cmd_repeat_started_unsafe = !is_safe;
+
+    // XXX: If this command repetition was started while safe, a monster may
+    //      have come into view on the first action, before the reptition is
+    //      officially started. Wipe out awareness of all monsters in sight
+    //      to force them to interrupt again, if appropriate.
+    if (is_safe)
+        for (monster_near_iterator mi(you.pos()); mi; ++mi)
+            mi->flags &= ~MF_WAS_IN_VIEW;
 
     int last_repeat_turn;
     for (; i < count && crawl_state.is_repeating_cmd(); ++i)

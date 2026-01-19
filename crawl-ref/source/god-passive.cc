@@ -34,6 +34,7 @@
 #include "mapdef.h"
 #include "melee-attack.h"
 #include "message.h"
+#include "mon-act.h"
 #include "mon-behv.h"
 #include "mon-cast.h"
 #include "mon-death.h"
@@ -902,6 +903,9 @@ static bool _shadow_will_act(bool spell, bool melee)
     if (!have_passive(pasv))
         return false;
 
+    if (you.triggers_done[DID_DITH_SHADOW])
+        return false;
+
     // If we're making a weapon shadow and haven't done so for a while,
     // guarantee it. (This helps consistency when fishing for shadowslip stab
     // opportunities a lot.)
@@ -967,12 +971,16 @@ monster* create_player_shadow(coord_def pos, bool friendly, spell_type spell_kno
     // If a player shadow already exists, remove it first.
     // But save some state, in case it was currently in decoy mode.
     int decoy_duration = 0;
+    int decoy_hp = 0;
     for (monster_iterator mi; mi; ++mi)
     {
         if (mons_is_player_shadow(**mi))
         {
             if (mi->has_ench(ENCH_CHANGED_APPEARANCE))
+            {
                 decoy_duration = mi->get_ench(ENCH_CHANGED_APPEARANCE).duration;
+                decoy_hp = mi->hit_points;
+            }
             monster_die(**mi, KILL_RESET, true);
             break;
         }
@@ -1008,7 +1016,7 @@ monster* create_player_shadow(coord_def pos, bool friendly, spell_type spell_kno
     mg.hp = 5 + you.experience_level * 3 / 2;
     // Preserve the health boost from an active decoy
     if (decoy_duration > 0)
-        mg.hp += you.skill_rdiv(SK_INVOCATIONS, 9, 4);
+        mg.hp += you.skill_rdiv(SK_INVOCATIONS, 5, 2);
 
     if (!friendly)
         mg.hp = mg.hp * 2;
@@ -1073,6 +1081,7 @@ monster* create_player_shadow(coord_def pos, bool friendly, spell_type spell_kno
                 mi->update_ench(en);
             }
         }
+        mon->hit_points = decoy_hp;
     }
 
     return mon;
@@ -1206,6 +1215,8 @@ void dithmenos_shadow_melee(actor* initial_target)
 
     you.props[DITH_SHADOW_INTERVAL_KEY] = you.elapsed_time
         + random_range(DITH_MELEE_SHADOW_INTERVAL, DITH_MELEE_SHADOW_INTERVAL * 2);
+
+    you.did_trigger(DID_DITH_SHADOW);
 }
 
 // Determine the first monster that could be hit by an arrow fired from one spot
@@ -1219,10 +1230,11 @@ static monster* _find_shot_target(coord_def origin, coord_def aim)
 
     while (ray.advance())
     {
-        if (grid_distance(ray.pos(), origin) > LOS_RADIUS)
+        const coord_def pos = ray.pos();
+        if (grid_distance(pos, origin) > LOS_RADIUS || !you.see_cell_no_trans(pos))
             break;
-        else if (monster_at(ray.pos()))
-            return monster_at(ray.pos());
+        else if (monster* mon = monster_at(pos))
+            return mon;
     }
 
     return nullptr;
@@ -1386,16 +1398,16 @@ static coord_def _shadow_already_okay_for_ranged(coord_def preferred_target)
     return coord_def();
 }
 
-void dithmenos_shadow_shoot(const dist &d, const item_def &item)
+void dithmenos_shadow_shoot(const coord_def& targ, missile_type thrown_projectile)
 {
-    ASSERT(d.isValid);
     if (!_shadow_will_act(false, false))
         return;
-    // Determine preferred target for ranged shadow mimic by tracing along the
-    // ray used by the player to fire their own shot and stopping at the first
+
+    // Determine preferred target for ranged shadow mimic by tracing towards the
+    // target used by the player to fire their own shot and stopping at the first
     // hostile thing we see in that path.
-    coord_def aim = d.target;
-    monster* target = _find_shot_target(you.pos(), d.target);
+    coord_def aim = targ;
+    monster* target = _find_shot_target(you.pos(), targ);
     if (target && mons_aligned(&you, target))
         target = nullptr;
 
@@ -1447,11 +1459,11 @@ void dithmenos_shadow_shoot(const dist &d, const item_def &item)
     // XXX: Code partially copied from handle_throw to populate fake/real
     //      projectiles, depending on whether the shadow is using a launcher
     //      or not, and whether can existing shadow is being reused or not.
-    const item_def *launcher = mon->launcher();
+    item_def *launcher = mon->launcher();
     item_def *throwable = mon->missiles();
     item_def fake_proj;
     item_def *missile = &fake_proj;
-    if (is_throwable(mon, item))
+    if (thrown_projectile != NUM_MISSILES)
     {
         // If the shadow doesn't already have a missile item, make one for them
         if (!throwable)
@@ -1467,8 +1479,8 @@ void dithmenos_shadow_shoot(const dist &d, const item_def &item)
         }
 
         // Set properties of the missile item it's using
-        missile->base_type = item.base_type;
-        missile->sub_type  = item.sub_type;
+        missile->base_type = OBJ_MISSILES;
+        missile->sub_type  = thrown_projectile;
         missile->quantity  = 1;
         missile->rnd       = 1;
         missile->flags    |= ISFLAG_SUMMONED;
@@ -1476,15 +1488,11 @@ void dithmenos_shadow_shoot(const dist &d, const item_def &item)
         if (!throwable)
             mon->pickup_item(*missile, false, true);
     }
-    else if (launcher)
-        populate_fake_projectile(*launcher, fake_proj);
 
-    bolt shot;
-    shot.target = aim;
-    setup_monster_throw_beam(mon, shot);
-    shot.item = missile;
-
-    mons_throw(mon, shot);
+    ranged_attack_beam atk(*mon, thrown_projectile != NUM_MISSILES ? *missile : *launcher);
+    atk.beam.target = aim;
+    atk.beam.stop_at_allies = true;
+    mons_throw(mon, atk);
 
     // Give Coglins a shot with their other weapon, if they have one
     if (you.has_mutation(MUT_WIELD_OFFHAND)
@@ -1492,9 +1500,8 @@ void dithmenos_shadow_shoot(const dist &d, const item_def &item)
         && is_range_weapon(*mon->mslot_item(MSLOT_ALT_WEAPON)))
     {
         mon->swap_weapons(false);
-        populate_fake_projectile(*mon->launcher(), fake_proj);
-        shot.item = missile;
-        mons_throw(mon, shot);
+        ranged_attack_beam atk2(*mon, *launcher);
+        mons_throw(mon, atk2);
     }
 
     // Store this action's target so that it can be reused on future turns.
@@ -1502,6 +1509,8 @@ void dithmenos_shadow_shoot(const dist &d, const item_def &item)
         mon->props[DITH_SHADOW_LAST_TARGET_KEY].get_int() = monster_at(aim)->mid;
     else
         mon->props.erase(DITH_SHADOW_LAST_TARGET_KEY);
+
+    you.did_trigger(DID_DITH_SHADOW);
 }
 
 static int _shadow_zap_tracer(zap_type ztype, coord_def source, coord_def target)
@@ -1824,6 +1833,7 @@ void dithmenos_shadow_spell(spell_type spell)
     setup_mons_cast(mon, beam, shadow_spell);
     beam.target = aim;
     mons_cast(mon, beam, shadow_spell, MON_SPELL_WIZARD);
+    you.did_trigger(DID_DITH_SHADOW);
 }
 
 void wu_jian_trigger_serpents_lash(bool wall_jump)
@@ -1846,6 +1856,7 @@ void wu_jian_trigger_serpents_lash(bool wall_jump)
         you.redraw_status_lights = true;
         update_turn_count();
         fire_final_effects();
+        mons_reset_just_seen();
     }
 
     if (you.attribute[ATTR_SERPENTS_LASH] == 0)
@@ -1915,18 +1926,26 @@ static bool _can_attack_martial(const monster* mons)
 // A mismatch between attack speed and move speed may cause any particular
 // martial attack to be doubled, tripled, or not happen at all. Given enough
 // time moving, you would have made the same amount of attacks as tabbing.
-static int _wu_jian_number_of_attacks(bool wall_jump)
+static int _wu_jian_number_of_attacks(int& dmg_penalty, bool wall_jump)
 {
     // Under the effect of serpent's lash, move delay is normalized to
     // 10 aut for every character, to avoid punishing fast races.
-    const int move_delay = you.attribute[ATTR_SERPENTS_LASH]
-                           ? 100
-                           : player_movement_speed() * player_speed();
+    const int move_delay = (you.attribute[ATTR_SERPENTS_LASH]
+                            ? 100
+                            : player_movement_speed() * player_speed())
+                                                        * (wall_jump ? 2 : 1);
 
-    int attack_delay = you.attack_delay().roll();
+    int attack_delay = you.attack_delay().roll() * BASELINE_DELAY;
 
-    return div_rand_round(wall_jump ? 2 * move_delay : move_delay,
-                          attack_delay * BASELINE_DELAY);
+    // Rather than sometimes performing 0 attacks if we're moving too quickly for
+    // our attack speed, perform a single attack with proportionally lowered damage.
+    if (attack_delay > move_delay)
+    {
+        dmg_penalty = (move_delay * 100 / attack_delay) - 100;
+        return 1;
+    }
+
+    return div_rand_round(move_delay, attack_delay);
 }
 
 static bool _wu_jian_lunge(coord_def old_pos, coord_def new_pos,
@@ -1944,22 +1963,14 @@ static bool _wu_jian_lunge(coord_def old_pos, coord_def new_pos,
     if (you.props.exists(WU_JIAN_HEAVENLY_STORM_KEY))
         _wu_jian_increment_heavenly_storm();
 
-    const int number_of_attacks = _wu_jian_number_of_attacks(false);
+    int dmg_mult = 0;
+    const int number_of_attacks = _wu_jian_number_of_attacks(dmg_mult, false);
 
-    if (number_of_attacks == 0)
-    {
-        mprf("You lunge at %s, but your attack speed is too slow for a blow "
-             "to land.", mons->name(DESC_THE).c_str());
-        return false;
-    }
-    else
-    {
-        mprf("You lunge%s at %s%s.",
-             wu_jian_has_momentum(WU_JIAN_ATTACK_LUNGE) ?
-                 " with incredible momentum" : "",
-             mons->name(DESC_THE).c_str(),
-             number_of_attacks > 1 ? ", in a flurry of attacks" : "");
-    }
+    mprf("You lunge%s at %s%s.",
+            wu_jian_has_momentum(WU_JIAN_ATTACK_LUNGE) ?
+                " with incredible momentum" : "",
+            mons->name(DESC_THE).c_str(),
+            number_of_attacks > 1 ? ", in a flurry of attacks" : "");
 
     count_action(CACT_ATTACK, ATTACK_LUNGE);
 
@@ -1969,6 +1980,7 @@ static bool _wu_jian_lunge(coord_def old_pos, coord_def new_pos,
             break;
         melee_attack lunge(&you, mons);
         lunge.wu_jian_attack = WU_JIAN_ATTACK_LUNGE;
+        lunge.dmg_mult = dmg_mult;
         lunge.launch_attack_set();
     }
 
@@ -2011,21 +2023,13 @@ static bool _wu_jian_whirlwind(coord_def old_pos, coord_def new_pos,
         if (you.props.exists(WU_JIAN_HEAVENLY_STORM_KEY))
             _wu_jian_increment_heavenly_storm();
 
-        const int number_of_attacks = _wu_jian_number_of_attacks(false);
-        if (number_of_attacks == 0)
-        {
-            mprf("You spin to attack %s, but your attack speed is too slow for "
-                 "a blow to land.", mons->name(DESC_THE).c_str());
-            continue;
-        }
-        else
-        {
-            mprf("You spin and attack %s%s%s.",
-                 mons->name(DESC_THE).c_str(),
-                 number_of_attacks > 1 ? " repeatedly" : "",
-                 wu_jian_has_momentum(WU_JIAN_ATTACK_WHIRLWIND) ?
-                     ", with incredible momentum" : "");
-        }
+        int dmg_mult = 0;
+        const int number_of_attacks = _wu_jian_number_of_attacks(dmg_mult, false);
+        mprf("You spin and attack %s%s%s.",
+                mons->name(DESC_THE).c_str(),
+                number_of_attacks > 1 ? " repeatedly" : "",
+                wu_jian_has_momentum(WU_JIAN_ATTACK_WHIRLWIND) ?
+                    ", with incredible momentum" : "");
 
         count_action(CACT_ATTACK, ATTACK_WHIRLWIND);
 
@@ -2035,13 +2039,19 @@ static bool _wu_jian_whirlwind(coord_def old_pos, coord_def new_pos,
                 break;
             melee_attack whirlwind(&you, mons);
             whirlwind.wu_jian_attack = WU_JIAN_ATTACK_WHIRLWIND;
+            whirlwind.dmg_mult = dmg_mult;
             whirlwind.wu_jian_number_of_targets = common_targets.size();
-            whirlwind.launch_attack_set();
-            did_at_least_one_attack = true;
+            did_at_least_one_attack |= whirlwind.launch_attack_set(true);
         }
     }
 
-    return did_at_least_one_attack;
+    // Even failing to land any blows due to movement speed will maintain
+    // status effects, but we can't trigger things like paragon unless a real
+    // attack was made.
+    if (!common_targets.empty())
+        player_attempted_attack(did_at_least_one_attack);
+
+    return !common_targets.empty();
 }
 
 static bool _wu_jian_trigger_martial_arts(coord_def old_pos,
@@ -2062,12 +2072,6 @@ static bool _wu_jian_trigger_martial_arts(coord_def old_pos,
 
     if (have_passive(passive_t::wu_jian_whirlwind))
         attacked |= _wu_jian_whirlwind(old_pos, new_pos, check_only);
-
-    // Trigger post-attack effects. (We don't track which monsters were
-    // actually attacked, but it's safe to say they weren't firewood, since
-    // martial attacks aren't launched against those in general.)
-    if (attacked && !check_only)
-        do_player_post_attack(nullptr, false, false);
 
     return attacked;
 }
@@ -2099,12 +2103,13 @@ bool wu_jian_wall_jump_triggers_attacks(const coord_def &pos)
 
 // Returns true if at least one monster could have been attacked (even if our
 // attack speed was somehow too slow to succeed at doing so.)
-bool wu_jian_wall_jump_effects()
+void wu_jian_wall_jump_effects()
 {
     for (adjacent_iterator ai(you.pos(), true); ai; ++ai)
         place_cloud(CLOUD_DUST, *ai, 1 + random2(3) , &you, 0, -1);
 
     vector<monster*> targets = _wu_jian_wall_jump_monsters(you.pos());
+    bool did_attack = false;
     for (auto target : targets)
     {
         if (!target->alive())
@@ -2114,21 +2119,13 @@ bool wu_jian_wall_jump_effects()
             _wu_jian_increment_heavenly_storm();
 
         // Twice the attacks as Wall Jump spends twice the time
-        const int number_of_attacks = _wu_jian_number_of_attacks(true);
-        if (number_of_attacks == 0)
-        {
-            mprf("You attack %s from above, but your attack speed is too slow"
-                 " for a blow to land.", target->name(DESC_THE).c_str());
-            continue;
-        }
-        else
-        {
-            mprf("You %sattack %s from above%s.",
-                 number_of_attacks > 1 ? "repeatedly " : "",
-                 target->name(DESC_THE).c_str(),
-                 wu_jian_has_momentum(WU_JIAN_ATTACK_WALL_JUMP) ?
-                     ", with incredible momentum" : "");
-        }
+        int dmg_mult = 0;
+        const int number_of_attacks = _wu_jian_number_of_attacks(dmg_mult, true);
+        mprf("You %sattack %s from above%s.",
+                number_of_attacks > 1 ? "repeatedly " : "",
+                target->name(DESC_THE).c_str(),
+                wu_jian_has_momentum(WU_JIAN_ATTACK_WALL_JUMP) ?
+                    ", with incredible momentum" : "");
 
         for (int i = 0; i < number_of_attacks; i++)
         {
@@ -2137,12 +2134,14 @@ bool wu_jian_wall_jump_effects()
 
             melee_attack aerial(&you, target);
             aerial.wu_jian_attack = WU_JIAN_ATTACK_WALL_JUMP;
+            aerial.dmg_mult = dmg_mult;
             aerial.wu_jian_number_of_targets = targets.size();
-            aerial.launch_attack_set();
+            did_attack |= aerial.launch_attack_set();
         }
     }
 
-    return !targets.empty();
+    if (!targets.empty())
+        player_attempted_attack(did_attack);
 }
 
 bool wu_jian_post_move_effects(bool did_wall_jump,

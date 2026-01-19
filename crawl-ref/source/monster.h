@@ -113,9 +113,6 @@ public:
 
     unique_ptr<ghost_demon> ghost;     // Ghost information.
 
-    seen_context_type seen_context;    // Non-standard context for
-                                       // activity_interrupt::see_monster
-
     int damage_friendly;               // Damage taken by a player-related source
                                        // (used for XP calculations)
     int damage_total;
@@ -213,7 +210,7 @@ public:
     bool has_ench(enchant_type ench, enchant_type ench2) const;
     mon_enchant get_ench(enchant_type ench,
                          enchant_type ench2 = ENCH_NONE) const;
-    bool add_ench(const mon_enchant &);
+    bool add_ench(const mon_enchant &, bool stack_duration = true);
     void update_ench(const mon_enchant &);
     bool del_ench(enchant_type ench, bool quiet = false, bool effect = true);
     bool lose_ench_duration(const mon_enchant &e, int levels);
@@ -283,10 +280,10 @@ public:
 
     size_type   body_size(size_part_type psize = PSIZE_TORSO,
                           bool base = false) const override;
-    brand_type  damage_brand(int which_attack = -1) override;
-    vorpal_damage_type damage_type(int which_attack = -1) override;
-    random_var  attack_delay(const item_def *projectile = nullptr,
-                             bool rescale = true) const override;
+    brand_type  damage_brand(int which_attack) const;
+    vorpal_damage_type damage_type(int which_attack = -1) const;
+    random_var  attack_delay(const item_def *projectile = nullptr) const override;
+    random_var  melee_attack_delay() const override;
     int         has_claws(bool allow_tran = true) const override;
 
     int wearing(object_class_type obj_type, int sub_type,
@@ -303,6 +300,7 @@ public:
     item_def *melee_weapon() const;
     item_def *missiles() const;
     item_def *shield() const override;
+    item_def *offhand_item() const override;
     item_def *body_armour() const override;
     item_def *get_defining_object() const;
 
@@ -363,10 +361,10 @@ public:
     bool has_bones(bool temp = true) const override;
     bool is_stationary() const override;
     bool malmutate(const actor* source, const string& reason = "") override;
-    bool polymorph(int dur, bool allow_immobile = true) override;
+    bool polymorph(int dur) override;
     bool polymorph(poly_power_type power = PPT_SAME);
     bool doom(int amount) override;
-    void banish(const actor *agent, const string &who = "", const int power = 0,
+    void banish(const actor *agent, const string &who = "",
                 bool force = false) override;
     void expose_to_element(beam_type element, int strength = 0,
                            const actor* source = nullptr,
@@ -406,12 +404,14 @@ public:
     resists_t all_resists() const;
     int willpower() const override;
     bool no_tele(bool blink = false, bool /*temp*/ = true) const override;
+    int slaying(bool throwing = false, bool random = true) const override;
     bool antimagic_susceptible() const override;
 
     bool clarity(bool items = true) const override;
     bool stasis() const override;
     bool cloud_immune(bool items = true) const override;
     bool damage_immune(const actor* source = nullptr) const;
+    bool sunder_is_ready() const override;
 
     bool airborne() const override;
     bool is_banished() const override;
@@ -429,7 +429,9 @@ public:
     bool is_skeletal() const override;
     bool is_spiny() const;
     bool paralysed() const override;
+    bool cannot_move() const override;
     bool cannot_act() const override;
+    bool helpless() const override;
     bool confused() const override;
     bool confused_by_you() const;
     bool asleep() const override;
@@ -516,9 +518,11 @@ public:
     void weaken(const actor *attacker, int pow) override;
     void diminish(const actor *attacker, int pow) override;
     bool strip_willpower(actor *attacker, int dur, bool quiet = false) override;
+    bool drain_magic(actor *attacker, int pow) override;
     void daze(int duration) override;
     void vitrify(const actor *attacker, int duration, bool quiet = false) override;
     bool floodify(const actor *attacker, int duration, const char* substance = "water") override;
+    void stagger(int energy_loss);
     int beam_resists(bolt &beam, int hurted, bool doEffects, string source = "")
         override;
 
@@ -532,16 +536,13 @@ public:
     int     shield_bonus() const override;
     void    shield_block_succeeded(actor *attacker) override;
     int     shield_bypass_ability(int tohit) const override;
-    bool    missile_repulsion() const override;
+    int     missile_repulsion() const override;
 
     bool is_player() const override { return false; }
     monster* as_monster() override { return this; }
     player* as_player() override { return nullptr; }
     const monster* as_monster() const override { return this; }
     const player* as_player() const override { return nullptr; }
-
-    // Hacks, with a capital H.
-    void check_speed();
 
     string describe_enchantments() const;
 

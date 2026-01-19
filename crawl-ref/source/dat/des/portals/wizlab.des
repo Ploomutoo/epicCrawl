@@ -1296,7 +1296,7 @@ ITEM:       protean talisman randart / maw talisman randart / \
             talisman of death w:2
 ITEM:       staff of necromancy pre_id, scroll of poison pre_id
 ITEM:       any jewellery randart w:4 / amulet of wildshape randart w:1 / \
-            amulet of alchemy randart w:1 / hat_of_the_alchemist w:4 / \
+            amulet of chemistry randart w:1 / hat_of_the_alchemist w:4 / \
             cigotuvi's_embrace
 KFEAT:      ? = fountain_eyes
 SHUFFLE:    d^ / e~ / g|
@@ -1756,8 +1756,7 @@ KMONS:   3 = ghost moth w:15 / entropy weaver / broodmother w:5
  kmons("2 = rakshasa ; " .. distoquip .. " / boggart ; " .. distoquip)
  kmons("04 = " .. lowtier)
  kmons("95 = " .. midtier)
- kmons("6 = " .. hightier .. " / reaper w:15 ; halberd itemname:scythe " ..
-                                 "tile:wpn_scythe wtile:scythe ego:distortion")
+ kmons("6 = " .. hightier .. " / reaper w:15 ; " .. scythe("distortion"))
 
  dgn.set_random_mon_list(lowtier .. " / " .. midtier .. " / " .. midtier ..
                          " / " .. hightier .. " / " .. hightier .. " / reaper")
@@ -1926,7 +1925,7 @@ MONS:       cacodemon
 MONS:       quicksilver dragon / war gargoyle / crystal guardian / \
             wretched star
 MONS:       orange crystal statue name:lunar_statue n_rpl n_des \
-                spells:brain_bite.24.magical;draining_gaze.24.magical;\
+                spells:brain_bite.24.magical;antimagic_gaze.24.magical;\
                        lehudib's_crystal_spear.24.magical;\
                        shadow_creatures.48.magical \
                 col:lightmagenta tile:mons_zot_statue
@@ -2059,7 +2058,7 @@ MONS:       yaktaur / satyr / naga sharpshooter
 MONS:       shambling mangrove, thorn hunter / eleionoma, deep elf master archer
 MONS:       fenstrider witch, bush
 KMONS:      P = oklob plant
-ITEM:       any book, any magical staff / amulet of alchemy randart w:1
+ITEM:       any book, any magical staff / amulet of chemistry randart w:1
 : local s = "ego:spectral no_pickup "
 : item(dgn.loot_potions)
 : item("demon blade " .. s .. "w:3 / demon whip " .. s .. "w:3 / " ..

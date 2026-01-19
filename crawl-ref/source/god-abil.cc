@@ -1701,7 +1701,7 @@ void yred_make_bound_soul(monster* mon, bool force_hostile)
     ASSERT(mon->has_ench(ENCH_SOUL_RIPE));
 
     remove_bound_soul_companion();
-    add_daction(DACT_OLD_CHARMD_SOULS_POOF);
+    schedule_delayed_action_fineff(DACT_OLD_CHARMD_SOULS_POOF, "");
 
     const string whose = you.can_see(*mon) ? apostrophise(mon->name(DESC_THE))
                                            : mon->pronoun(PRONOUN_POSSESSIVE);
@@ -1917,7 +1917,7 @@ int slouch_damage(monster *victim)
 bool is_slouchable(coord_def where)
 {
     monster* mon = monster_at(where);
-    if (mon == nullptr || mon->is_stationary() || mon->cannot_act()
+    if (mon == nullptr || mon->is_stationary() || mon->helpless()
         || mons_is_projectile(mon->type)
         || mon->asleep() && !mons_is_confused(*mon))
     {
@@ -2916,7 +2916,7 @@ spret dithmenos_shadowslip(bool fail)
     mon_enchant timer = shadow->get_ench(ENCH_SUMMON_TIMER);
     timer.duration = max(timer.duration, dur);
     shadow->update_ench(timer);
-    shadow->max_hit_points += you.skill_rdiv(SK_INVOCATIONS, 9, 4);
+    shadow->max_hit_points += you.skill_rdiv(SK_INVOCATIONS, 5, 2);
     shadow->hit_points = shadow->max_hit_points;
     shadow->props[KNOWN_MAX_HP_KEY] = shadow->max_hit_points;
 
@@ -2944,8 +2944,8 @@ bool valid_marionette_spell(spell_type spell)
     switch (spell)
     {
         // Generally bad for the player (or cannot be stolen by them)
-        case SPELL_REPEL_MISSILES:
-        case SPELL_SPRINT:
+        case SPELL_DEFLECT_MISSILES:
+        case SPELL_FLEETFOOT:
         case SPELL_ROLL:
         case SPELL_WOODWEAL:
         case SPELL_MINOR_HEALING:
@@ -4681,16 +4681,11 @@ int get_sacrifice_piety(ability_type sac, bool include_skill)
             break;
         // words and drink cut off a lot of options if taken together
         case ABIL_RU_SACRIFICE_DRINK:
-            // less value if you already have some levels of the mutation
-            piety_gain -= 10 * you.get_mutation_level(MUT_HOARD_POTIONS);
-            // check innate mutation level to see if reading was sacrificed
-            if (you.get_innate_mutation_level(MUT_HOARD_SCROLLS) == 2)
+            if (you.has_innate_mutation(MUT_RENOUNCE_SCROLLS))
                 piety_gain += 10;
             break;
         case ABIL_RU_SACRIFICE_WORDS:
-            // less value if you already have some levels of the mutation
-            piety_gain -= 10 * you.get_mutation_level(MUT_HOARD_SCROLLS);
-            if (you.get_innate_mutation_level(MUT_HOARD_POTIONS) == 2)
+            if (you.has_innate_mutation(MUT_RENOUNCE_POTIONS))
                 piety_gain += 10;
             else if (you.get_mutation_level(MUT_NO_DRINK))
                 piety_gain += 15; // extra bad for mummies
@@ -4953,18 +4948,7 @@ static const string _piety_asterisks(int piety)
 
 static void _apply_ru_sacrifice(mutation_type sacrifice)
 {
-    if (sacrifice == MUT_HOARD_SCROLLS || sacrifice == MUT_HOARD_POTIONS)
-    {
-        // set these mutations to their cap
-        perma_mutate(sacrifice,
-                    3 - you.get_mutation_level(sacrifice),
-                    "Ru sacrifice");
-    }
-    else
-    {
-        // regular case for other sacrifices
-        perma_mutate(sacrifice, 1, "Ru sacrifice");
-    }
+    perma_mutate(sacrifice, 1, "Ru sacrifice");
     you.sacrifices[sacrifice] += 1;
 }
 
@@ -5381,6 +5365,10 @@ void ru_draw_out_power()
     you.duration[DUR_CONF] = 0;
     you.duration[DUR_SLOW] = 0;
     you.duration[DUR_PETRIFYING] = 0;
+
+    // remove fearmongers and mesmerizers
+    you.clear_beholders();
+    you.clear_fearmongers();
 
     int hp_inc = div_rand_round(you.piety(), 16);
     hp_inc += roll_dice(div_rand_round(you.piety(), 20), 6);
@@ -6291,8 +6279,7 @@ bool wu_jian_can_wall_jump_in_principle(const coord_def& target)
 {
     if (!have_passive(passive_t::wu_jian_wall_jump)
         || !feat_can_wall_jump_against(env.grid(target))
-        || !you.is_motile()
-        || you.digging)
+        || you.cannot_move())
     {
         return false;
     }
@@ -6388,7 +6375,7 @@ bool wu_jian_do_wall_jump(coord_def targ)
     auto initial_position = you.pos();
     you.stop_being_constricted(false, "jump");
     you.move_to(wall_jump_landing_spot, MV_DELIBERATE, true);
-    bool attacked = wu_jian_wall_jump_effects();
+    wu_jian_wall_jump_effects();
 
     int wall_jump_modifier = (you.attribute[ATTR_SERPENTS_LASH] != 1) ? 2
                                                                       : 1;
@@ -6396,10 +6383,6 @@ bool wu_jian_do_wall_jump(coord_def targ)
     you.time_taken = player_speed() * wall_jump_modifier
                      * player_movement_speed();
     you.time_taken = div_rand_round(you.time_taken, 10);
-
-    // Must be done after setting the time taken by this attack set.
-    if (attacked)
-        do_player_post_attack(nullptr, false, false);
 
     // need to set this here in case serpent's lash isn't active
     you.turn_is_over = true;
@@ -6420,12 +6403,6 @@ spret wu_jian_wall_jump_ability()
     {
         crawl_state.cancel_cmd_all("You can't repeat a wall jump.");
         return spret::abort;
-    }
-
-    if (you.digging)
-    {
-        you.digging = false;
-        mpr("You retract your mandibles.");
     }
 
     string wj_error;

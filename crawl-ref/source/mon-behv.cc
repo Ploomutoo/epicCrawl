@@ -30,6 +30,7 @@
 #include "mon-speak.h"
 #include "mon-tentacle.h"
 #include "ouch.h"
+#include "player-notices.h"
 #include "religion.h"
 #include "shout.h"
 #include "spl-summoning.h"
@@ -37,7 +38,9 @@
 #include "state.h"
 #include "stringutil.h"
 #include "terrain.h"
+#include "transform.h"
 #include "traps.h"
+#include "view.h"
 
 static void _guess_invis_foe_pos(monster* mon)
 {
@@ -1088,11 +1091,15 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
             return;
         }
 
-        // ANON_FRENDLY_MONSTER is mostly used for blame attribution for
-        // friendly monsters that are *dead* by the time of doing damage, so
-        // monsters shouldn't check if they need to run away from it.
-        if (src_idx != ANON_FRIENDLY_MONSTER)
+        // Even when hit, don't make monsters set their foe to 'nothing' or to
+        // an ally (which will cause hostile monsters to automatically set it to
+        // MHITNOT later anyway). If they do so, seeking monsters not currently
+        // in the player's LoS will immediately forget about them.
+        if (src_idx != ANON_FRIENDLY_MONSTER && src_idx != MHITNOT
+            && !(src && mons_aligned(mon, src)))
+        {
             mon->foe = src_idx;
+        }
 
         // If the monster can't reach its target (even just to get into attack
         // range), retreat.
@@ -1142,8 +1149,18 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
                     behaviour_event(head, event, src, src_pos, allow_shout);
                 }
 
+                const bool was_friend = mons_att_wont_attack(mon->attitude);
                 mon->attitude = ATT_HOSTILE;
                 breakCharm    = true;
+
+                // If we're angered a monster that previously would not have
+                // registered as hostile, let the player encounter them 'again'.
+                // (ie: for the first time).
+                if (was_friend)
+                {
+                    mon->flags &= ~MF_WAS_IN_VIEW;
+                    seen_monster(mon);
+                }
             }
         }
 
@@ -1363,7 +1380,8 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
     if (was_unaware && allow_shout
         && mon->foe == MHITYOU && !mon->wont_attack())
     {
-        monster_consider_shouting(*mon);
+        if (!vampire_mesmerism_check(*mon))
+            monster_consider_shouting(*mon);
     }
 
     const bool isPacified = mon->pacified();
@@ -1384,7 +1402,7 @@ void behaviour_event(monster* mon, mon_event_type event, const actor *src,
         mons_speaks_msg(mon, getSpeakString("orc_priest_preaching"), MSGCH_TALK);
 
     ASSERT(!crawl_state.game_is_arena()
-           || mon->foe != MHITYOU && mon->target != you.pos());
+           || mon->foe != MHITYOU && (mon->target.origin() || mon->target != you.pos()));
 }
 
 void make_mons_stop_fleeing(monster* mon)
@@ -1406,19 +1424,6 @@ beh_type attitude_creation_behavior(mon_attitude_type att)
     default:
         return BEH_HOSTILE;
     }
-}
-
-// If you're invis and throw/zap whatever, alerts env.mons to your position.
-void alert_nearby_monsters()
-{
-    // Judging from the above comment, this function isn't
-    // intended to wake up monsters, so we're only going to
-    // alert monsters that aren't sleeping. For cases where an
-    // event should wake up monsters and alert them, I'd suggest
-    // calling noisy() before calling this function. - bwr
-    for (monster_near_iterator mi(you.pos()); mi; ++mi)
-        if (!mi->asleep())
-             behaviour_event(*mi, ME_ALERT, &you);
 }
 
 //Make all monsters lose track of a given target after a few turns

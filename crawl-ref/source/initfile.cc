@@ -474,6 +474,7 @@ const vector<GameOption*> game_options::build_options_list()
         new BoolGameOption(SIMPLE_NAME(easy_door), true),
         new BoolGameOption(SIMPLE_NAME(warn_hatches), false),
         new BoolGameOption(SIMPLE_NAME(warn_contam_cost), true),
+        new BoolGameOption(SIMPLE_NAME(show_invis_targeter), true),
         new BoolGameOption(SIMPLE_NAME(show_resist_percent), true),
         new BoolGameOption(SIMPLE_NAME(always_show_doom_contam), false),
         new BoolGameOption(SIMPLE_NAME(enable_recast_spell), true),
@@ -550,7 +551,7 @@ const vector<GameOption*> game_options::build_options_list()
                         set_menu_sort(frag);
             }),
         new BoolGameOption(SIMPLE_NAME(bad_item_prompt), true),
-        new BoolGameOption(SIMPLE_NAME(show_paged_inventory), false),
+        new BoolGameOption(SIMPLE_NAME(show_paged_inventory), true),
         new MultipleChoiceGameOption<slot_select_mode>(
             SIMPLE_NAME(assign_item_slot),
             SS_FORWARD,
@@ -602,6 +603,8 @@ const vector<GameOption*> game_options::build_options_list()
 
         new ListGameOption<text_pattern>(SIMPLE_NAME(unusual_monster_items), {}, true,
                                          {[this]() { process_unusual_items(); }}),
+        new ListGameOption<string>(ON_SET_NAME(monster_alert),
+            {"uniques"}, false, [this]() { update_monster_alerts(); }),
 
         new BoolGameOption(SIMPLE_NAME(arena_dump_msgs), false),
         new BoolGameOption(SIMPLE_NAME(arena_dump_msgs_all), false),
@@ -1388,14 +1391,8 @@ void game_options::update_enemy_hp_colour()
 
 static string _correct_spelling(const string& str)
 {
-    if (str == "armor_on")
-        return "armour_on";
-    if (str == "armor_off")
-        return "armour_off";
     if (str == "memorize")
         return "memorise";
-    if (str == "jewelry_on")
-        return "jewellery_on";
     return str;
 }
 
@@ -1403,29 +1400,18 @@ void game_options::set_default_activity_interrupts()
 {
     const char *default_activity_interrupts[] =
     {
-        "interrupt_armour_on = hp_loss, monster_attack, monster, mimic",
-        "interrupt_armour_off = interrupt_armour_on",
-        "interrupt_drop_item = interrupt_armour_on",
-        "interrupt_jewellery_on = interrupt_armour_on",
-        "interrupt_transform = interrupt_armour_on",
-        "interrupt_memorise = hp_loss, monster_attack, stat",
-        "interrupt_butcher = interrupt_armour_on, teleport, stat",
-        "interrupt_imbue_servitor = interrupt_butcher",
-        "interrupt_multidrop = hp_loss, monster_attack, teleport, stat",
+        "interrupt_equip_on = hp_loss, monster_attack, monster, mimic",
+        "interrupt_equip_off = interrupt_equip_on",
+        "interrupt_drop_item = interrupt_equip_on",
+        "interrupt_transform = interrupt_equip_on",
+        "interrupt_memorise = hp_loss, monster_attack",
+        "interrupt_imbue_servitor = interrupt_equip_on",
+        "interrupt_imprint_weapon = interrupt_imbue_servitor",
+        "interrupt_multidrop = hp_loss, monster_attack",
         "interrupt_macro = interrupt_multidrop",
-        "interrupt_travel = interrupt_butcher, hit_monster, sense_monster, ally_attacked, abyss_exit_spawned",
+        "interrupt_travel = interrupt_equip_on, hit_monster, sense_monster, ally_attacked, abyss_exit_spawned",
         "interrupt_run = interrupt_travel, message",
         "interrupt_rest = interrupt_run, full_hp, full_mp, ancestor_hp",
-
-        // Stair ascents/descents cannot be interrupted except by
-        // teleportation. Attempts to interrupt the delay will just
-        // trash all queued delays, including travel.
-        "interrupt_ascending_stairs = teleport",
-        "interrupt_descending_stairs = teleport",
-        // These are totally uninterruptible by default, since it's
-        // impossible for them to be interrupted anyway.
-        "interrupt_drop_item = ",
-        "interrupt_jewellery_off =",
     };
 
     for (const char* line : default_activity_interrupts)
@@ -1632,7 +1618,6 @@ void game_options::reset_options()
 
     flush_input[ FLUSH_ON_FAILURE ]     = true;
     flush_input[ FLUSH_BEFORE_COMMAND ] = false;
-    flush_input[ FLUSH_ON_MESSAGE ]     = false;
     flush_input[ FLUSH_LUA ]            = true;
 
     fire_items_start       = 0;           // start at slot 'a'
@@ -1673,6 +1658,10 @@ void game_options::reset_options()
           ABIL_WATERY_GRAVE };
     always_use_static_ability_targeters = false;
 
+    force_scroll_targeter =
+        { SCR_FEAR, SCR_SILENCE, SCR_VULNERABILITY, SCR_IMMOLATION, SCR_TORMENT };
+    always_use_static_scroll_targeters = false;
+
 #ifdef DGAMELAUNCH
     // not settable via rc on DGL, so no Options object to initialize them
     restart_after_game = false;
@@ -1699,7 +1688,11 @@ void game_options::reset_options()
 
     // Currently enabled by default for testing in trunk.
     if (Version::ReleaseType == VER_ALPHA)
+    {
         dump_order.push_back("turns_by_place");
+        dump_order.push_back("dlua_errors");
+        dump_order.push_back("piety_info");
+    }
 
     use_animations = (UA_BEAM | UA_RANGE | UA_HP | UA_MONSTER_IN_SIGHT
                       | UA_PICKUP | UA_MONSTER | UA_PLAYER | UA_BRANCH_ENTRY
@@ -1942,6 +1935,48 @@ void game_options::remove_force_ability_targeter(const string &s)
         report_error("Unknown ability '%s'\n", s.c_str());
     else
         force_ability_targeter.erase(abil);
+}
+
+void game_options::add_force_scroll_targeter(const string &s, bool)
+{
+    if (lowercase_string(s) == "all")
+    {
+        always_use_static_scroll_targeters = true;
+        return;
+    }
+
+    string name;
+    if (starts_with(s, "scroll of"))
+        name = s;
+    else
+        name = "scroll of " + s;
+    item_kind kind = item_kind_by_name(name);
+
+    if (kind.base_type == OBJ_SCROLLS)
+        force_scroll_targeter.insert(kind.sub_type);
+    else
+        report_error("Unknown scroll '%s'\n", s.c_str());
+}
+
+void game_options::remove_force_scroll_targeter(const string &s)
+{
+    if (lowercase_string(s) == "all")
+    {
+        always_use_static_scroll_targeters = false;
+        return;
+    }
+
+    string name;
+    if (starts_with(s, "scroll of"))
+        name = s;
+    else
+        name = "scroll of " + s;
+    item_kind kind = item_kind_by_name(name);
+
+    if (kind.base_type == OBJ_SCROLLS)
+        force_scroll_targeter.erase(kind.sub_type);
+    else
+        report_error("Unknown scroll '%s'\n", s.c_str());
 }
 
 static monster_type _mons_class_by_string(const string &name)
@@ -3158,6 +3193,36 @@ void game_options::process_unusual_items()
     }
 }
 
+void game_options::update_monster_alerts()
+{
+    monster_alert.init(false);
+    monster_alert_uniques = false;
+    monster_alert_unusual = false;
+    monster_alert_min_threat = MTHRT_UNDEF;
+
+    for (string& str : monster_alert_option)
+    {
+        if (str == "uniques")
+            monster_alert_uniques = true;
+        else if (str == "nasty")
+            monster_alert_min_threat = min(MTHRT_NASTY, monster_alert_min_threat);
+        else if (str == "tough")
+            monster_alert_min_threat = min(MTHRT_TOUGH, monster_alert_min_threat);
+        else if (str == "easy")
+            monster_alert_min_threat = min(MTHRT_EASY, monster_alert_min_threat);
+        else if (str == "trivial")
+            monster_alert_min_threat = min(MTHRT_TRIVIAL, monster_alert_min_threat);
+        else if (str == "unusual")
+            monster_alert_unusual = true;
+        else
+        {
+            monster_type type = get_monster_by_name(str);
+            if (type != MONS_PROGRAM_BUG)
+                monster_alert[type] = true;
+        }
+    }
+}
+
 void game_options::update_use_animations()
 {
     static const std::map<const string, use_animation_type> ANIMATION_TYPES =
@@ -4054,11 +4119,6 @@ bool game_options::read_custom_option(opt_parse_state &state, bool runscripts)
             flush_input[FLUSH_BEFORE_COMMAND]
                 = read_bool(state.field, flush_input[FLUSH_BEFORE_COMMAND]);
         }
-        else if (state.subkey == "message")
-        {
-            flush_input[FLUSH_ON_MESSAGE]
-                = read_bool(state.field, flush_input[FLUSH_ON_MESSAGE]);
-        }
         else if (state.subkey == "lua")
         {
             flush_input[FLUSH_LUA]
@@ -4214,6 +4274,21 @@ bool game_options::read_custom_option(opt_parse_state &state, bool runscripts)
         split_parse(state, ",",
             &game_options::add_force_ability_targeter,
             &game_options::remove_force_ability_targeter,
+            false);
+        return true;
+    }
+    else if (key == "force_scroll_targeter")
+    {
+        if (state.plain())
+        {
+            always_use_static_ability_targeters = false;
+            force_scroll_targeter.clear();
+        }
+
+        state.ignore_prepend();
+        split_parse(state, ",",
+            &game_options::add_force_scroll_targeter,
+            &game_options::remove_force_scroll_targeter,
             false);
         return true;
     }
@@ -5783,6 +5858,13 @@ bool parse_args(int argc, char **argv, bool rc_only)
                     SysEnv.map_gen_iters = 1;
                 else if (SysEnv.map_gen_iters > 10000)
                     SysEnv.map_gen_iters = 10000;
+
+                if (Options.seed_from_rc && SysEnv.map_gen_iters > 1)
+                {
+                    end(1, false, "Can't run more than one mapstat/objstat "
+                        "iterations with a custom seed\n");
+                }
+
                 nextUsed = true;
             }
 #else

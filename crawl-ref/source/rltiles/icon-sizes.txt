@@ -6,6 +6,7 @@ shadowless: 0
 summoned: 0
 minion: 0
 unrewarding: 0
+tesseract_spawn: 0
 animated_weapon: 0
 vengeance_target: 0
 vampire_thrall: 0
@@ -43,12 +44,14 @@ fire_champ: 7
 inner_flame: 7
 pain_mirror: 7
 sticky_flame: 7
+strong_willed: 7
 
 anguish: 8
 fire_vuln: 8
 resistance: 8
 ghostly: 8
 malmutated: 8
+magnetised: 8
 
 recall: 9
 teleporting: 9
@@ -60,7 +63,7 @@ slowly_dying: 10
 waterlogged: 10
 still_winds: 10
 antimagic: 10
-repel_missiles: 10
+deflect_missiles: 10
 injury_bond: 10
 glow_light: 10
 glow_heavy: 10
@@ -81,6 +84,7 @@ unstable: 10
 vexed: 10
 paradox: 10
 warding: 10
+sundering: 10
 
 constricted: 11
 vile_clutch: 11

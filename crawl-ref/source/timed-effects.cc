@@ -39,6 +39,7 @@
 #include "mutation.h"
 #include "notes.h"
 #include "player.h"
+#include "player-notices.h"
 #include "player-stats.h"
 #include "random.h"
 #include "religion.h"
@@ -52,6 +53,10 @@
 #include "teleport.h"
 #include "terrain.h"
 #include "tileview.h"
+#ifdef USE_TILE
+    #include "tile-env.h"
+    #include "tilepick.h"
+#endif
 #include "throw.h"
 #include "travel.h"
 #include "view.h"
@@ -275,13 +280,6 @@ static void _maybe_mortality_summon()
         }
     }
 
-    // Only activate a fraction of the times we're resting while injured.
-    if (coinflip())
-    {
-        you.props[MORTALITY_TIME_KEY] = you.elapsed_time + random_range(800, 1300);
-        return;
-    }
-
     // Summon permaslow reapers at low XL, and scale the number with XL also.
     const bool slow = you.experience_level < 14;
     int num = 1;
@@ -314,7 +312,7 @@ static void _maybe_mortality_summon()
     if (created)
     {
         mprf("Death has come for you....");
-        you.props[MORTALITY_TIME_KEY] = you.elapsed_time + random_range(3500, 6500);
+        you.props[MORTALITY_TIME_KEY] = you.elapsed_time + random_range(2250, 4500);
     }
 }
 
@@ -330,6 +328,8 @@ static void _bane_triggers(int /*time_delta*/)
             if (!mons_aligned(&you, *mi) && !mi->is_summoned()
                 && !mi->is_peripheral() && !mons_is_unique(mi->type)
                 && !mi->has_ench(ENCH_FIGMENT)
+                && !mi->has_spell(SPELL_ILL_OMEN)
+                && !mi->has_attack_flavour(AF_DOOM)
                 && !mons_is_immotile(**mi))
             {
                 to_clone.push_back(*mi);
@@ -367,7 +367,7 @@ static void _bane_triggers(int /*time_delta*/)
 
     if (you.has_bane(BANE_MORTALITY)
         && you.elapsed_time > you.props[MORTALITY_TIME_KEY].get_int()
-        && you.hp * 2 < you.hp_max)
+        && you.hp * 10 <= you.hp_max * 4)
     {
         _maybe_mortality_summon();
     }
@@ -441,6 +441,8 @@ void handle_time()
                 if (x_chance_in_y(i, 5))
                     spawn_random_monsters();
         }
+
+        notice_queued_monsters();
     }
 
     // Abyss maprot.
@@ -550,7 +552,7 @@ void monster::timeout_enchantments(int time)
         case ENCH_MUTE: case ENCH_PHALANX_BARRIER: case ENCH_POISON_VULN:
         case ENCH_POLAR_VORTEX: case ENCH_POLAR_VORTEX_COOLDOWN:
         case ENCH_PORTAL_PACIFIED: case ENCH_PORTAL_TIMER: case ENCH_RECITE_TIMER:
-        case ENCH_REPEL_MISSILES: case ENCH_WARDING: case ENCH_FLOODED:
+        case ENCH_DEFLECT_MISSILES: case ENCH_WARDING: case ENCH_FLOODED:
         case ENCH_INNER_FLAME:
         case ENCH_ROLLING: case ENCH_MERFOLK_AVATAR_SONG: case ENCH_INFESTATION:
         case ENCH_HELD: case ENCH_BULLSEYE_TARGET: case ENCH_FATIGUE:
@@ -890,14 +892,20 @@ void end_enkindled_status()
     you.props.erase(ENKINDLE_CHARGES_KEY);
 }
 
+struct terrain_change_reversion
+{
+    coord_def pos;
+    terrain_change_type type;
+    bool was_in_los;
+};
+
 void timeout_terrain_changes(int duration, bool force)
 {
     if (!duration && !force)
         return;
 
     int num_seen[NUM_TERRAIN_CHANGE_TYPES] = {0};
-    // n.b. unordered_set doesn't work here because pair isn't hashable
-    set<pair<coord_def, terrain_change_type>> revert;
+    vector<terrain_change_reversion> revert;
 
     for (map_marker *mark : env.markers.get_all(MAT_TERRAIN_CHANGE))
     {
@@ -934,13 +942,34 @@ void timeout_terrain_changes(int duration, bool force)
         {
             if (you.see_cell(marker->pos))
                 num_seen[marker->change_type]++;
-            revert.insert(pair<coord_def, terrain_change_type>(marker->pos,
-                                                        marker->change_type));
+            revert.push_back({marker->pos, marker->change_type, you.see_cell(marker->pos)});
         }
     }
     // finally, revert the changes and delete the markers
+
+    // Sort terrain expiration from near to far, from the player's perspective
+    // (which results in more intuitive behavior when pushing the player out of walls).
+    sort(revert.begin(), revert.end(), [](const terrain_change_reversion& a,
+                                          const terrain_change_reversion& b)
+    {
+        return grid_distance(you.pos(), a.pos) < grid_distance(you.pos(), b.pos);
+    });
+
     for (const auto &m_pos : revert)
-        revert_terrain_change(m_pos.first, m_pos.second);
+    {
+        revert_terrain_change(m_pos.pos, m_pos.type);
+
+        // When multiple tiles are reverting at once, walls reappearing may
+        // obscure otherwise-unambiguous information about terrain behind them,
+        // so forcibly redraw anything the player could see at the start of them.
+        if (m_pos.was_in_los)
+        {
+            env.map_knowledge(m_pos.pos).set_feature(env.grid(m_pos.pos));
+#ifdef USE_TILE
+            tile_env.bk_bg(m_pos.pos) = tileidx_feature_base(env.grid(m_pos.pos));
+#endif
+        }
+    }
 
     if (num_seen[TERRAIN_CHANGE_DOOR_SEAL] > 1)
         mpr("The runic seals fade away.");

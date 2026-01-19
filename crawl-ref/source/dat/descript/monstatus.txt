@@ -60,6 +60,12 @@ bound in place monstatus
 This creature cannot move under its own power, but may still use translocations
 or be forcibly displaced by someone else.
 %%%%
+called by a tesseract monstatus
+
+This monster has been called from a parallel reality. Killing it will grant no
+experience points, but it will be immediately cast back to its original reality
+as soon as the tesseract is destroyed.
+%%%%
 catching its breath monstatus
 
 This creature has used a breath ability recently and cannot use it again for a
@@ -237,7 +243,8 @@ significantly weakened.
 flame-wreathed monstatus
 
 This creature has been empowered by the flames of Ignis. It deals additional
-fire damage with its melee attacks and moves 33% more quickly.
+fire damage with its melee attacks, moves 33% more quickly, and has increased AC
+and resistance to fire.
 %%%%
 fleeing monstatus
 
@@ -462,6 +469,12 @@ ready to howl monstatus
 
 This creature has not yet inflicted you with Oblivion Howl and may attempt to do so.
 %%%%
+ready to sunder monstatus
+
+This creature's Sundering weapon is fully charged and its next attack will be
+more accurate, inflict greatly increased damage, and cleave with increased range.
+This effect will be lost if it moves.
+%%%%
 reflecting blocked projectiles monstatus
 
 This creature reflects any projectile it blocks back to their original source.
@@ -561,6 +574,10 @@ preventing further use of this spell until the wisp reunites with them again.
 spells empowered monstatus
 
 This creature's spells are strengthened and it will cast them more frequently.
+%%%%
+spells diminished monstatus
+
+This creature's spells are significantly weakened.
 %%%%
 stilling the winds monstatus
 
@@ -695,6 +712,14 @@ unable to breathe monstatus
 
 This creature is unable to breathe and cannot cast spells or invoke divine aid.
 It also takes minor asphyxiation damage every turn.
+%%%%
+damage-immune at range monstatus
+
+This creature takes no damage by any means unless the original source of that
+damage is adjacent to them. Non-damaging side-effects happen normally.
+
+(The source of damage from clouds and projectile-like monsters, such as foxfires,
+is always considered whatever creature first created them.)
 %%%%
 weak monstatus
 

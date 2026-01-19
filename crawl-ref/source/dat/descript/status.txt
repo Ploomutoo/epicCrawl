@@ -110,6 +110,13 @@ You are glowing with mutagenic radiation. This can inflict mutations over time
 (usually negative) or even cause you to suffer damage as the unstable magic
 explodes violently. In addition, your glow prevents invisibility and reduces
 your stealth.
+{{
+    local dmg = you.contam_max_damage();
+    if dmg > 0 then
+        return "\nAn explosion at your current level of contamination could " ..
+               "inflict up to " .. dmg .. " damage."
+    end
+}}
 %%%%
 Drain status
 
@@ -469,10 +476,6 @@ Blood status
 Your body is covered in congealed blood, serving as armour for as long as you
 remain seriously injured.
 %%%%
--Cast status
-
-You are unable to cast spells.
-%%%%
 Channel status
 
 You are channelling magical energy.
@@ -491,14 +494,6 @@ causes a highly localised meltdown, dealing enormous damage.
 However, this instability makes you unable to use weapons, shields, or
 body armour. You also glow, reducing stealth and preventing invisibility,
 and you do less damage in melee, as your limbs sometimes destabilise mid-swing.
-%%%%
-Blade status
-
-{{
-    local hands = you.hand() .. "s"
-    return "Long, needle-thin blades have grown from your " .. hands
-}}, and smaller fragments of metal have grown inside your body, deforming you
-and reducing the effectiveness of body armour.
 %%%%
 Serpent status
 
@@ -1240,3 +1235,56 @@ number of walls surrounding you.
 Dim status
 
 The power of all your spells is reduced by half.
+%%%%
+Sunder status
+
+Your next attack will have increased accuracy, inflict three times its normal
+damage, and cleave at an increased range. This bonus is lost if you perform any
+action besides attacking.
+%%%%
+Devious status
+
+Your evasion and slaying are increased. This stacks up to 3 times and will never
+expire so long as you continue to perform melee attacks.
+%%%%
+Slimifying status
+
+Your body is slowly being turned into slime. Even if a full transformation
+occurs, you have enough force of will to eventually revert back.
+%%%%
+Jelly status
+
+You have been temporarily transformed into a jelly. You have several unusual
+resistances and extra health, but heavily weakened spells.
+
+Any equipped weapons and armour are melded. The effectiveness of your
+newly-acidic melee attacks while in this form is based on your experience level
+rather than Unarmed Combat skill.
+%%%%
+OozeRegen status
+
+You are covered in regenerative ooze from your recent trip down the stairs. For
+a brief time, your wounds will heal rapidly and your reserves of magic will
+recover quickly.
+%%%%
+-Hellfire status
+
+You are unable to cast Hellfire Mortar again until the effect of your last cast
+ends.
+%%%%
+Engorged status
+
+Your maw has just consumed a delicious meal, greatly increasing your
+regeneration until it finishes digesting it.
+%%%%
+Eel status
+
+Your arms are a pair of electric eels.
+%%%%
+Blade status
+
+Multiple vicious blades are growing out of your body.
+%%%%
+Spore status
+
+Your arm is a mass of multicoloured fungus.

@@ -2728,6 +2728,11 @@ bool map_def::run_lua_epilogue(bool die_on_lua_error)
 string map_def::rewrite_chunk_errors(const string &s) const
 {
     string res = s;
+    if (!lc_global_prelude.empty()
+            && lc_global_prelude.rewrite_chunk_errors(res))
+    {
+        return res;
+    }
     if (prelude.rewrite_chunk_errors(res))
         return res;
     if (mapchunk.rewrite_chunk_errors(res))
@@ -2796,6 +2801,8 @@ string map_def::validate_map_placeable()
     if (has_depth() || !place.empty())
         return "";
 
+    dlua_set_map dl(this);
+
     // Ok, the map wants to be placed by tag. In this case it should have
     // at least one tag that's not a map flag.
     bool has_selectable_tag = false;
@@ -2847,10 +2854,8 @@ bool map_def::has_exit() const
     return false;
 }
 
-string map_def::validate_map_def(const depth_ranges &default_depths)
+string map_def::validate_map_def()
 {
-    UNUSED(default_depths);
-
     unwind_bool valid_flag(validating_map_flag, true);
 
     string err = run_lua(true);
@@ -2858,7 +2863,6 @@ string map_def::validate_map_def(const depth_ranges &default_depths)
         return err;
 
     fixup();
-    resolve();
     test_lua_validate(true);
     run_lua_epilogue(true);
 
@@ -2983,7 +2987,6 @@ string map_def::validate_map_def(const depth_ranges &default_depths)
         }
     }
 
-    dlua_set_map dl(this);
     return validate_map_placeable();
 }
 
@@ -3325,12 +3328,6 @@ void map_def::normalise()
 {
     // Pad out lines that are shorter than max.
     map.normalise(' ');
-}
-
-string map_def::resolve()
-{
-    dlua_set_map dl(this);
-    return "";
 }
 
 void map_def::fixup()
@@ -4432,7 +4429,7 @@ void mons_list::get_zombie_type(string s, mons_spec &spec) const
     spec.type = MONS_PROGRAM_BUG;
 }
 
-mons_spec mons_list::get_hydra_spec(const string &name) const
+mons_spec mons_list::get_hydra_spec(const string &name, monster_type mtype) const
 {
     string prefix = name.substr(0, name.find("-"));
 
@@ -4463,7 +4460,7 @@ mons_spec mons_list::get_hydra_spec(const string &name) const
         nheads = 20;
     }
 
-    mons_spec spec(MONS_HYDRA);
+    mons_spec spec(mtype);
     spec.props[MGEN_NUM_HEADS] = nheads;
     return spec;
 }
@@ -4698,7 +4695,10 @@ mons_spec mons_list::mons_by_name(string name) const
         return MONS_ORB_OF_APPROPRIATENESS;
 
     if (ends_with(name, "-headed hydra") && !starts_with(name, "spectral "))
-        return get_hydra_spec(name);
+        return get_hydra_spec(name, MONS_HYDRA);
+
+    if (ends_with(name, "-headed slymdra") && !starts_with(name, "spectral "))
+        return get_hydra_spec(name, MONS_SLYMDRA);
 
     if (ends_with(name, " slime creature"))
         return get_slime_spec(name);
@@ -5059,6 +5059,12 @@ int str_to_ego(object_class_type item_type, string ego_str)
         "penetration",
         "reaping",
         "spectral",
+        "rebuke",
+        "valour",
+        "entangling",
+        "sundering",
+        "concussion",
+        "devious",
         nullptr
     };
     COMPILE_CHECK(ARRAYSZ(weapon_brands) == NUM_REAL_SPECIAL_WEAPONS);
@@ -5077,8 +5083,8 @@ int str_to_ego(object_class_type item_type, string ego_str)
         "penetration",
 #endif
         "dispersal",
-        "exploding",
 #if TAG_MAJOR_VERSION == 34
+        "exploding",
         "steel",
 #endif
         "silver",

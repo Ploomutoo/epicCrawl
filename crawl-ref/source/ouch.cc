@@ -378,7 +378,7 @@ void expose_player_to_element(beam_type flavour, int strength, bool slow_cold_bl
          || flavour == BEAM_STICKY_FLAME || flavour == BEAM_STEAM)
         && you.has_bane(BANE_HEATSTROKE))
     {
-        int chance = 40;
+        int chance = 80;
         const int rF = you.res_fire();
         if (rF < 0)
             chance = chance * 3 / 2;
@@ -395,7 +395,7 @@ void expose_player_to_element(beam_type flavour, int strength, bool slow_cold_bl
     if ((flavour == BEAM_COLD || flavour == BEAM_ICE)
         && you.has_bane(BANE_SNOW_BLINDNESS))
     {
-        int chance = 40;
+        int chance = 80;
         const int rC = you.res_cold();
         if (rC < 0)
             chance = chance * 3 / 2;
@@ -415,7 +415,7 @@ void expose_player_to_element(beam_type flavour, int strength, bool slow_cold_bl
          || flavour == BEAM_STUN_BOLT)
         && you.has_bane(BANE_ELECTROSPASM))
     {
-        int chance = 30;
+        int chance = 60;
         const int rElec = you.res_elec();
         if (rElec < 0)
             chance = chance * 3 / 2;
@@ -527,8 +527,17 @@ bool drain_player(int power, bool announce_full, bool ignore_protection, bool qu
         dprf("Drained by %d max hp (%d total)", mhp, you.hp_max_adj_temp);
         calc_hp();
 
+        string intensifier = "";
+        int perc = 100 * -you.hp_max_adj_temp / get_real_hp(false, false);
+        if (perc >= 50)
+            intensifier = "extremely ";
+        else if (perc >= 30)
+            intensifier = "very heavily ";
+        else if (perc >= 20)
+            intensifier = "heavily ";
+
         if (!quiet)
-            mpr("You feel drained.");
+            mprf("You feel %sdrained.", intensifier.c_str());
         xom_is_stimulated(15);
         return true;
     }
@@ -972,6 +981,19 @@ static void _maybe_medusa_lithotoxin()
     you.duration[DUR_MEDUSA_COOLDOWN] = 1;
 }
 
+static void _maybe_eeljolt()
+{
+    if (you.form != transformation::eel_hands
+        || you.hp * 10 > you.hp_max * 4
+        || you.duration[DUR_EELJOLT_COOLDOWN])
+    {
+        return;
+    }
+
+    do_eel_arcjolt();
+    you.duration[DUR_EELJOLT_COOLDOWN] = 1;
+}
+
 static void _handle_poor_constitution(int dam)
 {
     const int level = you.get_mutation_level(MUT_POOR_CONSTITUTION);
@@ -986,6 +1008,37 @@ static void _handle_poor_constitution(int dam)
         if (level == 2 && one_chance_in(2))
             you.slow_down(nullptr, random_range(8, 15));
     }
+}
+
+static void _maybe_trigger_spiteful_blood()
+{
+    if (you.duration[DUR_SPITEFUL_BLOOD_COOLDOWN]
+        || !you.has_mutation(MUT_SPITEFUL_BLOOD)
+        || you.hp * 10 > you.hp_max * 6)
+    {
+        return;
+    }
+
+    // Go on cooldown regarless of whether we choose to trigger or not, so that
+    // the player gets a reprieve until the next battle.
+    you.duration[DUR_SPITEFUL_BLOOD_COOLDOWN] = 1;
+
+    if (!one_chance_in(4))
+        return;
+
+    mgen_data mg(MONS_ERYTHROSPITE, BEH_HOSTILE, you.pos(), MHITYOU, MG_NONE);
+    mg.set_summoned(&you, MON_SUMM_SPITEFUL_BLOOD, random_range(18, 26) * BASELINE_DELAY, false).set_range(1, 3);
+    mg.hd = pow(you.experience_level, 1.1);
+    mg.hp = 5 + pow(you.experience_level, 1.25);
+
+    const int num = you.get_mutation_level(MUT_SPITEFUL_BLOOD);
+    bool made_mon = false;
+    for (int i = 0; i < num; ++i)
+        if (create_monster(mg))
+            made_mon = true;
+
+    if (made_mon)
+        mpr("Your spilled blood starts moving with violent intent!");
 }
 
 int corrosion_chance(int sources)
@@ -1030,6 +1083,19 @@ static void _maybe_get_vitrified(mid_t source)
         && x_chance_in_y(40 + mon->get_hit_dice() * 5, 500))
     {
         you.vitrify(mon, 4 + random2(5 + mon->get_hit_dice()));
+    }
+}
+
+static void _maybe_scream(mid_t source)
+{
+    // Don't repeatedly scream in place on the same turn.
+    if (you.shouted_pos == you.pos())
+        return;
+
+    if (x_chance_in_y(you.get_mutation_level(MUT_SCREAM), 20))
+    {
+        yell(actor_by_mid(source));
+        you.shouted_pos = you.pos();
     }
 }
 
@@ -1276,7 +1342,7 @@ void ouch(int dam, kill_method_type death_type, mid_t source, const char *aux,
     {
         if (you.form == transformation::slaughter)
             dam = dam * 10 / 15;
-        if (you.may_pruneify() && you.cannot_act())
+        if (you.may_pruneify() && you.helpless())
             dam /= 2;
         if (you.petrified())
             dam /= 2;
@@ -1403,6 +1469,9 @@ void ouch(int dam, kill_method_type death_type, mid_t source, const char *aux,
             _maybe_splash_water(dam);
             _maybe_hive_swarm();
             _maybe_medusa_lithotoxin();
+            _maybe_eeljolt();
+            _maybe_trigger_spiteful_blood();
+            _maybe_scream(source);
             if (sanguine_armour_valid())
                 activate_sanguine_armour();
             refresh_meek_bonus();

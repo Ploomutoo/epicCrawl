@@ -24,6 +24,7 @@ struct monster_info;
 struct shop_struct;
 struct show_type;
 
+bool is_torch_tile(tileidx_t tile);
 bool is_door_tile(tileidx_t tile);
 
 TextureID get_tile_texture(tileidx_t idx);
@@ -32,7 +33,7 @@ void apply_variations(const tile_flavour& flv, tileidx_t* bg,
                       const coord_def& gc);
 
 // Tile index lookup from Crawl data.
-tileidx_t tileidx_feature_no_flavour(const coord_def& gc);
+tileidx_t tileidx_feature_for_cache(coord_def gc);
 tileidx_t tileidx_feature(const coord_def &gc);
 tileidx_t tileidx_trap(trap_type type);
 tileidx_t tileidx_shop(const shop_struct *shop);
@@ -48,7 +49,7 @@ tileidx_t tileidx_player_shadow();
 tileidx_t tileidx_tentacle(const monster_info& mon);
 
 tileidx_t tileidx_item(const item_def &item);
-tileidx_t tileidx_item_throw(const item_def &item, int dx, int dy);
+tileidx_t tileidx_item_projectile(const item_def &item);
 tileidx_t tileidx_known_base_item(tileidx_t label);
 
 tileidx_t tileidx_cloud(const cloud_info &cl);
@@ -56,7 +57,7 @@ tileidx_t tileidx_bolt(const bolt &bolt);
 tileidx_t vary_bolt_tile(tileidx_t tile, const coord_def& origin,
                          const coord_def& target, const coord_def& pos);
 tileidx_t vary_bolt_tile(tileidx_t tile, int dir = 0, int dist = 0);
-tileidx_t tileidx_zap(int colour);
+tileidx_t tileidx_zap(int colour, coord_def pos);
 tileidx_t tileidx_spell(const spell_type spell);
 tileidx_t tileidx_skill(const skill_type skill, int train);
 tileidx_t tileidx_command(const command_type cmd);
@@ -76,8 +77,7 @@ set<tileidx_t> status_icons_for_player();
 // Return the level of enchantment as an int. None is 0, Randart is 4.
 int enchant_to_int(const item_def &item);
 // If tile has variations, select among them based upon the enchant of item.
-tileidx_t tileidx_enchant_equ(const item_def &item, tileidx_t tile,
-                              bool player = false);
+tileidx_t tileidx_enchant_equ(const item_def &item, tileidx_t tile);
 
 void bind_item_tile(item_def &item);
 

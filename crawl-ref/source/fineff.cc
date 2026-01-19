@@ -330,19 +330,11 @@ public:
     bool mergeable(const final_effect&) const override { return false; }
     void fire() override;
 
-    bennu_revive_fineff(coord_def pos, int _revives, beh_type _att,
-        unsigned short _foe, bool _duel,
-        mon_enchant _gozag_bribe)
-        : final_effect(0, 0, pos), revives(_revives), attitude(_att), foe(_foe),
-        duel(_duel), gozag_bribe(_gozag_bribe)
+    bennu_revive_fineff(const monster* bennu)
+        : final_effect(bennu, 0, bennu->pos())
     {
+        env.final_effect_monster_cache.push_back(*bennu);
     }
-protected:
-    int revives;
-    beh_type attitude;
-    unsigned short foe;
-    bool duel;
-    mon_enchant gozag_bribe;
 };
 
 class avoided_death_fineff : public final_effect
@@ -525,16 +517,21 @@ protected:
 class stardust_fineff : public final_effect
 {
 public:
-    bool mergeable(const final_effect&/*a*/) const override { return true; };
+    bool mergeable(const final_effect&/*a*/) const override { return false; };
     void fire() override;
 
-    stardust_fineff(actor* agent, int _power, int _max)
-        : final_effect(agent, nullptr, you.pos()), power(_power), max_stars(_max)
+    stardust_fineff(actor* agent, int _power, int _max, bool _is_star_jelly)
+        : final_effect(agent, nullptr, you.pos()), power(_power), max_stars(_max),
+                                                   is_star_jelly(_is_star_jelly)
     {
+        // If this is a star jelly who just got smashed, cache it.
+        if (agent->is_monster() && !agent->alive())
+            env.final_effect_monster_cache.push_back(*agent->as_monster());
     }
 protected:
     int power;
     int max_stars;
+    bool is_star_jelly;
 };
 
 class pyromania_fineff : public final_effect
@@ -678,12 +675,9 @@ void schedule_rakshasa_clone_fineff(const actor* defend, const coord_def& pos)
     _schedule_final_effect(new rakshasa_clone_fineff(defend, pos));
 }
 
-void schedule_bennu_revive_fineff(coord_def pos, int revives,
-                                  beh_type attitude, unsigned short foe,
-                                  bool duel, mon_enchant gozag_bribe)
+void schedule_bennu_revive_fineff(const monster* bennu)
 {
-    _schedule_final_effect(new bennu_revive_fineff(pos, revives, attitude,
-                                                   foe, duel, gozag_bribe));
+    _schedule_final_effect(new bennu_revive_fineff(bennu));
 }
 
 void schedule_avoided_death_fineff(monster* mons)
@@ -770,9 +764,9 @@ void schedule_detonation_fineff(const coord_def& pos, const item_def* wpn)
     _schedule_final_effect(new detonation_fineff(pos, wpn));
 }
 
-void schedule_stardust_fineff(actor* agent, int power, int max_stars)
+void schedule_stardust_fineff(actor* agent, int power, int max_stars, bool force_max)
 {
-    _schedule_final_effect(new stardust_fineff(agent, power, max_stars));
+    _schedule_final_effect(new stardust_fineff(agent, power, max_stars, force_max));
 }
 
 void schedule_pyromania_fineff()
@@ -810,7 +804,7 @@ bool trample_follow_fineff::mergeable(const final_effect &fe) const
 {
     const trample_follow_fineff *o =
         dynamic_cast<const trample_follow_fineff *>(&fe);
-    return o && att == o->att && posn == o->posn;
+    return o && att == o->att;
 }
 
 bool blink_fineff::mergeable(const final_effect &fe) const
@@ -997,7 +991,8 @@ void trample_follow_fineff::fire()
     if (attack
         && attack->pos() != posn
         && adjacent(attack->pos(), posn)
-        && attack->is_habitable(posn))
+        && attack->is_habitable(posn)
+        && !monster_at(posn))
     {
         attack->move_to(posn, MV_DELIBERATE);
     }
@@ -1074,14 +1069,12 @@ void trj_spawn_fineff::fire()
     for (int i = 0; i < tospawn; ++i)
     {
         const monster_type jelly = royal_jelly_ejectable_monster();
-        coord_def jpos = find_newmons_square_contiguous(jelly, posn, 3, false);
-        if (!in_bounds(jpos))
-            continue;
-
-        if (monster *mons = mons_place(
-                              mgen_data(jelly, spawn_beh, jpos, foe,
+        if (monster *mons = create_monster(
+                              mgen_data(jelly, spawn_beh, posn, foe,
                                         MG_DONT_COME, GOD_JIYVA)
-                              .set_summoned(trj, 0)))
+                              .set_summoned(trj, 0)
+                              .set_range(1, LOS_RADIUS)
+                              .copy_from_parent(trj)))
         {
             // Don't allow milking the Royal Jelly.
             mons->flags |= MF_NO_REWARD | MF_HARD_RESET;
@@ -1385,28 +1378,26 @@ void rakshasa_clone_fineff::fire()
 
 void bennu_revive_fineff::fire()
 {
-    // Bennu only resurrect once and immediately in the same spot,
-    // so this is rather abbreviated compared to felids.
-    // XXX: Maybe generalize felid_revives and merge the two anyway?
-
     bool res_visible = you.see_cell(posn);
 
+    const monster* orig = cached_monster_copy_by_mid(att);
 
-    monster *newmons = create_monster(mgen_data(MONS_BENNU, attitude, posn, foe,
+    monster *newmons = create_monster(mgen_data(MONS_BENNU, BEH_HOSTILE, posn, orig->foe,
                                                 res_visible ? MG_DONT_COME
-                                                            : MG_NONE));
-    if (newmons)
-        newmons->props[BENNU_REVIVES_KEY].get_byte() = revives + 1;
+                                                            : MG_NONE).copy_from_parent(orig));
+
+    if (!newmons)
+        return;
+
+    const int old_revives = orig->props.exists(BENNU_REVIVES_KEY) ? orig->props[BENNU_REVIVES_KEY].get_byte() : 0;
+    newmons->props[BENNU_REVIVES_KEY].get_byte() = old_revives + 1;
 
     // If we were dueling the original bennu, the duel continues.
-    if (duel)
+    if (orig->props.exists(OKAWARU_DUEL_TARGET_KEY))
     {
         newmons->props[OKAWARU_DUEL_TARGET_KEY] = true;
         newmons->props[OKAWARU_DUEL_CURRENT_KEY] = true;
     }
-
-    if (gozag_bribe.ench != ENCH_NONE)
-        newmons->add_ench(gozag_bribe);
 }
 
 void avoided_death_fineff::fire()
@@ -1648,7 +1639,10 @@ void stardust_fineff::fire()
 {
     actor* agent = actor_by_mid(att);
 
-    if (!agent || !agent->alive())
+    // In case the agent is dead, check for a cached copy.
+    if (!agent)
+        agent = cached_monster_copy_by_mid(att);
+    if (!agent)
         return;
 
     if (agent->is_player() && is_sanctuary(you.pos()))
@@ -1656,18 +1650,19 @@ void stardust_fineff::fire()
 
     int count = 0;
     for (actor_near_iterator ai(agent->pos(), LOS_NO_TRANS); ai; ++ai)
-    {
         if (!ai->is_firewood() && !mons_aligned(agent, *ai))
             ++count;
-    }
 
     // Don't activate or go on cooldown if there's nothing to shoot at.
     if (count == 0)
         return;
 
-    mprf("%s orb unleashes a flurry of shooting stars!", agent->name(DESC_ITS).c_str());
+    if (is_star_jelly)
+        mprf("A flurry of magic pours from %s injured body!", agent->name(DESC_ITS).c_str());
+    else
+        mprf("%s orb unleashes a flurry of shooting stars!", agent->name(DESC_ITS).c_str());
 
-    count = min(max_stars, count + 1);
+    count = is_star_jelly ? max_stars : min(max_stars, count + 1);
     const int foe = agent->is_player() ? int{MHITYOU} : agent->as_monster()->foe;
     for (int i = 0; i < count; ++i)
     {
@@ -1679,12 +1674,12 @@ void stardust_fineff::fire()
         mg.hd = power;
         mg.hp = 100;
         if (monster* mon = create_monster(mg))
-            mon->steps_remaining = 15;
+            mon->steps_remaining = 12;
     }
 
     if (agent->is_player())
         you.duration[DUR_STARDUST_COOLDOWN] = random_range(40, 70);
-    else
+    else if (!is_star_jelly)
         agent->as_monster()->add_ench(mon_enchant(ENCH_ORB_COOLDOWN, agent, random_range(300, 500)));
 }
 

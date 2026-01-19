@@ -1308,7 +1308,7 @@ static void _dgn_check_terrain_player(const coord_def pos)
         return;
 
     if (you.can_pass_through(pos))
-        you.trigger_movement_effects();
+        you.trigger_movement_effects(MV_NO_TRAVEL_STOP);
     else
         push_or_teleport_actor_from(pos);
 }
@@ -1385,6 +1385,12 @@ void dungeon_terrain_changed(const coord_def &pos,
 
     // Deal with doors being created by changing features.
     tile_init_flavour(pos);
+
+    // If we just placed a trap under an actor, trigger it immediately.
+    if (actor* act = actor_at(pos))
+        if (feat_is_trap(nfeat))
+            if (trap_def* ptrap = trap_at(pos))
+                ptrap->trigger(*act);
 }
 
 static void _announce_swap_real(coord_def orig_pos, coord_def dest_pos)

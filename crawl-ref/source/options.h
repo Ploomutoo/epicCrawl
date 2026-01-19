@@ -23,6 +23,7 @@
 #include "level-gen-type.h"
 #include "maybe-bool.h"
 #include "mon-dam-level-type.h"
+#include "mon-util.h"
 #include "mpr.h"
 #include "newgame-def.h"
 #include "pattern.h"
@@ -537,6 +538,8 @@ public:
                                                    // static spell targeters
     bool        always_use_static_ability_targeters; // whether to always use
                                                      // static ability targeters
+    bool        always_use_static_scroll_targeters; // whether to always use
+                                                    // static targets for scrolls
 
     int         colour[16];      // macro fg colours to other colours
     unsigned    background_colour; // select default background colour
@@ -603,6 +606,9 @@ public:
                                              // targeter for
     unordered_set<int> force_ability_targeter; // ability types to always use a
                                                // targeter for
+    unordered_set<int> force_scroll_targeter; // scroll types to always use a
+                                              // targeter for
+    bool        show_invis_targeter;  // Whether to show a targeter for going invisible
 
     bool        flush_input[NUM_FLUSH_REASONS]; // when to flush input buff
 
@@ -644,6 +650,12 @@ public:
     FixedVector<char, NUM_POTIONS> potion_shortcuts;
     FixedVector<char, NUM_SCROLLS> scroll_shortcuts;
     FixedVector<char, NUM_WANDS + NUM_MISCELLANY + NUM_BAUBLES> evokable_shortcuts;
+
+    vector<string> monster_alert_option;
+    FixedVector<bool, NUM_MONSTERS> monster_alert;    // Whether to force_more on first seeing each monster type
+    bool monster_alert_uniques;                       // Whether to force_more on first seeing any unique
+    bool monster_alert_unusual;                       // Whether to force_more on first seeing any monster it unusual items
+    mon_threat_level_type monster_alert_min_threat;   // What is the minimum threat level to warn on?
 
     bool        pickup_thrown;  // Pickup thrown missiles
     int         travel_delay;   // How long to pause between travel moves
@@ -1009,9 +1021,12 @@ private:
     void remove_force_spell_targeter(const string &s);
     void add_force_ability_targeter(const string &s, bool prepend);
     void remove_force_ability_targeter(const string &s);
+    void add_force_scroll_targeter(const string &s, bool prepend);
+    void remove_force_scroll_targeter(const string &s);
 
     void update_consumable_shortcuts();
     void process_unusual_items();
+    void update_monster_alerts();
 
     static const string interrupt_prefix;
 

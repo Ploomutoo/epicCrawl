@@ -157,10 +157,16 @@ enum monster_type                      // env.mons[].type
     MONS_JELLY,
 #if TAG_MAJOR_VERSION == 34
     MONS_BROWN_OOZE,
-    MONS_GIANT_AMOEBA,
-#else
+#endif
+    MONS_COLOSSAL_AMOEBA,
+#if TAG_MAJOR_VERSION > 34
+    MONS_MORPHOGENIC_OOZE,
+    MONS_SLYMDRA,
     MONS_ROCKSLIME,
     MONS_VOID_OOZE,
+    MONS_CREEPING_PLASMODIUM,
+    MONS_NASCENT_PLASMODIUM,
+    MONS_STAR_JELLY,
 #endif
     MONS_AZURE_JELLY,
 #if TAG_MAJOR_VERSION == 34
@@ -175,9 +181,7 @@ enum monster_type                      // env.mons[].type
     MONS_FLOATING_EYE,               // genus
 #endif
     MONS_GLASS_EYE,
-#if TAG_MAJOR_VERSION == 34
     MONS_EYE_OF_DRAINING,
-#endif
     MONS_SHINING_EYE,
     MONS_EYE_OF_DEVASTATION,
     MONS_GREAT_ORB_OF_EYES,
@@ -351,6 +355,7 @@ enum monster_type                      // env.mons[].type
     MONS_FIRE_ELEMENTAL,
     MONS_AIR_ELEMENTAL,
 #if TAG_MAJOR_VERSION > 34
+    MONS_ERYTHROSPITE,
     MONS_IRON_ELEMENTAL,
     MONS_QUICKSILVER_ELEMENTAL,
     MONS_ELEMENTAL_WELLSPRING,
@@ -361,7 +366,9 @@ enum monster_type                      // env.mons[].type
     MONS_GOLDEN_EYE,
     MONS_FIRE_VORTEX,
     MONS_SPATIAL_VORTEX,
+#if TAG_MAJOR_VERSION == 34
     MONS_INSUBSTANTIAL_WISP,
+#endif
 #if TAG_MAJOR_VERSION > 34
     MONS_THERMIC_DYNAMO,
     MONS_WILL_O_THE_WISP,
@@ -386,6 +393,7 @@ enum monster_type                      // env.mons[].type
 #if TAG_MAJOR_VERSION > 34
     MONS_SLEEPCAP,
     MONS_DEATHCAP,
+    MONS_BURSTSHROOM,
 #endif
     MONS_PLANT,
     MONS_OKLOB_SAPLING,
@@ -1045,6 +1053,7 @@ enum monster_type                      // env.mons[].type
     MONS_PILE_OF_DEBRIS,
     MONS_PILE_OF_FLESH,
     MONS_SHOOTING_STAR,
+    MONS_CAUSTIC_SPORANGIUM,
 #endif
     MONS_PILLAR_OF_SALT,
 #if TAG_MAJOR_VERSION > 34
@@ -1395,6 +1404,14 @@ enum monster_type                      // env.mons[].type
     MONS_KOBOLD_GEOMANCER,
     MONS_MOUNTAINSHELL,
     MONS_UNDERTAKER,
+    MONS_ERYTHROSPITE,
+    MONS_MORPHOGENIC_OOZE,
+    MONS_SLYMDRA,
+    MONS_CREEPING_PLASMODIUM,
+    MONS_CAUSTIC_SPORANGIUM,
+    MONS_NASCENT_PLASMODIUM,
+    MONS_STAR_JELLY,
+    MONS_BURSTSHROOM,
 #endif
 
     NUM_MONSTERS,               // used for polymorph

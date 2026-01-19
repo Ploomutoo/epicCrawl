@@ -90,7 +90,7 @@ bool mons_is_irrelevant(const monster* mon)
 
 // Returns true if a monster can be considered safe regardless
 // of distance.
-static bool _mons_is_always_safe(const monster *mon)
+bool mons_is_always_safe(const monster *mon)
 {
     return (mon->wont_attack() && (!mons_blows_up(*mon) || mon->type == MONS_SHADOW_PRISM))
           || mon->type == MONS_BUTTERFLY
@@ -112,7 +112,7 @@ bool mons_is_safe(const monster* mon, const bool want_move,
 
     int  dist    = grid_distance(you.pos(), mon->pos());
 
-    bool is_safe = (_mons_is_always_safe(mon)
+    bool is_safe = (mons_is_always_safe(mon)
                     || check_dist
                        && (mon->pacified() && dist > 1
                            || crawl_state.disables[DIS_MON_SIGHT] && dist > 2
@@ -258,6 +258,13 @@ bool i_feel_safe(bool announce, bool want_move, bool just_monsters,
                 mprf(MSGCH_WARN,
                      "There is a lethal amount of poison in your body!");
             }
+            return false;
+        }
+
+        if (contam_max_damage() >= you.hp)
+        {
+            if (announce)
+                mprf(MSGCH_WARN, "You are contaminated with a potentially lethal amount of magic!");
             return false;
         }
 
@@ -442,6 +449,7 @@ void revive()
     you.magic_contamination = 0;
 
     you.stop_being_caught(true);
+    you.stop_being_constricted();
     you.attribute[ATTR_DIVINE_VIGOUR] = 0;
     you.attribute[ATTR_DIVINE_STAMINA] = 0;
     if (you.form != you.default_form)
@@ -481,7 +489,7 @@ void revive()
         }
 
         if (dur == DUR_TELEPORT)
-            you.props.erase(SJ_TELEPORTITIS_SOURCE);
+            you.props.erase(TELEPORTITIS_SOURCE);
     }
 
     update_vision_range(); // in case you had darkness cast before

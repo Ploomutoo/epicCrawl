@@ -766,6 +766,9 @@ static bool _immune_to_brand(brand_type brand)
         case SPWPN_ELECTROCUTION:
             return you.res_elec() >= 1;
 
+        case SPWPN_ENTANGLING:
+            return you.res_constrict();
+
         default:
             return false;
     }
@@ -805,6 +808,8 @@ bool item_is_worth_listing(const item_def& item)
     case OBJ_WANDS:
     case OBJ_JEWELLERY:
         return true;
+    case OBJ_MISSILES:
+        return item.sub_type != MI_LARGE_ROCK || item_is_branded(item);
     case OBJ_WEAPONS:
         return is_unrandom_artefact(item)
                || get_weapon_brand(item) != SPWPN_NORMAL;
@@ -3801,11 +3806,11 @@ colour_t item_def::missile_colour() const
             return LIGHTGREY;
 #if TAG_MAJOR_VERSION == 34
         case MI_NEEDLE:
-#endif
         case MI_ARROW:         // removed as an item, but don't crash
         case MI_BOLT:          // removed as an item, but don't crash
         case MI_SLING_BULLET:  // removed as an item, but don't crash
         case MI_SLUG:          // never existed as an item
+#endif
         case MI_DART:
             return WHITE;
         case MI_JAVELIN:
@@ -4216,10 +4221,14 @@ colour_t item_def::talisman_colour() const
         return ETC_FIRE;
     case TALISMAN_MEDUSA:
         return ETC_POISON;
+    case TALISMAN_SPORE:
+        return BROWN;
     case TALISMAN_MAW:
         return ETC_BLOOD;
     case TALISMAN_SERPENT:
         return ETC_POISON;
+    case TALISMAN_EEL:
+        return LIGHTCYAN;
     case TALISMAN_BLADE:
         return ETC_IRON;
     case TALISMAN_FORTRESS:
@@ -4568,22 +4577,12 @@ static bool _book_from_spell(const char* specs, item_def &item)
     if (type == SPELL_NO_SPELL)
         return false;
 
-    for (int i = 0; i < NUM_BOOKS; ++i)
-    {
-        const auto bt = static_cast<book_type>(i);
-        if (!book_exists(bt))
-            continue;
-        for (spell_type sp : spellbook_template(bt))
-        {
-            if (sp == type)
-            {
-                item.sub_type = i;
-                return true;
-            }
-        }
-    }
+    if (!is_player_book_spell(type))
+        return false;
 
-    return false;
+    item.sub_type = BOOK_PARCHMENT;
+    item.plus = static_cast<int>(type);
+    return true;
 }
 
 bool get_item_by_name(item_def *item, const char* specs,
@@ -4648,7 +4647,7 @@ bool get_item_by_name(item_def *item, const char* specs,
             switch (class_wanted)
             {
             case OBJ_BOOKS:
-                // Try if we get a match against a spell.
+                // Make a parchment if we get a match against a spell.
                 if (_book_from_spell(specs, *item))
                     type_wanted = item->sub_type;
                 break;
@@ -4761,6 +4760,16 @@ bool get_item_by_name(item_def *item, const char* specs,
                 item->skill = SK_FIGHTING; // Was probably that anyway.
             }
             item->skill_points = random_range(2000, 3000);
+        }
+        else if (item->sub_type == BOOK_PARCHMENT)
+        {
+            char buf[80];
+            msgwin_get_line_autohist("What parchment spell? ", buf, sizeof(buf));
+            if (buf[0] != '\0')
+            {
+                if (!_book_from_spell(buf, *item))
+                    mpr("That parchment doesn't seem to exist.");
+            }
         }
         else if (type_wanted == BOOK_RANDART_THEME)
             build_themed_book(*item, capped_spell_filter(20));
@@ -5036,8 +5045,7 @@ bool maybe_identify_base_type(item_def &item)
 void name_weapon(item_def &item)
 {
     string name = getRandMonNameString("steelspirit");
-    if (name == "RANDGEN")
-        name = make_name();
+    name = do_mon_name_replacements(name);
     item.props[WEAPON_NAME_KEY] = name;
 
     if (!item.inscription.empty())

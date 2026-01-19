@@ -160,6 +160,8 @@ enum attack_flavour
     AF_TRICKSTER,
     AF_REACH_CLEAVE_UGLY,
     AF_DOOM,
+    AF_SLIMIFY,
+    AF_DIM,
 };
 
 // Non-spell "summoning" types to give to monster::mark_summoned(), or
@@ -190,6 +192,8 @@ enum mon_summon_type
     MON_SUMM_MULTIPLICITY, // Bane of Multiplicity
     MON_SUMM_MORTALITY, // Bane of Mortality
     MON_SUMM_STARDUST,  // Orb of Stardust
+    MON_SUMM_SPITEFUL_BLOOD, // Spiteful Blood mutation
+    MON_SUMM_SPORE,     // Spore form mushrooms
 };
 
 #include "mon-flags.h"
@@ -320,7 +324,7 @@ enum shout_type
     // Only used for the verb/volume of random demon taunts
     S_VERY_SOFT,
     S_SOFT,
-    S_NORMAL,
+    S_NORMAL_VOLUME,
     S_LOUD,
     S_VERY_LOUD,
 

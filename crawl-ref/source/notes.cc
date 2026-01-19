@@ -125,7 +125,8 @@ static bool _is_noteworthy(const Note& note)
         || note.type == NOTE_FLED_CHALLENGE
         || note.type == NOTE_INFERNAL_MARK
         || note.type == NOTE_GET_BANE
-        || note.type == NOTE_LOSE_BANE)
+        || note.type == NOTE_LOSE_BANE
+        || note.type == NOTE_TESSERACT_ACTIVATED)
     {
         return true;
     }
@@ -300,7 +301,7 @@ string Note::describe(bool when, bool where, bool what) const
                    << " to level " << second;
             break;
         case NOTE_SEEN_MONSTER:
-            result << "Noticed " << name;
+            result << "Encountered " << name;
             break;
         case NOTE_DEFEAT_MONSTER:
             if (second)
@@ -374,7 +375,10 @@ string Note::describe(bool when, bool where, bool what) const
 #endif
             break;
         case NOTE_PARALYSIS:
-            result << "Paralysed by " << name << " for " << first << " turns";
+        {
+            const float turns = first / 10.0;
+            result << "Paralysed by " << name << " for " << setprecision(2) << turns << " turns";
+        }
             break;
         case NOTE_VEXED:
             result << "Vexed by " << name << " for " << first << " turns";
@@ -430,6 +434,9 @@ string Note::describe(bool when, bool where, bool what) const
             break;
         case NOTE_INFERNAL_MARK:
             result << "Branded self with the " << name;
+            break;
+        case NOTE_TESSERACT_ACTIVATED:
+            result << "Activated a boundless tesseract";
             break;
         default:
             result << "Buggy note description: unknown note type";

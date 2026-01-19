@@ -163,7 +163,7 @@ enum monster_info_flags
     MB_SLOW_MOVEMENT,
     MB_LIGHTLY_DRAINED,
     MB_HEAVILY_DRAINED,
-    MB_REPEL_MSL,
+    MB_DEFLECT_MSL,
 #if TAG_MAJOR_VERSION == 34
     MB_NEGATIVE_VULN,
     MB_CONDENSATION_SHIELD,
@@ -265,6 +265,9 @@ enum monster_info_flags
     MB_WARDING,
     MB_PLAYER_DAMAGE_IMMUNE,    // Currently immune to damage from the player for any reason
     MB_DIMINISHED_SPELLS,
+    MB_TESSERACT_SPAWN,
+    MB_SUNDERING_READY,
+    MB_SEE_INVIS,
     NUM_MB_FLAGS
 };
 
@@ -290,8 +293,6 @@ struct monster_info_base
     mon_dam_level_type dam;
     // TODO: maybe we should store the position instead
     dungeon_feature_type fire_blocker;
-    string description;
-    string quote;
     mon_holy_type holi;
     mon_intel_type mintel;
     int hd;
@@ -299,9 +300,9 @@ struct monster_info_base
     int ev;
     int base_ev;
     int sh;
-    int mr;
+    int wl;
+    int slay;
     resists_t mresists;
-    bool can_see_invis;
     mon_itemuse_type mitemuse;
     int mbase_speed;
     mon_energy_usage menergy;
@@ -437,6 +438,7 @@ struct monster_info : public monster_info_base
     bool can_see_invisible() const;
     bool nightvision() const;
     int willpower() const;
+    int slaying() const;
     int lighting_modifiers() const;
 
     int base_speed() const
@@ -456,7 +458,7 @@ struct monster_info : public monster_info_base
 
     // These should be kept in sync with the actor equivalents
     // (Maybe unify somehow?)
-    bool cannot_act() const;
+    bool helpless() const;
     bool asleep() const;
     bool incapacitated() const;
     bool airborne() const;
@@ -482,6 +484,7 @@ struct monster_info : public monster_info_base
     }
 
     bool fellow_slime() const;
+    bool has_hydra_multi_attack() const;
 
     vector<string> get_unusual_items() const;
     bool has_unusual_items() const;
@@ -499,6 +502,7 @@ struct monster_info : public monster_info_base
     monster* get_known_summoner() const;
 
     bool is_stationary() const;
+    int perception() const;
 
 protected:
     string _core_name() const;

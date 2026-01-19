@@ -191,7 +191,7 @@ void wizard_memorise_spec_spell()
         }
     }
 
-    if (get_spell_flags(static_cast<spell_type>(spell)) & spflag::monster)
+    if (spell_is_monster_only(static_cast<spell_type>(spell)))
         mpr("Spell is monster-only - unpredictable behaviour may result.");
     if (!learn_spell(static_cast<spell_type>(spell), true))
         crawl_state.cancel_cmd_repeat();
@@ -237,6 +237,8 @@ void wizard_heal(bool super_heal)
         you.duration[DUR_SAP_MAGIC] = 0;
         you.duration[DUR_SLOW] = 0;
         you.duration[DUR_BLIND] = 0;
+        you.duration[DUR_FLOODED] = 0;
+        you.duration[DUR_DIMINISHED_SPELLS] = 0;
         you.duration[DUR_SIGN_OF_RUIN] = 0;
         you.duration[DUR_SENTINEL_MARK] = 0;
         you.duration[DUR_CANINE_FAMILIAR_DEAD] = 0;
@@ -251,6 +253,7 @@ void wizard_heal(bool super_heal)
         you.duration[DUR_WORD_OF_CHAOS_COOLDOWN] = 0;
         you.duration[DUR_FIRE_VULN] = 0;
         you.duration[DUR_POISON_VULN] = 0;
+        you.duration[DUR_SLIMIFYING] = 0;
         you.attribute[ATTR_DOOM] = 0;
         delete_all_temp_mutations("Super heal");
         decr_zot_clock();
@@ -979,9 +982,8 @@ void wizard_transform()
     {
         const auto tr = static_cast<transformation>(i);
 #if TAG_MAJOR_VERSION == 34
-        if (tr == transformation::jelly || tr == transformation::porcupine
-            || tr == transformation::hydra || tr == transformation::appendage
-            || tr == transformation::shadow)
+        if (tr == transformation::porcupine || tr == transformation::hydra
+            || tr == transformation::appendage || tr == transformation::shadow)
         {
             continue;
         }

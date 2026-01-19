@@ -321,7 +321,7 @@ struct ability_def
 
 static int _lookup_ability_slot(ability_type abil);
 static spret _do_ability(const ability_def& abil, bool fail, dist *target,
-                         bolt beam);
+                         bolt& beam);
 static void _finalize_ability_costs(const ability_def& abil, int mp_cost, int hp_cost);
 
 static vector<ability_def> &_get_ability_list()
@@ -418,7 +418,7 @@ static vector<ability_def> &_get_ability_list()
             4, 0, 0, 5, {}, abflag::target },
 
         { ABIL_BREATHE_RUST, "Breathe Rust",
-                0, scaling_cost(120, 12), 0, 4, {}, abflag::none },
+                0, scaling_cost(100, 12), 0, 4, {}, abflag::none },
 
         // EVOKE abilities use Evocations and come from items.
         { ABIL_EVOKE_BLINK, "Evoke Blink",
@@ -624,7 +624,7 @@ static vector<ability_def> &_get_ability_list()
 
         // Dithmenos
         { ABIL_DITHMENOS_SHADOWSLIP, "Shadowslip",
-            4, 60, 2, -1, {fail_basis::invo, 50, 6, 30}, abflag::instant },
+            4, 60, 4, -1, {fail_basis::invo, 50, 6, 30}, abflag::instant },
         { ABIL_DITHMENOS_APHOTIC_MARIONETTE, "Aphotic Marionette",
             5, 0, 3, -1, {fail_basis::invo, 60, 4, 25}, abflag::target },
         { ABIL_DITHMENOS_PRIMORDIAL_NIGHTFALL, "Primordial Nightfall",
@@ -908,9 +908,9 @@ string print_abilities()
     {
         for (unsigned int i = 0; i < talents.size(); ++i)
         {
-            if (i)
-                text += ", ";
-            text += ability_name(talents[i].which);
+            text += make_stringf("%s%s (%s)", i ? ", " : "",
+                        ability_name(talents[i].which).c_str(),
+                        failure_rate_to_string(talents[i].fail).c_str());
         }
     }
 
@@ -2064,6 +2064,8 @@ static bool _check_ability_possible(const ability_def& abil, bool quiet = false)
             && !you.duration[DUR_SLOW]
             && !you.attribute[ATTR_HELD]
             && !you.petrifying()
+            && !you.beheld()
+            && !you.afraid()
             && !you.is_constricted())
         {
             if (!quiet)
@@ -2984,11 +2986,13 @@ bool activate_talent(const talent& tal, dist *target)
 /// If the player is stationary, print 'You cannot move.' and return true.
 static bool _abort_if_stationary()
 {
-    if (you.is_motile())
-        return false;
+    if (you.cannot_move())
+    {
+        canned_msg(MSG_CANNOT_MOVE);
+        return true;
+    }
 
-    canned_msg(MSG_CANNOT_MOVE);
-    return true;
+    return false;
 }
 
 static int _orb_of_dispater_power()
@@ -3093,10 +3097,9 @@ static spret _siphon_essence(bool fail)
  * at?
  *
  * @param shapeshifting_skill   If -1 (the default), use the player's current
- *                              dragon form power bonus (if they're actually in
- *                              it). If otherwise, return what it would be if
- *                              they were in dragon form with the given amount
- *                              of shapeshifting.
+ *                              dragon form power bonus. Otherwise, pretend
+ *                              we're in it at the given level of shapeshifting
+ *                              skill (for talisman previews).
  *
  * @return The power the player uses these breath abilities at.
  */
@@ -3187,6 +3190,20 @@ static spret _do_cacophony()
     return spret::success;
 }
 
+class targeter_banishment : public targeter_multimonster
+{
+public:
+    targeter_banishment() : targeter_multimonster(&you)
+    { }
+
+    bool affects_monster(const monster_info& mon)
+    {
+        return !(mon.type == MONS_ROYAL_JELLY
+                 || mon.props.exists(ORIGINAL_TYPE_KEY)
+                    && mon.props[ORIGINAL_TYPE_KEY].get_int() == MONS_ROYAL_JELLY);
+    }
+};
+
 /*
  * Use an ability.
  *
@@ -3197,7 +3214,7 @@ static spret _do_cacophony()
  *  or was canceled (spret::abort). Never returns spret::none.
  */
 static spret _do_ability(const ability_def& abil, bool fail, dist *target,
-                         bolt beam)
+                         bolt& beam)
 {
     // Note: the costs will not be applied until after this switch
     // statement... it's assumed that only failures have returned! - bwr
@@ -3375,6 +3392,8 @@ static spret _do_ability(const ability_def& abil, bool fail, dist *target,
     case ABIL_EVOKE_TURN_INVISIBLE:     // cloaks, randarts
         if (!invis_allowed())
             return spret::abort;
+        if (Options.show_invis_targeter && !invisibility_target_check("Confirm evoke"))
+            return spret::abort;
         if (_invis_causes_drain())
             drain_player(40, false, true); // yes, before the fail check!
         fail_check();
@@ -3397,12 +3416,10 @@ static spret _do_ability(const ability_def& abil, bool fail, dist *target,
 
     case ABIL_BAT_SWARM:
     {
+        you.props[BATFORM_XP_KEY] = div_rand_round(11000, get_form()->get_effect_size());
         mpr("You scatter into a swarm of vampire bats!");
-        transform(random_range(15, 24), transformation::bat_swarm);
-        you.transform_uncancellable = true;
-        const int pow = get_form()->get_level(10);
-        big_cloud(CLOUD_BATS, &you, you.pos(), 18 + pow / 20, 8 + pow / 15, 1);
-        you.props[BATFORM_XP_KEY] = 80;
+        transform(random_range(12, 20), transformation::bat_swarm);
+        big_cloud(CLOUD_BATS, &you, you.pos(), 15, 15, 1);
         break;
     }
 
@@ -3627,8 +3644,11 @@ static spret _do_ability(const ability_def& abil, bool fail, dist *target,
         //      monster and one that does both, though at higher invo it stops
         //      being possible to get one wthout rPois, so the warning is only
         //      *almost* correct.
-        if (!player_summon_check({MONS_ORANGE_DEMON, MONS_BLIZZARD_DEMON}))
+        if (!you.has_mutation(MUT_MAKHLEB_MARK_CARNAGE)
+            && !player_summon_check({MONS_ORANGE_DEMON, MONS_BLIZZARD_DEMON}))
+        {
             return spret::abort;
+        }
 
         fail_check();
         makhleb_infernal_servant();
@@ -3726,9 +3746,10 @@ static spret _do_ability(const ability_def& abil, bool fail, dist *target,
 
         direction_chooser_args args;
         args.mode = TARG_HOSTILE;
+        targeter_banishment btarg;
         args.get_desc_func = bind(desc_wl_success_chance, placeholders::_1,
                                   zap_ench_power(ZAP_BANISHMENT, pow, false),
-                                  nullptr);
+                                  &btarg);
         if (!spell_direction(*target, beam, &args))
             return spret::abort;
 

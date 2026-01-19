@@ -87,7 +87,7 @@ int aux_to_hit()
     if (you.duration[DUR_VERTIGO])
         to_hit -= 5;
 
-    to_hit += slaying_bonus();
+    to_hit += you.slaying();
 
     return to_hit;
 
@@ -102,7 +102,7 @@ static double _to_hit_hit_chance(const monster_info& mi, attack &atk, bool melee
     const double AUTO_MISS_CHANCE = is_aux ? 0 : 2.5;
     const double AUTO_HIT_CHANCE = is_aux ? 3.3333 : 2.5;
 
-    int ev = mi.ev + (!melee && mi.is(MB_REPEL_MSL) ? REPEL_MISSILES_EV_BONUS : 0);
+    int ev = mi.ev + (!melee && mi.is(MB_DEFLECT_MSL) ? DEFLECT_MISSILES_EV_BONUS : 0);
 
     if (ev <= 0)
         return 1 - AUTO_MISS_CHANCE / 200.0;
@@ -376,18 +376,6 @@ static bool _can_shoot_with(const item_def *weapon)
         && !you.berserk();
 }
 
-static bool _autofire_at(actor *defender)
-{
-    if (!_can_shoot_with(you.weapon()) || you.duration[DUR_CONFUSING_TOUCH])
-        return false;
-    dist t;
-    t.target = defender->pos();
-    shared_ptr<quiver::action> ract = quiver::find_ammo_action();
-    ract->set_target(t);
-    throw_it(*ract);
-    return true;
-}
-
 static void _do_medusa_stinger()
 {
     vector<monster*> targs;
@@ -400,6 +388,9 @@ static void _do_medusa_stinger()
         }
     }
 
+    if (targs.empty())
+        return;
+
     shuffle_array(targs);
     int num = min(div_rand_round(get_form()->get_effect_size(), 10), (int)targs.size());
     for (int i = 0; i < num; ++i)
@@ -407,26 +398,31 @@ static void _do_medusa_stinger()
         melee_attack sting(&you, targs[i]);
         sting.player_do_aux_attack(UNAT_MEDUSA_STINGER);
     }
+
+    you.did_trigger(DID_MEDUSA_STINGER);
 }
 
 /**
  * Handle melee combat between attacker and defender.
  *
- * Works using the new fight rewrite. For a monster attacking, this method
- * loops through all their available attacks, instantiating a new melee_attack
- * for each attack. Combat effects should not go here, if at all possible. This
+ * Combat effects should generally not go here, unless intended to be once per
+ * complete attack action (including all of a monster's multiple attacks). This
  * is merely a wrapper function which is used to start combat.
  *
  * @param[in] attacker,defender The (non-null) participants in the attack.
  *                              Either may be killed as a result of the attack.
  * @param[out] did_hit If non-null, receives true if the attack hit the
  *                     defender, and false otherwise.
+ * @param is_rampage   Is this an attack caused by rampaging? Adjusts damage of
+ *                     the attack based on movement speed and possibly staggers
+ *                     the target. (Only effect for player attackers)
  * @param simu Is this a simulated attack?  Disables a few problematic
  *             effects such as blood spatter and distortion teleports.
  *
  * @return Whether the attack took time (i.e. wasn't cancelled).
  */
-bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
+bool fight_melee(actor *attacker, actor *defender, bool is_rampage,
+                 bool *did_hit, bool simu)
 {
     ASSERT(attacker); // XXX: change to actor &attacker
     ASSERT(defender); // XXX: change to actor &defender
@@ -479,8 +475,18 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
         {
             if (Options.auto_switch && _autoswitch_to_melee())
                 return true; // Is this right? We did take time, but we didn't melee
-            if (!simu && _autofire_at(defender))
-                return you.turn_is_over;
+
+            if (_can_shoot_with(you.weapon()) && !you.duration[DUR_CONFUSING_TOUCH])
+            {
+                if (do_player_ranged_attack(defender->pos()))
+                {
+                    you.time_taken = you.attack_delay().roll();
+                    you.turn_is_over = true;
+                    return true;
+                }
+                else
+                    return false;
+            }
         }
 
         melee_attack attk(&you, defender);
@@ -500,19 +506,27 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
             return false;
         }
 
+        // Rampage attacks happen at movement speed, so proportionally lower the
+        // damage of an attack which would otherwise have been slower than this.
+        if (is_rampage)
+        {
+            const int attack_delay = you.attack_delay().roll() * BASELINE_DELAY;
+            const int move_delay = player_movement_speed() * player_speed();
+            if (attack_delay > move_delay)
+                attk.dmg_mult =  (move_delay * 100 / attack_delay) - 100;
+        }
+
         const bool success = attk.launch_attack_set();
         if (attk.cancel_attack)
             you.turn_is_over = false;
         else
-            you.time_taken = you.attack_delay().roll();
+            you.time_taken = you.melee_attack_delay().roll();
 
         if (!success)
             return !attk.cancel_attack;
 
         if (did_hit)
             *did_hit = attk.did_hit;
-
-        do_player_post_attack(defender, !attk.did_attack_hostiles(), simu);
 
         count_action(CACT_ATTACK, ATTACK_NORMAL);
 
@@ -534,85 +548,20 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
         return false;
     }
 
-    const int nrounds = attacker->as_monster()->has_hydra_multi_attack()
-        ? attacker->heads() + (attacker->type == MONS_DRAUGR)
-        : MAX_NUM_ATTACKS;
-    coord_def pos = defender->pos();
+    melee_attack attk(attacker, defender);
+    attk.simu = simu;
+    attk.launch_attack_set();
 
-    // Melee combat, tell attacker to wield its melee weapon.
-    attacker->as_monster()->wield_melee_weapon();
+    if (!attacker->alive())
+        return true;
 
-    bool was_hostile = !mons_aligned(attacker, defender);
-
-    int effective_attack_number = 0;
-    int attack_number;
-    for (attack_number = 0; attack_number < nrounds && attacker->alive();
-         ++attack_number, ++effective_attack_number)
-    {
-        if (!attacker->alive())
-            return false;
-
-        // Monster went away or become friendly?
-        if (!defender->alive()
-            || defender->pos() != pos
-            || defender->is_banished()
-            || was_hostile && mons_aligned(attacker, defender)
-               && !mons_is_confused(*attacker->as_monster())
-               && !attacker->as_monster()->has_ench(ENCH_FRENZIED))
-        {
-            if (attacker == defender
-               || !attacker->as_monster()->has_hydra_multi_attack())
-            {
-                break;
-            }
-
-            // Hydras can try and pick up a new monster to attack to
-            // finish out their round. -cao
-            bool end = true;
-            for (adjacent_iterator i(attacker->pos()); i; ++i)
-            {
-                if (*i == you.pos()
-                    && !mons_aligned(attacker, &you)
-                    && you.alive())
-                {
-                    attacker->as_monster()->foe = MHITYOU;
-                    attacker->as_monster()->target = you.pos();
-                    defender = &you;
-                    was_hostile = true;
-                    end = false;
-                    break;
-                }
-
-                monster* mons = monster_at(*i);
-                if (mons && !mons_aligned(attacker, mons))
-                {
-                    defender = mons;
-                    was_hostile = true;
-                    end = false;
-                    pos = mons->pos();
-                    break;
-                }
-            }
-
-            // No adjacent hostiles.
-            if (end)
-                break;
-        }
-
-        melee_attack melee_attk(attacker, defender, attack_number,
-                                effective_attack_number);
-
-        melee_attk.simu = simu;
-
-        // If the attack fails out, keep effective_attack_number up to
-        // date so that we don't cause excess energy loss in monsters
-        if (!melee_attk.attack())
-            effective_attack_number = melee_attk.effective_attack_number;
-        else if (did_hit && !(*did_hit))
-            *did_hit = melee_attk.did_hit;
-
-        fire_final_effects();
-    }
+    // Lose energy for the attack.
+    int energy = attacker->as_monster()->action_energy(EUT_ATTACK);
+    int delay = attacker->attack_delay().roll();
+    dprf(DIAG_COMBAT, "Attack delay %d, multiplier %1.1f", delay, energy * 0.1);
+    ASSERT(energy > 0);
+    ASSERT(delay > 0);
+    attacker->as_monster()->speed_increment -= div_rand_round(energy * delay, 10);
 
     // Here, rather than in melee_attack, so that it only triggers on attack
     // actions, rather than additional times for bonus attacks (ie: from Autumn Katana)
@@ -623,42 +572,53 @@ bool fight_melee(actor *attacker, actor *defender, bool *did_hit, bool simu)
 }
 
 /**
- * Handle effects that should happen after each time the player performs a
- * single 'attack action' (which might be either a normal attack, or a martial
- * attack caused by movement).
+ * Tracks that the player made an attack attempt this turn. This will prevent
+ * various status effects from losing duration that turn, as well as potentially
+ * trigger follow-up actions like Dith shadow mimic.
  *
- * @param defender       The target the player attacked. (Which might be dead,
- *                       or even null in the case of WJC martial attacks!)
- * @param only_firewood  Whether the defender (and all potential cleave targets)
- *                       were firewood while alive.
- * @param simu           Whether this is an fsim simulation.
+ * Calling this is normally handled by melee_attack::launch_attack_set(), but
+ * certain special attacks like Whirlwind will need to call this manually
+ * afterward (so that each attack of the set still counts as a single attack action).
+ *
+ * @param trigger_effects    Whether to trigger post-attack effects like shadow
+ *                           mimic or paragon.
+ * @param maintain_statuses  Whether to maintain durations like Werefury or
+ *                           Detonation Catalyst. (Typically false only if this
+ *                           attack was entirely against firewood or friendly
+ *                           targets.)
+ * @param primary_target     The primary target of an attack action, if any.
+ *                           (It may already be dead at this point, or may never
+ *                           have existed for things like WJC Whirlwind).
  */
-void do_player_post_attack(actor *defender, bool only_firewood, bool simu)
+void player_attempted_attack(bool trigger_effects, bool maintain_statuses,
+                             actor* primary_target)
 {
-    if (!simu && will_have_passive(passive_t::shadow_attacks))
-        dithmenos_shadow_melee(defender);
+    // Berserking can be extended even by attacking firewood. (Other things cannot.)
+    you.apply_berserk_penalty = false;
+    you.berserk_penalty = 0;
 
-    if (you.form == transformation::medusa)
-        _do_medusa_stinger();
+    if (maintain_statuses)
+        you.attempted_attack = true;
 
-    if (only_firewood)
+    if (!trigger_effects)
         return;
 
-    // Various status will not expire so long as the player keeps attacking.
-    if (you.duration[DUR_EXECUTION])
-        you.duration[DUR_EXECUTION] += you.time_taken;
-    if (you.duration[DUR_WEREFURY])
-        you.duration[DUR_WEREFURY] += you.time_taken;
-    if (you.duration[DUR_DETONATION_CATALYST])
-        you.duration[DUR_DETONATION_CATALYST] += you.time_taken;
+    you.attribute[ATTR_SUNDERING_CHARGE]++;
 
-    if (you.duration[DUR_PARAGON_ACTIVE])
+    if (will_have_passive(passive_t::shadow_attacks))
+        dithmenos_shadow_melee(primary_target);
+
+    if (you.duration[DUR_PARAGON_ACTIVE] && !you.triggers_done[DID_PARAGON])
         paragon_attack_trigger();
 
-    if (you.form == transformation::sun_scarab)
+    if (you.form == transformation::sun_scarab && !you.triggers_done[DID_SOLAR_EMBER])
         solar_ember_blast();
 
-    update_parrying_status();
+    if (you.form == transformation::medusa && !you.triggers_done[DID_MEDUSA_STINGER])
+        _do_medusa_stinger();
+
+    if (you.has_mutation(MUT_WARMUP_STRIKES) && !you.triggers_done[DID_REV_UP])
+        you.rev_up(you.melee_attack_delay().roll());
 }
 
 /**
@@ -1108,18 +1068,6 @@ bool player_unrand_bad_target(const item_def &weapon,
 
         return !safe_discharge(defender.pos(), check_only, false, true);
     }
-    if (is_unrandom_artefact(weapon, UNRAND_POWER))
-    {
-        targeter_beam hitfunc(&you, 4, ZAP_SWORD_BEAM, 100, 0, 0);
-        hitfunc.beam.chose_ray = true;
-        hitfunc.beam.aimed_at_spot = false;
-        find_life_bolt_ray(hitfunc.beam.source, defender.pos(), hitfunc.beam.ray);
-        hitfunc.set_aim(defender.pos());
-
-        return stop_attack_prompt(hitfunc, "attack near",
-                                  nullptr, nullptr, defending_monster,
-                                  check_only);
-    }
     return false;
 }
 
@@ -1192,7 +1140,6 @@ bool force_player_cleave(coord_def target)
         melee_attack atk(&you, nullptr);
         atk.launch_attack_set();
         count_action(CACT_ATTACK, ATTACK_NORMAL);
-        do_player_post_attack(nullptr, !atk.did_attack_hostiles(), false);
         return true;
     }
 
@@ -1249,10 +1196,12 @@ bool weapon_multihits(const item_def *weap)
  *                       even if it otherwise would not (ie: for Inugami instant
  *                       cleave).
  * @param weapon         The weapon being used to make this attack.
+ * @param reach_bonus    Bonus radius to be added to this calculation.
  */
 void get_cleave_targets(const actor &attacker, const coord_def& def,
                         list<actor*> &targets, int which_attack,
-                        bool force_cleaving, const item_def *weapon)
+                        bool force_cleaving, const item_def *weapon,
+                        int reach_bonus)
 {
     // Prevent scanning invalid coordinates if the attacker dies partway through
     // a cleave (due to hitting explosive creatures, or perhaps other things)
@@ -1269,8 +1218,8 @@ void get_cleave_targets(const actor &attacker, const coord_def& def,
     const coord_def atk = attacker.pos();
     // Players in aqua form specifically do not get enormous cleaving, but
     // monsters with natural reach cleave for their while reach.
-    const int cleave_radius = attacker.is_monster() ? attacker.reach_range()
-                                : weap ? weapon_reach(*weap) : 1;
+    const int cleave_radius = (attacker.is_monster() ? attacker.reach_range()
+                                : weap ? weapon_reach(*weap) : 1) + reach_bonus;
 
     for (distance_iterator di(atk, true, true, cleave_radius); di; ++di)
     {
@@ -1714,10 +1663,8 @@ int archer_bonus_damage(int hd)
 /**
  * Do weapons that use the given skill use strength or dex to increase damage?
  */
-bool weapon_uses_strength(skill_type wpn_skill, bool using_weapon)
+bool weapon_uses_strength(skill_type wpn_skill)
 {
-    if (!using_weapon)
-        return true;
     switch (wpn_skill)
     {
     case SK_LONG_BLADES:
@@ -1732,14 +1679,14 @@ bool weapon_uses_strength(skill_type wpn_skill, bool using_weapon)
 /**
  * Apply the player's attributes to multiply damage dealt with the given weapon skill.
  */
-int stat_modify_damage(int damage, skill_type wpn_skill, bool using_weapon)
+int stat_modify_damage(int damage, skill_type wpn_skill)
 {
     // At 10 strength, damage is multiplied by 1.0
     // Each point of strength over 10 increases this by 0.025 (2.5%),
     // strength below 10 reduces the multiplied by the same amount.
     // Minimum multiplier is 0.01 (1%) (reached at -30 str).
     // Ranged weapons and short/long blades use dex instead.
-    const bool use_str = weapon_uses_strength(wpn_skill, using_weapon);
+    const bool use_str = weapon_uses_strength(wpn_skill);
     const int attr = use_str ? you.strength() : you.dex();
     damage *= max(1.0, 75 + 2.5 * attr);
     damage /= 100;
@@ -1788,8 +1735,8 @@ int resonance_damage_mod(int dam, bool random)
 {
     if (you.wearing_ego(OBJ_ARMOUR, SPARM_RESONANCE))
     {
-        dam = random ? div_rand_round(dam * (100 + you.skill(SK_FORGECRAFT, 2)), 100)
-                     : dam * (100 + you.skill(SK_FORGECRAFT, 2)) / 100;
+        dam = random ? div_rand_round(dam * (100 + you.skill_rdiv(SK_FORGECRAFT, 3, 2)), 100)
+                     : dam * (100 + you.skill(SK_FORGECRAFT, 3) / 2) / 100;
     }
 
     return dam;

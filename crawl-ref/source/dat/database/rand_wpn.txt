@@ -327,6 +327,8 @@ Conscience
 
 Courage
 
+Daring
+
 Defiance
 
 Duty
@@ -356,8 +358,6 @@ Tenacity
 True Grit
 
 Valiance
-
-Valour
 
 Watchfulness
 
@@ -453,6 +453,8 @@ Priest
 Queen
 
 Saviour
+
+Scapegrace
 
 Scavenger
 
@@ -894,7 +896,7 @@ Chance
 
 Change
 
-Chaos
+Confusion
 
 Constant Reorganisation
 
@@ -929,6 +931,8 @@ Incongruity
 Mayhem
 
 Revolt
+
+True Chaos
 
 Tumult
 
@@ -1581,6 +1585,8 @@ Doors
 Entrepreneurial Spirit
 
 False Hope
+
+Fulguration
 
 Gin and Tonic
 

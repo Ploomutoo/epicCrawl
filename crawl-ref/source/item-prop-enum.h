@@ -126,6 +126,7 @@ enum armour_property_type
 
 const int SP_FORBID_EGO   = -1;
 const int SP_FORBID_BRAND = -1;
+const int SUNDERING_THRESHOLD = 5;
 
 // Be sure to update _debug_acquirement_stats and _str_to_ego to match.
 enum brand_type // item_def.special
@@ -171,6 +172,12 @@ enum brand_type // item_def.special
     SPWPN_PENETRATION,
     SPWPN_REAPING,
     SPWPN_SPECTRAL,
+    SPWPN_REBUKE,
+    SPWPN_VALOUR,
+    SPWPN_ENTANGLING,
+    SPWPN_SUNDERING,
+    SPWPN_CONCUSSION,
+    SPWPN_DEVIOUS,
 
 // From this point on save compat is irrelevant.
     NUM_REAL_SPECIAL_WEAPONS,
@@ -264,18 +271,10 @@ enum jewellery_type
     AMU_REFLECTION,
     AMU_REGENERATION,
     AMU_WILDSHAPE,
-    AMU_ALCHEMY,
+    AMU_CHEMISTRY,
     AMU_DISSIPATION,
 
     NUM_JEWELLERY
-};
-
-enum class launch_retval
-{
-    BUGGY = -1, // could be 0 maybe? TODO: test
-    FUMBLED,
-    LAUNCHED,
-    THROWN,
 };
 
 enum misc_item_type
@@ -366,21 +365,24 @@ enum missile_type
     MI_DART,
 #if TAG_MAJOR_VERSION == 34
     MI_NEEDLE,
-#endif
     MI_ARROW,
     MI_BOLT,
+#endif
     MI_JAVELIN,
 
     MI_STONE,
     MI_LARGE_ROCK,
+#if TAG_MAJOR_VERSION == 34
     MI_SLING_BULLET,
+#endif
     MI_THROWING_NET,
     MI_BOOMERANG,
 
+#if TAG_MAJOR_VERSION == 34
     MI_SLUG,
+#endif
 
     NUM_MISSILES,
-    MI_NONE             // was MI_EGGPLANT... used for launch type detection
 };
 
 enum rune_type
@@ -563,8 +565,8 @@ enum special_missile_type // to separate from weapons in general {dlb}
     SPMSL_PENETRATION,
 #endif
     SPMSL_DISPERSAL,
-    SPMSL_EXPLODING,                   // Only used by Damnation crossbow
 #if TAG_MAJOR_VERSION == 34
+    SPMSL_EXPLODING,
     SPMSL_STEEL,
 #endif
     SPMSL_SILVER,
@@ -897,6 +899,8 @@ enum talisman_type
     TALISMAN_FORTRESS,
     TALISMAN_SCARAB,
     TALISMAN_MEDUSA,
+    TALISMAN_EEL,
+    TALISMAN_SPORE,
     NUM_TALISMANS,
 };
 

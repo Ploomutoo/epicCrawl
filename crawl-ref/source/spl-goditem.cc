@@ -518,7 +518,7 @@ void debuff_player(bool ignore_resistance)
         {
             len = 0;
             mprf(MSGCH_DURATION, "You feel strangely stable.");
-            you.props.erase(SJ_TELEPORTITIS_SOURCE);
+            you.props.erase(TELEPORTITIS_SOURCE);
         }
         else if (duration == DUR_PETRIFYING)
         {
@@ -798,7 +798,6 @@ spret cast_tomb(int pow, actor* victim, int source, bool fail)
             }
 
             // Make sure we have a legitimate tile.
-            proceed = false;
             if (cell_is_solid(*ai) && !feat_is_opaque(env.grid(*ai)))
             {
                 success = false;
@@ -918,8 +917,6 @@ spret cast_tomb(int pow, actor* victim, int source, bool fail)
         else
             mpr("Walls emerge from the floor!");
 
-        you.update_beholders();
-        you.update_fearmongers();
         const int tomb_duration = BASELINE_DELAY * pow;
         env.markers.add(new map_tomb_marker(where,
                                             tomb_duration,
@@ -1109,11 +1106,6 @@ int torment_player(const actor *attacker, torment_source_type taux)
         }
         if (you.has_mutation(MUT_TORMENT_RESISTANCE))
             hploss /= 2;
-#if TAG_MAJOR_VERSION == 34
-        // Save compatibility for old demonspawn mutation -- now deterministic
-        if (you.has_mutation(MUT_STOCHASTIC_TORMENT_RESISTANCE))
-            hploss /= 2;
-#endif
     }
 
     // Kiku protects you from torment to a degree.

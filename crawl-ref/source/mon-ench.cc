@@ -41,6 +41,7 @@
 #include "mon-tentacle.h"
 #include "movement.h"
 #include "player.h"
+#include "player-notices.h"
 #include "religion.h"
 #include "spl-clouds.h"
 #include "spl-damage.h"
@@ -164,7 +165,7 @@ void monster::update_ench(const mon_enchant &ench)
     }
 }
 
-bool monster::add_ench(const mon_enchant &ench)
+bool monster::add_ench(const mon_enchant &ench, bool stack_duration)
 {
     // silliness
     if (ench.ench == ENCH_NONE)
@@ -189,7 +190,12 @@ bool monster::add_ench(const mon_enchant &ench)
     bool new_enchantment = false;
     mon_enchant *added = map_find(enchantments, ench.ench);
     if (added)
+    {
+        const int old_dur = added->duration;
         *added += ench;
+        if (!stack_duration)
+            added->duration = max(old_dur, ench.duration);
+    }
     else
     {
         new_enchantment = true;
@@ -315,7 +321,7 @@ void monster::add_enchantment_effect(const mon_enchant &ench, bool quiet)
             }
 
             autotoggle_autopickup(!friendly());
-            handle_seen_interrupt(this);
+            maybe_notice_monster(*this);
         }
 
         // TODO -- and friends
@@ -569,7 +575,7 @@ void monster::remove_enchantment_effect(const mon_enchant &me, bool quiet)
             if (!quiet)
                 mprf("%s appears from thin air!", name(DESC_A, true).c_str());
 
-            handle_seen_interrupt(this);
+            maybe_notice_monster(*this);
         }
         break;
 
@@ -616,7 +622,7 @@ void monster::remove_enchantment_effect(const mon_enchant &me, bool quiet)
         {
             // and fire activity interrupts
             interrupt_activity(activity_interrupt::see_monster,
-                               activity_interrupt_data(this, SC_UNCHARM));
+                               activity_interrupt_data(this, SC_ALREADY_IN_VIEW));
         }
 
         if (is_patrolling())
@@ -820,9 +826,9 @@ void monster::remove_enchantment_effect(const mon_enchant &me, bool quiet)
             simple_monster_message(*this, " seems less drained.");
         break;
 
-    case ENCH_REPEL_MISSILES:
+    case ENCH_DEFLECT_MISSILES:
         if (!quiet)
-            simple_monster_message(*this, " is no longer repelling missiles.");
+            simple_monster_message(*this, " is no longer deflecting missiles.");
         break;
 
     case ENCH_RESISTANCE:
@@ -1158,7 +1164,7 @@ static bool _merfolk_avatar_movement_effect(const monster* mons)
         || you.duration[DUR_TIME_STEP]
         || you.cannot_act()
         || you.clarity()
-        || !you.is_motile()
+        || you.cannot_move()
         || you.resists_dislodge("being lured by song"))
     {
         return true;
@@ -1360,7 +1366,7 @@ void monster::apply_enchantment(const mon_enchant &me)
     case ENCH_PROTEAN_SHAPESHIFTING:
     case ENCH_CURSE_OF_AGONY:
     case ENCH_MAGNETISED:
-    case ENCH_REPEL_MISSILES:
+    case ENCH_DEFLECT_MISSILES:
     case ENCH_MISDIRECTED:
     case ENCH_CHANGED_APPEARANCE:
     case ENCH_KINETIC_GRAPNEL:
@@ -1380,6 +1386,7 @@ void monster::apply_enchantment(const mon_enchant &me)
     case ENCH_ANTIMAGIC:
     case ENCH_MIRROR_DAMAGE:
     case ENCH_DRAINED:
+    case ENCH_SUNDER_CHARGE:
         decay_enchantment(en);
         break;
 
@@ -1633,7 +1640,7 @@ void monster::apply_enchantment(const mon_enchant &me)
         // If we've gotten silenced or somehow incapacitated since we started,
         // cancel the recitation
         if (is_silenced() || cannot_act() || has_ench(ENCH_BREATH_WEAPON)
-            || confused() || asleep() || has_ench(ENCH_FEAR) || has_ench(ENCH_DAZED))
+            || confused() || asleep() || has_ench(ENCH_FEAR))
         {
             del_ench(en, true, false);
             if (you.can_see(*this))
@@ -1653,7 +1660,7 @@ void monster::apply_enchantment(const mon_enchant &me)
 
     case ENCH_CLOCKWORK_BEE_CAST:
         if (is_silenced() || cannot_act() || has_ench(ENCH_BREATH_WEAPON)
-            || confused() || asleep() || has_ench(ENCH_FEAR) || has_ench(ENCH_DAZED))
+            || confused() || asleep() || has_ench(ENCH_FEAR))
         {
             del_ench(en, true, false);
             if (you.can_see(*this))
@@ -1776,7 +1783,7 @@ void monster::apply_enchantment(const mon_enchant &me)
     case ENCH_CHANNEL_SEARING_RAY:
         // If we've gotten incapacitated since we started, cancel the spell
         if (is_silenced() || cannot_act() || confused() || asleep()
-            || has_ench(ENCH_FEAR) || has_ench(ENCH_DAZED))
+            || has_ench(ENCH_FEAR))
         {
             del_ench(en, true, false);
             if (you.can_see(*this))
@@ -2102,9 +2109,9 @@ static const char *enchant_names[] =
 #if TAG_MAJOR_VERSION == 34
     "gold_lust",
 #endif
-    "drained", "repel_missiles",
+    "drained", "deflect_missiles",
 #if TAG_MAJOR_VERSION == 34
-    "deflect missiles",
+    "deflect missiles old",
     "negative_vuln", "condensation_shield",
 #endif
     "resistant", "hexed",
@@ -2141,7 +2148,7 @@ static const char *enchant_names[] =
     "deep_sleep", "drowsy",
     "vampire_thrall", "pyrrhic_recollection", "clockwork_bee_cast",
     "phalanx_barrier", "figment", "paradox-touched", "warding",
-    "diminished_spells", "orb_cooldown",
+    "diminished_spells", "orb_cooldown", "sunder_charge",
     "buggy", // NUM_ENCHANTMENTS
 };
 

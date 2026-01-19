@@ -191,6 +191,8 @@ static inline int get_resist(resists_t all, mon_resist_flags res)
     return v;
 }
 
+constexpr int SLYMDRA_HP_PER_HEAD = 30;
+
 dungeon_feature_type preferred_feature_type(monster_type mt);
 
 monsterentry *get_monster_data(monster_type mc) IMMUTABLE;
@@ -301,7 +303,7 @@ int mons_class_base_speed(monster_type mc);
 mon_energy_usage mons_class_energy(monster_type mc);
 mon_energy_usage mons_energy(const monster& mon);
 int mons_class_zombie_base_speed(monster_type zombie_base_mc, bool slow);
-int mons_base_speed(const monster& mon, bool known = false);
+int mons_base_speed(const monster& mon);
 
 bool monster_class_flies(monster_type mc);
 bool monster_inherently_flies(const monster &mons);
@@ -332,7 +334,7 @@ bool mons_class_can_use_stairs(monster_type mc);
 bool mons_class_can_use_transporter(monster_type mc);
 bool mons_can_use_stairs(const monster& mon,
                          dungeon_feature_type stair = DNGN_UNSEEN);
-void name_zombie_from_class(monster& mon, monster_type mc, const string &mon_name);
+void name_zombie_from_class(monster& mon, monster_type mc, const string& mon_name);
 void name_zombie_from_mon(monster& mon, const monster& orig);
 
 int mons_power(monster_type mc);
@@ -357,9 +359,7 @@ bool mons_should_fire(const bolt &beam, const targeting_tracer& tracer,
                       bool ignore_good_idea = false);
 
 bool mons_has_los_ability(monster_type mon_type);
-bool is_offensive_spell(spell_type spell, maybe_bool needs_lof = maybe_bool::maybe,
-                        bool damage_only = false);
-bool mons_has_ranged_damage_spell(const monster& mon);
+bool is_offensive_spell(spell_type spell, maybe_bool needs_lof = maybe_bool::maybe);
 bool _mons_has_smite_attack(const monster* mons);
 
 gender_type mons_class_gender(monster_type mc);
@@ -474,8 +474,9 @@ monster_type get_monster_by_name(string name, bool substring = false);
 
 string random_body_part_name(bool plural, int part_class);
 
-string do_mon_str_replacements(const string &msg, const monster& mons,
+string do_mon_str_replacements(const string& msg, const monster& mons,
                                int s_type = -1);
+string do_mon_name_replacements(const string& name);
 
 mon_body_shape get_mon_shape(const monster& mon);
 mon_body_shape get_mon_shape(const monster_type mc);

@@ -167,7 +167,7 @@ bool player_summon_check(const vector<monster_type>& types, int max_range,
     // monsters we've been given.
     if (!_can_summon_any_of(types, max_range, exclude_range, pos.origin() ? you.pos() : pos))
     {
-        mpr("There is no available space!");
+        canned_msg(MSG_NO_AVAILABLE_SPACE);
         return false;
     }
 
@@ -420,12 +420,12 @@ spret cast_sphinx_sisters(const actor& caster, int pow, bool fail)
         if (mi->was_created_by(caster, SPELL_SPHINX_SISTERS))
             monster_die(**mi, KILL_TIMEOUT, NON_MONSTER);
 
-    int dur = summ_dur(3);
+    int dur = summ_dur(2);
 
     mgen_data mdata = _summon_data(caster, MONS_SPHINX_MARAUDER, dur,
                                                             SPELL_SPHINX_SISTERS);
     if (caster.is_player())
-        mdata.hd = 11 + div_rand_round(pow, 25);
+        mdata.hd = 9 + div_rand_round(pow, 25);
 
     monster* marauder = create_monster(mdata);
 
@@ -1188,7 +1188,7 @@ spret summon_shadow_creatures()
     // so it is technically still usable above water or lava
     if (!you_can_see_habitable_spot_near(HT_FLYER, 2))
     {
-        mpr("There is no available space!");
+        canned_msg(MSG_NO_AVAILABLE_SPACE);
         return spret::abort;
     }
 
@@ -1207,7 +1207,7 @@ spret summon_shadow_creatures()
             mgen_data(RANDOM_COMPATIBLE_MONSTER, BEH_FRIENDLY, you.pos(),
                       MHITYOU, MG_FORCE_BEH | MG_AUTOFOE | MG_NO_OOD)
                       // This duration is only used for band members.
-                      .set_summoned(&you, MON_SUMM_SCROLL, 1)
+                      .set_summoned(&you, MON_SUMM_SCROLL, summ_dur(2))
                       .set_place(level_id::current()),
             false))
         {
@@ -1682,7 +1682,6 @@ static spell_type servitor_spells[] =
     SPELL_IRRADIATE,
     SPELL_BOULDER,
     SPELL_CONJURE_BALL_LIGHTNING, // but VERY funny
-    SPELL_FREEZING_CLOUD,
     SPELL_MEPHITIC_CLOUD,
 };
 
@@ -2863,7 +2862,7 @@ spret kiku_unearth_wretches(bool fail)
     // technically still usable above water or lava
     if (!you_can_see_habitable_spot_near(HT_FLYER, 4))
     {
-        mpr("There is no available space!");
+        canned_msg(MSG_NO_AVAILABLE_SPACE);
         return spret::abort;
     }
 
@@ -3134,7 +3133,7 @@ spret cast_broms_barrelling_boulder(actor& agent, coord_def targ, int pow, bool 
     ray_def ray;
     if (!find_ray(agent.pos(), targ, ray, opc_solid) || !ray.advance())
     {
-        mpr("There's something in the way.");
+        canned_msg(MSG_SOMETHING_IN_WAY);
         return spret::abort;
     }
     const coord_def pos = ray.pos();
@@ -3401,7 +3400,7 @@ spret cast_hellfire_mortar(const actor& agent, bolt& beam, int pow, bool fail)
     }
 
     // Make the lava
-    int dur = random_range(15, 19) * BASELINE_DELAY;
+    int dur = len * 3 / 2 * BASELINE_DELAY;
     for (int i = 0; i < len; ++i)
     {
         const coord_def pos = beam.path_taken[i];
@@ -3423,7 +3422,7 @@ spret cast_hellfire_mortar(const actor& agent, bolt& beam, int pow, bool fail)
         }
 
         temp_change_terrain(beam.path_taken[i], DNGN_LAVA,
-                            dur - (i * BASELINE_DELAY),
+                            dur - (i * BASELINE_DELAY / 2),
                             TERRAIN_CHANGE_HELLFIRE_MORTAR);
 
         flash_tile(pos, RED, 5);
@@ -3459,6 +3458,9 @@ spret cast_hellfire_mortar(const actor& agent, bolt& beam, int pow, bool fail)
 
     mprf("With a deafening crack, the ground splits apart in the path of %s "
         "chthonic artillery!", agent.name(DESC_ITS).c_str());
+
+    if (agent.is_player())
+        you.duration[DUR_HELLFIRE_MORTAR_COOLDOWN] = dur;
 
     return spret::success;
 }
@@ -4009,8 +4011,6 @@ spret cast_surprising_crocodile(actor& agent, const coord_def& targ, int pow, bo
         atk.attack();
     }
 
-    croc->flags & ~MF_JUST_SUMMONED;
-
     if (you.can_see(agent))
     {
         mprf("%s dismount%s %s crocodile.",
@@ -4209,6 +4209,7 @@ void paragon_attack_trigger()
     mpr("Your paragon attacks with you!");
     fight_melee(paragon, targ);
     paragon->speed_increment += paragon->action_energy(EUT_ATTACK);
+    you.did_trigger(DID_PARAGON);
 }
 
 int paragon_charge_level(const monster& paragon)
@@ -4320,12 +4321,12 @@ static void _do_player_potion()
 
     if (you.magic_points < you.max_magic_points)
     {
-        const int amu = you.wearing(OBJ_JEWELLERY, AMU_ALCHEMY, false, true);
+        const int amu = you.wearing(OBJ_JEWELLERY, AMU_CHEMISTRY, false, true);
         if (amu)
         {
             mprf("You extract %smagical energy from the potion.",
                  amu > 1 ? "even more " : "");
-            inc_mp(random_range(3, 6) * amu);
+            inc_mp(random_range(5, 9) * amu);
         }
     }
 
@@ -4338,11 +4339,11 @@ static bool _do_monster_potion(monster& mons, monster& alembic)
 {
     vector<pair<potion_type, int>> weights;
 
-    if (!mons.has_ench(ENCH_HASTE))
+    if (mons_benefits_from_potion(mons, POT_HASTE))
         weights.push_back({POT_HASTE, 50});
-    if (!mons.has_ench(ENCH_MIGHT) && mons_has_attacks(mons))
+    if (mons_benefits_from_potion(mons, POT_MIGHT))
         weights.push_back({POT_MIGHT, 75});
-    if (!mons.has_ench(ENCH_EMPOWERED_SPELLS) && mons.antimagic_susceptible())
+    if (mons_benefits_from_potion(mons, POT_BRILLIANCE))
         weights.push_back({POT_BRILLIANCE, 75});
     if (mons.hit_points * 2 / 3 < mons.max_hit_points)
         weights.push_back({POT_HEAL_WOUNDS, 35});
@@ -4355,31 +4356,8 @@ static bool _do_monster_potion(monster& mons, monster& alembic)
     flash_tile(mons.pos(), random_choose(LIGHTBLUE, LIGHTGREEN, LIGHTMAGENTA),
                60, TILE_BOLT_ALEMBIC_POTION);
 
-    switch (potion)
-    {
-        case POT_HASTE:
-            enchant_actor_with_flavour(&mons, &alembic, BEAM_HASTE);
-            return true;
-
-        case POT_MIGHT:
-            enchant_actor_with_flavour(&mons, &alembic, BEAM_MIGHT);
-            return true;
-
-        case POT_BRILLIANCE:
-            simple_monster_message(mons, " magic is enhanced!", true);
-            mons.add_ench(mon_enchant(ENCH_EMPOWERED_SPELLS, &alembic));
-            return true;
-
-        case POT_HEAL_WOUNDS:
-            simple_monster_message(mons, " is healed!");
-            mons.heal(random_range(30, 50));
-            return true;
-
-        default:
-            break;
-    }
-
-    return false;
+    mons_potion_effect(mons, potion, alembic);
+    return true;
 }
 
 void alembic_brew_potion(monster& mons)
@@ -4564,13 +4542,15 @@ static bool _push_line_back(const coord_def& center, const coord_def& dir)
 }
 
 
-vector<coord_def> get_splinterfrost_block_spots(const actor& agent,
-                                              const coord_def& aim, int num_walls)
+vector<coord_def> get_wall_ring_spots(const coord_def& center,
+                                      const coord_def& aim,
+                                      int num_walls, bool water_okay)
 {
     vector<coord_def> spots;
 
     // Convert aim to a compass direction
-    coord_def delta = (aim - agent.pos()).sgn();
+    coord_def delta = (aim - center).sgn();
+
     int dir = 0;
     for (int i = 0; i < 8; ++i)
     {
@@ -4589,9 +4569,10 @@ vector<coord_def> get_splinterfrost_block_spots(const actor& agent,
     for (int i = start; i < start + num_walls; ++i)
     {
         const int index = i % 8;
-        const coord_def spot = agent.pos() + Compass[index];
+        const coord_def spot = center + Compass[index];
         if (in_bounds(spot) && !cell_is_solid(spot)
             && env.grid(spot) != DNGN_LAVA
+            && (water_okay || env.grid(spot) != DNGN_DEEP_WATER)
             && !feat_is_trap(env.grid(spot)))
         {
             spots.push_back(spot);
@@ -4616,7 +4597,7 @@ spret cast_splinterfrost_shell(const actor& agent, const coord_def& aim,
     mg.hd = 10 + div_rand_round(pow, 20);
     mg.set_range(0);
 
-    vector<coord_def> spots = get_splinterfrost_block_spots(agent, aim, 4);
+    vector<coord_def> spots = get_wall_ring_spots(agent.pos(), aim, 4, true);
     int num_created = 0;
     for (size_t i = 0; i < spots.size(); ++i)
     {
@@ -4647,47 +4628,14 @@ bool splinterfrost_block_fragment(monster& block, const coord_def& aim)
     const int pow = block.props[SPLINTERFROST_POWER_KEY].get_int();
     actor* agent = actor_by_mid(block.summoner);
 
-    ray_def ray;
-    if (!find_ray(block.pos(), aim, ray, opc_solid_see))
-        return false;
-
-    // Examine spaces one at a time, stopping before we'd hit a friendly
-    // non-firewood actor.
-    // XXX: It feels wrong not using a beam tracer for this, but tracers will
-    //      simply refuse to fire if an ally is anywhere in the path, rather
-    //      than ending their shot a bit earlier. That is fine for normal
-    //      monsters, but as a reactive player thing, it feels bad if the
-    //      barricade doesn't detonate when it looks like it should.
-    int steps_taken = 0;
-    coord_def aim_spot;
-    while (ray.advance() && steps_taken < LOS_RADIUS)
-    {
-        ++steps_taken;
-        const coord_def p = ray.pos();
-
-        if (!in_bounds(p) || cell_is_solid(p))
-            break;
-        else if (actor* targ = actor_at(p))
-        {
-            // Don't hurt allies.
-            if (mons_aligned(&block, targ) && !targ->is_firewood())
-                break;
-        }
-
-        aim_spot = p;
-    }
-
-    if (aim_spot.origin())
-        return false;
-
     bolt beam;
     zappy(ZAP_SPLINTERFROST_FRAGMENT, pow, false, beam);
     beam.source = block.pos();
     beam.attitude = block.attitude;
     beam.set_agent(agent);
-    beam.target = aim_spot;
-    beam.range = steps_taken;
-    beam.aimed_at_spot = true;
+    beam.target = aim;
+    beam.range = LOS_RADIUS;
+    beam.stop_at_allies = true;
 
     string msg;
     if (you.can_see(block))

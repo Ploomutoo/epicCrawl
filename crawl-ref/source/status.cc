@@ -117,6 +117,11 @@ bool duration_negative(duration_type dur)
     return _lookup_duration(dur)->duration_has_flag(D_NEGATIVE);
 }
 
+bool duration_extended_by_attacks(duration_type dur)
+{
+    return _lookup_duration(dur)->duration_has_flag(D_ATTACK_EXTENDED);
+}
+
 static int _bad_ench_colour(int lvl, int orange, int red)
 {
     if (lvl >= red)
@@ -312,6 +317,7 @@ bool fill_status_info(int status, status_info& inf)
     case DUR_CORROSION:
         inf.light_text = make_stringf("Corr (%d)",
                           (-1 * you.corrosion_amount()));
+        inf.short_text = make_stringf("corroded (%d)", (-1 * you.corrosion_amount()));
         break;
 
     case DUR_FLAYED:
@@ -326,8 +332,8 @@ bool fill_status_info(int status, status_info& inf)
 
     case STATUS_NO_POTIONS:
         if (you.duration[DUR_NO_POTIONS] || player_in_branch(BRANCH_COCYTUS)
-            || (you.has_mutation(MUT_HOARD_POTIONS)
-                && you.props.exists(HOARD_POTIONS_TIMER_KEY)))
+            || (you.has_mutation(MUT_RENOUNCE_POTIONS)
+                && you.props.exists(RENOUNCE_POTIONS_TIMER_KEY)))
         {
             inf.light_colour = !you.can_drink(false) ? DARKGREY : RED;
             inf.light_text   = "-Potion";
@@ -590,6 +596,18 @@ bool fill_status_info(int status, status_info& inf)
         inf.light_text = make_stringf("Slay +%d", you.props[WEREFURY_KEY].get_int());
     break;
 
+    case DUR_DEVIOUS:
+    {
+        const int stacks = you.props[DEVIOUS_KEY].get_int();
+        if (stacks == 1)
+            inf.light_colour = BLUE;
+        else if (stacks == 2)
+            inf.light_colour = LIGHTBLUE;
+        else
+            inf.light_colour = WHITE;
+    }
+    break;
+
     case STATUS_CLAUSTROPHOBIA:
         if (you.has_bane(BANE_CLAUSTROPHOBIA))
         {
@@ -825,8 +843,8 @@ bool fill_status_info(int status, status_info& inf)
 
     case STATUS_NO_SCROLL:
         if (you.duration[DUR_NO_SCROLLS] || player_in_branch(BRANCH_GEHENNA)
-            || (you.has_mutation(MUT_HOARD_SCROLLS)
-                && you.props.exists(HOARD_SCROLLS_TIMER_KEY)))
+            || (you.has_mutation(MUT_RENOUNCE_SCROLLS)
+                && you.props.exists(RENOUNCE_SCROLLS_TIMER_KEY)))
         {
             inf.light_colour = RED;
             inf.light_text   = "-Scroll";
@@ -924,7 +942,7 @@ bool fill_status_info(int status, status_info& inf)
         break;
 
     case DUR_TELEPORT:
-        if (you.props.exists(SJ_TELEPORTITIS_SOURCE))
+        if (you.props.exists(TELEPORTITIS_SOURCE))
         {
             inf.light_text   = "!Tele!";
             inf.light_colour = RED;
@@ -952,6 +970,15 @@ bool fill_status_info(int status, status_info& inf)
             inf.light_colour = RED;
         else
             inf.light_colour = LIGHTGREY;
+        break;
+
+    case DUR_SLIMIFYING:
+        if (you.duration[DUR_SLIMIFYING] > 70)
+            inf.light_colour = LIGHTMAGENTA;
+        else if (you.duration[DUR_SLIMIFYING] >= 35)
+            inf.light_colour = MAGENTA;
+        else
+            inf.light_colour = RED;
         break;
 
     case STATUS_MNEMOPHAGE:
@@ -996,15 +1023,20 @@ bool fill_status_info(int status, status_info& inf)
             && you.props.exists(TESSERACT_SPAWN_COUNTER_KEY))
         {
             const int count = you.props[TESSERACT_SPAWN_COUNTER_KEY].get_int();
-
-            if (count <= 15)
-                inf.light_colour = RED;
-            else if (count >= 80)
+            if (count >= 50)
                 inf.light_colour = LIGHTMAGENTA;
             else
-                inf.light_colour = YELLOW;
+                inf.light_colour = RED;
 
             inf.light_text = "Tesseract";
+        }
+        break;
+
+    case STATUS_SUNDER_READY:
+        if (you.sunder_is_ready())
+        {
+            inf.light_colour = WHITE;
+            inf.light_text = "Sunder";
         }
         break;
 

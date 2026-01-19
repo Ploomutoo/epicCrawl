@@ -7,6 +7,7 @@
 #include <cerrno>
 #include <cstdarg>
 
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -420,6 +421,19 @@ static int _handle_cell_click(const coord_def &gc, int button, bool force)
     return CK_MOUSE_CLICK;
 }
 
+static char32_t _remove_first_character_utf8(string& text)
+{
+    if (text.empty())
+        return 0;
+    char32_t result = 0;
+    int length = utf8towc(&result, text.c_str());
+    if (!length)
+        text.clear();
+    else
+        text.erase(0, length);
+    return result;
+}
+
 wint_t TilesFramework::_handle_control_message(sockaddr_un addr, string data)
 {
     JsonWrapper obj = json_decode(data.c_str());
@@ -432,7 +446,7 @@ wint_t TilesFramework::_handle_control_message(sockaddr_un addr, string data)
     fprintf(stderr, "websocket: Received control message '%s' in %d byte.\n", msgtype.c_str(), (int) data.size());
 #endif
 
-    int c = 0;
+    wint_t c = 0;
 
     if (msgtype == "attach")
     {
@@ -606,65 +620,115 @@ wint_t TilesFramework::_handle_control_message(sockaddr_un addr, string data)
         // (possibly just as a string, like the lua API for this)
         process_command(CMD_GAME_MENU);
     }
+    else if (msgtype == "text_input")
+    {
+        JsonWrapper text = json_find_member(obj.node, "text");
+        text.check(JSON_STRING);
+        ASSERT(m_pending_text_input.empty());
+        m_pending_text_input = text->string_;
+        c = _remove_first_character_utf8(m_pending_text_input);
+    }
 
     return c;
 }
 
-bool TilesFramework::await_input(wint_t& c, bool block)
+wint_t TilesFramework::try_await_input()
 {
+    if (m_sock_name.empty())
+        return 0;
+
+    wint_t c = _remove_first_character_utf8(m_pending_text_input);
+    if (c != 0)
+        return c;
+
+    fd_set fds;
+    int result;
+    while (true)
+    {
+        FD_ZERO(&fds);
+        FD_SET(m_sock, &fds);
+
+        timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 0;
+
+        result = select(m_sock + 1, &fds, nullptr, nullptr, &timeout);
+        if (result == -1 && errno == EINTR)
+            continue;
+
+        if (result <= 0)
+            return 0;
+
+        c = _receive_control_message();
+        if (c != 0)
+            return c;
+    }
+}
+
+struct save_signal_mask
+{
+    save_signal_mask()
+    {
+        sigprocmask(SIG_SETMASK, nullptr, &old);
+    }
+
+    ~save_signal_mask()
+    {
+        sigprocmask(SIG_SETMASK, &old, nullptr);
+    }
+
+    sigset_t old;
+};
+
+wint_t TilesFramework::await_input(bool(*has_console_input)())
+{
+    if (m_sock_name.empty())
+        return 0;
+
+    wint_t c = _remove_first_character_utf8(m_pending_text_input);
+    if (c != 0)
+        return c;
+
     int result;
     fd_set fds;
-    int maxfd = m_sock_name.empty() ? STDIN_FILENO : m_sock;
+    int maxfd = m_sock;
+
+    save_signal_mask saved_sig_mask;
+    sigset_t signals_to_wait_for;
+    sigemptyset(&signals_to_wait_for);
+    sigaddset(&signals_to_wait_for, SIGWINCH);
+    sigprocmask(SIG_BLOCK, &signals_to_wait_for, nullptr);
 
     while (true)
     {
-        do
+        FD_ZERO(&fds);
+        FD_SET(STDIN_FILENO, &fds);
+        FD_SET(m_sock, &fds);
+
+        tiles.flush_messages();
+
+        if (has_console_input())
+            return 0;
+        result = pselect(maxfd + 1, &fds, nullptr, nullptr, nullptr,
+                         &saved_sig_mask.old);
+        if (has_console_input())
+            return 0;
+        if (result == -1 && errno == EINTR || result == 0)
+            continue;
+        if (result > 0)
         {
-            FD_ZERO(&fds);
-            FD_SET(STDIN_FILENO, &fds);
-            if (!m_sock_name.empty())
-                FD_SET(m_sock, &fds);
-
-            if (block)
-            {
-                tiles.flush_messages();
-                result = select(maxfd + 1, &fds, nullptr, nullptr, nullptr);
-            }
-            else
-            {
-                timeval timeout;
-                timeout.tv_sec = 0;
-                timeout.tv_usec = 0;
-
-                result = select(maxfd + 1, &fds, nullptr, nullptr, &timeout);
-            }
-        }
-        while (result == -1 && errno == EINTR);
-
-        if (result == 0)
-            return false;
-        else if (result > 0)
-        {
-            if (!m_sock_name.empty() && FD_ISSET(m_sock, &fds))
+            if (FD_ISSET(m_sock, &fds))
             {
                 c = _receive_control_message();
-
                 if (c != 0)
-                    return true;
-            }
-
-            if (FD_ISSET(STDIN_FILENO, &fds))
-            {
-                c = 0;
-                return true;
+                    return c;
             }
         }
         else if (errno == EBADF)
         {
             // This probably means that stdin got closed because of a
             // SIGHUP. We'll just return.
-            c = 0;
-            return false;
+            return 0;
         }
         else
             die("select error: %s", strerror(errno));
@@ -1424,7 +1488,7 @@ void TilesFramework::_send_item(item_def& current, const item_def& next,
             current.plus = evoker_charges(current.sub_type);
         if (in_inventory(current))
         {
-            auto action = quiver::slot_to_action(current.link, false);
+            auto action = quiver::slot_to_action(current.link);
             // TODO: does this stay in sync? Do anything with enabledness?
             if (action && action->is_valid())
                 json_write_string("action_verb", action->quiver_verb());

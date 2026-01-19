@@ -37,7 +37,7 @@ function ks_shop_vault(e, glyphs)
 
   local params = dgn.map_parameters()
   if params ~= nil then
-    local tag = unpack(params)
+    local tag = table.unpack(params)
     if tag ~= nil then
       if tag == "shop" then
         is_shop = true
@@ -703,11 +703,18 @@ TAGS:  transparent shop extra allow_dup
 KFEAT: S = any shop
 KFEAT: D = demonic_tree
 SUBST: t : t:35 D:1
+: if you.in_branch("Shoals") then
+FTILE: @'tD = floor_rough_lightgreen
+FTILE: .S = floor_grass
+: else
+FTILE: @'tD = floor_moss
+FTILE: .S = floor_grass_dark
+: end
 MAP
 xxxx
 xS.t
-x...
-xt.@
+x..'
+xt'@
 ENDMAP
 
 NAME:   nicolae_shop_real_fake_doors
@@ -1089,7 +1096,7 @@ ITEM:    stone
 SUBST:   ? = 1dd
 {{
 local inv = "tin of tremorstones w:7 | wand of digging w:8 | \
-             staff of earth w:4 randbook disc:earth w:5 | \
+             staff of earth w:4 | randbook disc:earth w:5 | \
              book of the earth w:2 | book of iron w:2 | \
              book of the moon w:2 | crystal plate armour w:1 | "
 if you.absdepth() < 16 then
@@ -1376,11 +1383,11 @@ TAGS:  transparent no_item_gen no_monster_gen extra
 DEPTH: D:8-, Depths, Zot
 KFEAT: S = general shop type:Changing suffix:Room count:9 ; \
            potion of mutation w:15 | potion of lignification w:15 | \
-           wand of polymorph | amulet of wildshape | any talisman | \
+           wand of polymorph w:5 | amulet of wildshape | any talisman | \
            staff of alchemy | randbook disc:alchemy spells:irradiate w:6 | \
            randbook disc:alchemy spells:fulsome_fusillade w:6 | \
            plutonium_sword w:1 | manual of shapeshifting w:5 | \
-           manual of alchemy w:5
+           manual of alchemy w:5 | flux bauble w:5
 : single_cloud(_G, "F", "mutagenic fog", true)
 COLOUR: m = magenta
 TILE:   m = dngn_transparent_wall_magenta
@@ -1654,9 +1661,9 @@ TAGS:    transparent extra
 DEPTH:   D:4-, Depths, Orc, Elf, Shoals, Snake, Vaults
 KFEAT:   S = general shop type:Overcharged suffix:Wands greed:15 count:6 ; \
          wand of digging charges:11 | any blast wand charges:18 | \
-         any beam wand charges:18 | wand of charming charges:18 | \
-         wand of paralysis charges:18 | wand of polymorph charges:18 | \
-         wand of mindburst charges:30 | wand of flame charges:40
+         any beam wand charges:18 | any hex wand charges:18 | \
+         wand of polymorph charges:18 | wand of mindburst charges:30 | \
+         wand of flame charges:40 w:5
 SHUFFLE: bv/bc/cv/bm/vm/cm
 MAP
 .......
@@ -1762,12 +1769,11 @@ local weaponnames = {"dagger", "short sword", "falchion", "scimitar",
                     "club w:20", "flail", "demon whip w:3",
                     "dire flail", "eveningstar w:6",
                     "spear", "halberd", "partisan w:6", "demon trident w:3"}
-local egos = {"chaos", "draining", "distortion", "electrocution", "flaming",
+local egos = {"chaos", "draining", "distortion", "electrocution",  "flaming",
               "freezing", "heavy", "speed", "spectral", "protection", "pain"}
 local kstr = "S = general shop name:" .. name .. " type:Alliterative " ..
-             "suffix:Armaments count:" .. count .. " ; " ..
-             "halberd itemname:scythe tile:wpn_scythe wtile:scythe ego:speed | " ..
-             "halberd itemname:scythe tile:wpn_scythe wtile:scythe ego:spectral"
+             "suffix:Armaments count:" .. count .. " ; dagger ego:devious | " ..
+             scythe("speed") .. " | " .. scythe("spectral")
 --add any weapon-ego pair with matching first letter
 for _, weapon in ipairs(weaponnames) do
   for _, ego in ipairs(egos) do
@@ -1792,11 +1798,11 @@ KITEM:    O = ring of protection from cold / \
           damaged dagger ego:freezing / wand of iceblast charges:1 w:5
 KFEAT:    O = abandoned_shop
 KFEAT:    P = general shop type:Fire suffix:Supplies ; \
-          ring of protection from fire | staff of fire | wand of flame | \
+          ring of protection from fire | staff of fire | wand of flame w:5 | \
           any weapon ego:flaming w:30 | scroll of immolation | \
           randbook disc:fire w:20 | manual of fire magic w:1 | \
           any armour ego:fire_resistance w:25 | fire dragon scales w:5 | \
-          pair of gloves ego:fire w:5
+          pair of gloves ego:fire w:5 | orb ego:pyromania
 KFEAT:    C = c
 SUBVAULT: ' : nico_deadtrees
 MARKER:   O = lua:fog_machine { cloud_type = "black smoke", pow_min = 10, \
@@ -2098,8 +2104,9 @@ WEIGHT: 1 (Zot, Crypt), 3
 local shopname = util.random_from({"type:Orb suffix:Outfitters",
    "type:Spherical suffix:Supermarket", "type:Round suffix:Resellers",
    "type:Globular suffix:Garage"})
-local kstr = "S = general shop " .. shopname .. " count:6 ; " ..
-             "orb randart w:20 | orb w:5 | book of the spheres w:1 "
+local kstr = "S = general shop " .. shopname .. " count:8 ; orb w:5 | " ..
+             "orb randart w:20 | manual of evocations w:1 | " ..
+             "book of the spheres w:1"
 
 if not you.unrands("sphere of Battle") then
       kstr = kstr .. " | sphere of Battle w:2"
@@ -2170,7 +2177,7 @@ end
 local kstr = "S = armour shop name:Granny_Wiglaf " .. shopname ..
     " count:" .. count .. " greed:15 use_all no_mimic ; " ..
     " | hat randart tile:thelm_cap_jester" ..
-    " | hat randart tile:thelm_hat_art_last"
+    " | hat randart tile:thelm_hat_wizard"
 
 local egos = util.random_subset({"intelligence", "see_invisible",
                                  "willpower", "sniping", "ice"}, 2)
@@ -2305,6 +2312,78 @@ MAP
    ...
 ENDMAP
 
+# Thirteen years after the custom earth shop: the custom air shop.
+NAME:  regret_index_shop_air
+TAGS:  transparent no_monster_gen patrolling no_pool_fixup
+DEPTH: D:6-, Shoals, Vaults, Elf, Depths
+MONS:  steam dragon w:7 / sky beast / wyvern
+MONS:  tengu warrior, tengu conjurer / harpy / deep elf zephyrmancer w:2
+MONS:  wind drake / harpy w:14 / skyshark w:6
+MONS:  ironbound thunderhulk / sphinx marauder / polterguardian
+MONS:  deep elf zephyrmancer w:7 / air elemental / \
+       dancing weapon ; scimitar ego:electrocution
+MONS:  chonchon w:3 / spriggan air mage w:7 / spark wasp / storm dragon
+{{
+local inv = "steam dragon scales randart artprops:rElec w:15 | " ..
+            "any weapon ego:electrocution w:65 | manual of air magic w:5 | " ..
+            "book of air | book of the senses w:5 | book of lightning"
+local low = "staff of air | storm dragon scales w:15 | cloak ego:air w:5 | " ..
+            "eel talisman w:15 | parchment disc:air w:5 | " ..
+            "trismegistus codex | book of storms"
+local high = "staff of air randart | storm dragon scales good_item w:15 | " ..
+             "cloak ego:air good_item w:4 | cloak randart ego:air w:1 | " ..
+             "eel talisman randart w:5 | storm talisman | " ..
+             "codex of conductivity | maxwell's memoranda"
+if items.pickable("lightning rod") then
+  inv = inv .. " | lightning rod w:15"
+end
+if items.pickable("condenser vane") then
+  low = low .. " | condenser vane"
+end
+
+if you.in_branch("D") then
+  if you.absdepth() < 9 then
+    inv = inv .. " | " .. low
+    nsubst("0 = 2:1 / 1:1. / *:.")
+  elseif you.absdepth() < 12 then
+    inv = inv .. " | " .. low
+    nsubst("0 = 2:1 / 1:1. / *:.")
+  else
+    inv = inv .. " | " .. low .. " | " .. high
+    nsubst("0 = 1:2 / 1:3 / 2 = 23. / *:.")
+  end
+elseif you.in_branch("Shoals") then
+  inv = inv .. " | " .. low .. " | " .. high
+  nsubst("0 = 2:4 / 2 = 4.. / *:.")
+  subst("+ = W")
+elseif you.in_branch("Vaults") then
+  inv = inv .. " | " .. low .. " | " .. high
+  nsubst("0 = 1:5 / 2 = 5.. / *:.")
+elseif you.in_branch("Elf") then
+  inv = inv .. " | " .. low .. " | " .. high .. " | " .. high
+  nsubst("0 = 4:6 / *:6.")
+else -- Depths
+  inv = inv .. " | " .. high .. " | " .. high " | manual of air magic"
+  nsubst("0 = 3:7 / 2 = 7. / *:.")
+end
+
+kfeat("S = general shop type:Acquisitions suffix:Aerie count:8 ; " .. inv)
+}}
+SUBST: G : GGw....
+TILE:  v = dngn_metal_wall_cyan
+: vault_metal_statue_setup(_G, "G", "storm conduit")
+MAP
+ .  .  .
+.......v.
+ .Gv+vv.
+  vv00v
+vvv0S0vvv
+  v00vv
+ .vv+vG.
+.v.......
+ .  .  .
+ENDMAP
+
 ###############################################################################
 # <<3>> Multi
 #       Not tagged shop, and has no threats. Contain possibly multiple shops in
@@ -2401,6 +2480,7 @@ SHUFFLE: AB, CD
 SUBST:   C : .:80 xcvbmGtT
 SUBST:   D : .:80 xcvbmGtT
 SUBST:   B : A.
+FTILE:   t = floor_moss
 MAP
     xxx@xxx
    xxd...dxx
@@ -2425,6 +2505,9 @@ DEPTH: D:4-, Depths, Orc, Elf, Shoals, Snake
 KFEAT: D = general shop type:General suffix:Store
 KFEAT: E = general shop type:Specific suffix:Store count:1
 SUBST: G : GTUtwx, x : x:120 c:60 bv.
+: if you.in_branch("Orc") then
+KMONS: t = fungus
+: end
 MAP
 xx...xx
 xG...Gx

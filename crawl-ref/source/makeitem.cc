@@ -335,6 +335,12 @@ bool is_weapon_brand_ok(int type, int brand, bool /*strict*/)
     case SPWPN_SPECTRAL:
     case SPWPN_REAPING:
     case SPWPN_FOUL_FLAME: // only exists on Pan lords/Brilliance
+    case SPWPN_REBUKE:
+    case SPWPN_VALOUR:
+    case SPWPN_ENTANGLING:
+    case SPWPN_SUNDERING:
+    case SPWPN_CONCUSSION:
+    case SPWPN_DEVIOUS:
         if (is_range_weapon(item))
             return false;
         break;
@@ -2318,9 +2324,12 @@ void lucky_upgrade_item(item_def& item)
     if (item.flags & (ISFLAG_SEEN | ISFLAG_ARTEFACT_MASK))
         return;
 
-    // 2-4% chance of upgrading an item.
-    if (!x_chance_in_y(you.get_mutation_level(MUT_LUCKY), 50))
+    // 3-5% chance of upgrading an item.
+    if (!you.has_mutation(MUT_LUCKY)
+        || !x_chance_in_y(1 + you.get_mutation_level(MUT_LUCKY) * 2, 100))
+    {
         return;
+    }
 
     string old_name = uppercase_first(item.name(DESC_THE, false, true));
     bool did_upgrade = false;

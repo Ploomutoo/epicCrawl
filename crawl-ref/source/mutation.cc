@@ -154,6 +154,12 @@ vector<mutation_type> get_removed_mutations()
         MUT_AWKWARD_TONGUE,
         MUT_NOISE_DAMPENING,
         MUT_BERSERK,
+        MUT_STOCHASTIC_TORMENT_RESISTANCE,
+        MUT_ROLL,
+        MUT_CURL,
+        MUT_NO_CHARM_MAGIC,
+        MUT_NO_TRANSMUTATION_MAGIC,
+        MUT_VAMPIRISM,
 #endif
     };
 
@@ -292,6 +298,11 @@ void init_mut_index()
                 total_weight[flag] += _mut_weight(mut_data[i], flag);
         }
     }
+
+    // Add dummy data for removed mutations
+    vector<mutation_type> removed_muts = get_removed_mutations();
+    for (unsigned int i = 0; i < removed_muts.size(); ++i)
+        mut_index[removed_muts[i]] = ARRAYSZ(mut_data) - 1;
 
     // this is all a bit silly but ok
     for (int i = 0; i < MUT_NON_MUTATION - CATEGORY_MUTATIONS; ++i)
@@ -686,7 +697,7 @@ static vector<pair<string,string>> _get_form_fakemuts()
         }
     }
 
-    if (you.form == transformation::blade_hands
+    if (you.form == transformation::blade
         && you_can_wear(SLOT_BODY_ARMOUR, false) != false)
     {
         const int penalty_percent = form->get_body_ac_mult();
@@ -1609,7 +1620,7 @@ bool mut_is_compatible(mutation_type mut, bool base_only)
         return false;
     if (_mut_has_flag(def, mutflag::need_hands)
         && (you.has_mutation(MUT_TENTACLE_ARMS)
-            || (!base_only && you.form == transformation::blade_hands)))
+            || (!base_only && you.form == transformation::eel_hands)))
     {
         return false;
     }
@@ -1662,7 +1673,7 @@ bool mut_is_compatible(mutation_type mut, bool base_only)
             return false;
 
         // Formicids have stasis and so prevent mutations that would do nothing.
-        if (mut == MUT_TELEPORT && you.stasis())
+        if (mut == MUT_TELEPORTITIS && you.stasis())
             return false;
 
         if (mut == MUT_ACUTE_VISION && you.innate_sinv())
@@ -1695,10 +1706,16 @@ bool mut_is_compatible(mutation_type mut, bool base_only)
     if (_mut_has_flag(def, mutflag::makhleb) && !you_worship(GOD_MAKHLEB))
         return false;
 
-    if (mut == MUT_TELEPORT && (you.no_tele() || player_in_branch(BRANCH_ABYSS)))
+    if (mut == MUT_TELEPORTITIS && (base_only ? you.stasis() : you.no_tele(false) || player_in_branch(BRANCH_ABYSS)))
+        return false;
+
+    if (mut == MUT_SPATIAL_ENTANGLEMENT && you.stasis())
         return false;
 
     if (mut == MUT_DEMONIC_GUARDIAN && you.allies_forbidden())
+        return false;
+
+    if (mut == MUT_TIME_WARPED_BLOOD && you_worship(GOD_CHEIBRIADOS))
         return false;
 
     if (mut == MUT_NIMBLE_SWIMMER && !feat_is_water(env.grid(you.pos())))
@@ -1871,7 +1888,7 @@ bool mutate(mutation_type which_mutation, const string &reason, bool failMsg,
         return false;
 
     // [Cha] don't allow teleportitis in sprint
-    if (mutat == MUT_TELEPORT && crawl_state.game_is_sprint())
+    if (mutat == MUT_TELEPORTITIS && crawl_state.game_is_sprint())
         return false;
 
     if (!mut_is_compatible(mutat, true))
@@ -2477,7 +2494,7 @@ string get_mutation_tags(mutation_type mut)
     if (_mut_has_flag(def, mutflag::need_bones))
         _add_mut_tag(tags, "Bones", disabled && !you.has_bones());
     if (_mut_has_flag(def, mutflag::need_hands))
-        _add_mut_tag(tags, "Hands", disabled && you.form == transformation::blade_hands);
+        _add_mut_tag(tags, "Hands", disabled && you.form == transformation::eel_hands);
 
     if (tags.empty())
         return "";
@@ -2574,7 +2591,7 @@ mutation_type mutation_from_name(string name, bool allow_category, vector<mutati
 string mut_upgrade_summary(mutation_type mut)
 {
     if (!_is_valid_mutation(mut))
-        return nullptr;
+        return "";
 
     string mut_desc =
         lowercase_first(mutation_desc(mut, you.mutation[mut] + 1));
@@ -3296,14 +3313,7 @@ void set_evolution_mut_xp(bool malignant)
 
 int protean_grace_amount()
 {
-    int amount = you.how_mutated(true, false, false, true, false);
-
-    // A soft cap for Xom, Jiyva, and Demonspawn.
-    // XXX: rewrite _player_base_evasion_modifiers() to allow +0.5 EV bonuses?
-    if (amount > 7)
-        amount = 7 + floor((amount - 7) / 2);
-
-    return amount;
+    return div_round_up(you.how_mutated(true, false, false, true, false), 2);
 }
 
 const string bane_name(bane_type bane, bool dbkey)
@@ -3579,13 +3589,28 @@ void maybe_apply_bane_to_monster(monster& mons)
 
     // Give this one out to entire groups at once, since it does surprisingly
     // little to be given to just one monster in an entire group, on average.
-    if (you.has_bane(BANE_WARDING) && one_chance_in(7))
+    if (you.has_bane(BANE_WARDING) && one_chance_in(6))
     {
         mons.add_ench(mon_enchant(ENCH_WARDING, nullptr, INFINITE_DURATION));
-        for (monster_near_iterator mi(mons.pos(), LOS_NO_TRANS); mi; ++mi)
+
+        // Cap the magnitude of number of things affects in extremely dense
+        // situations, preferring
+        int max_affected = 8;
+        for (distance_iterator di(mons.pos(), true, true, LOS_RADIUS); di; ++di)
         {
-            if (!testbits(mi->flags, MF_SEEN) && !mi->is_peripheral())
-                mi->add_ench(mon_enchant(ENCH_WARDING, nullptr, INFINITE_DURATION));
+            if (!mons.see_cell_no_trans(*di))
+                continue;
+
+            if (monster* mon2 = monster_at(*di))
+            {
+                if (!testbits(mon2->flags, MF_SEEN) && !mon2->is_peripheral()
+                    && mon2->attitude == ATT_HOSTILE)
+                {
+                    mon2->add_ench(mon_enchant(ENCH_WARDING, nullptr, INFINITE_DURATION));
+                    if (--max_affected == 0)
+                        break;
+                }
+            }
         }
     }
 }

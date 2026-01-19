@@ -53,7 +53,7 @@ static int bgr[8] = {0, 4, 2, 6, 1, 5, 3, 7};
 static string colour(int colour, string text, bool bg = false)
 {
     if (_is_element_colour(colour))
-        colour = element_colour(colour, true);
+        colour = element_colour(colour, coord_def(), true);
 
     if (isatty(1))
     {
@@ -265,9 +265,9 @@ static string mi_calc_pyre_arrow_damage(monster* mons)
     return make_stringf("2d%d*", 2 + mons->get_hit_dice() * 12 / 14);
 }
 
-static string mi_calc_draining_gaze_drain(monster* mons)
+static string mi_calc_antimagic_gaze_drain(monster* mons)
 {
-    const int pow = mons_power_for_hd(SPELL_DRAINING_GAZE, mons->get_hit_dice());
+    const int pow = mons_power_for_hd(SPELL_ANTIMAGIC_GAZE, mons->get_hit_dice());
     return make_stringf("0-%d MP", pow / 8);
 }
 
@@ -358,8 +358,8 @@ static string mons_human_readable_spell_damage_string(monster* monster,
             return mi_calc_brain_bite_damage(monster);
         case SPELL_PYRE_ARROW:
             return mi_calc_pyre_arrow_damage(monster);
-        case SPELL_DRAINING_GAZE:
-            return mi_calc_draining_gaze_drain(monster);
+        case SPELL_ANTIMAGIC_GAZE:
+            return mi_calc_antimagic_gaze_drain(monster);
         case SPELL_AIRSTRIKE:
         case SPELL_SLEETSTRIKE:
             return mi_calc_airstrike_damage(monster, sp);
@@ -1112,6 +1112,9 @@ int main(int argc, char* argv[])
                 case AF_ANTIMAGIC:
                     monsterattacks += colour(LIGHTBLUE, "(antimagic)");
                     break;
+                case AF_DIM:
+                    monsterattacks += colour(LIGHTBLUE, "(dim)");
+                    break;
                 case AF_STEAL:
                     monsterattacks += colour(CYAN, "(steal)");
                     break;
@@ -1138,6 +1141,9 @@ int main(int argc, char* argv[])
                     break;
                 case AF_CORRODE:
                     monsterattacks += colour(BROWN, "(corrosion)");
+                    break;
+                case AF_SLIMIFY:
+                    monsterattacks += colour(LIGHTMAGENTA, "(slimify)");
                     break;
                 case AF_TRAMPLE:
                     monsterattacks += colour(BROWN, "(trample)");

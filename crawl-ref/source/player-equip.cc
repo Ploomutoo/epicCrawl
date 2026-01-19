@@ -575,7 +575,14 @@ void player_equip_set::update()
         if (!entry.melded)
         {
             if (item.base_type == OBJ_ARMOUR)
+            {
                 armour_egos[get_armour_ego_type(item)] += 1;
+                if (you.form == transformation::fortress_crab
+                    && get_armour_slot(item) == SLOT_BODY_ARMOUR)
+                {
+                    armour_egos[get_armour_ego_type(item)] += 1;
+                }
+            }
             else if (item.base_type == OBJ_GIZMOS)
                 gizmo_egos[item.brand] = true;
         }
@@ -595,6 +602,14 @@ void player_equip_set::update()
 
                 for (int j = 0; j < (int)artprops.size(); ++j)
                     artprop_cache[j] += artprops[j];
+
+                if (you.form == transformation::fortress_crab
+                    && item.base_type == OBJ_ARMOUR
+                    && get_armour_slot(item) == SLOT_BODY_ARMOUR)
+                {
+                    for (int j = 0; j < (int)artprops.size(); ++j)
+                        artprop_cache[j] += artprops[j];
+                }
             }
         }
     }
@@ -1974,6 +1989,33 @@ static void _equip_weapon_effect(item_def& item, bool showMsgs, bool unmeld)
             mprf("You feel a bond with %s.", item_name.c_str());
             break;
 
+        case SPWPN_REBUKE:
+            mprf("%s quivers in your %s.", item_name.c_str(), you.hand_name(true).c_str());
+            break;
+
+        case SPWPN_VALOUR:
+            if (you.hp > you.hp_max * 4 / 5)
+                mprf("Your weapon gleams with eagerness.");
+            else
+                mprf("%s feels dull in your %s.", item_name.c_str(), you.hand_name(true).c_str());
+            break;
+
+        case SPWPN_ENTANGLING:
+            mprf("Vines begin sprouting from %s.", item_name.c_str());
+            break;
+
+        case SPWPN_SUNDERING:
+            mprf("%s gleams with a vicious edge.", item_name.c_str());
+            break;
+
+        case SPWPN_CONCUSSION:
+            mprf("%s radiates an overwhelming force.", item_name.c_str());
+            break;
+
+        case SPWPN_DEVIOUS:
+            mpr("You feel a baleful cunning.");
+            break;
+
         default:
             break;
         }
@@ -2071,6 +2113,36 @@ static void _unequip_weapon_effect(item_def& item, bool showMsgs, bool meld)
 
             case SPWPN_ACID:
                 mprf("%s stops oozing corrosive slime.", msg.c_str());
+                break;
+
+            case SPWPN_REBUKE:
+                if (showMsgs)
+                    mprf("%s stops quivering.", msg.c_str());
+                break;
+
+            case SPWPN_VALOUR:
+                mpr("You feel very meek.");
+                you.weaken(&you, 10);
+                break;
+
+            case SPWPN_ENTANGLING:
+                mprf("The vines retreat back into %s.", msg.c_str());
+                you.stop_directly_constricting_all(true);
+                break;
+
+            case SPWPN_SUNDERING:
+                mprf("%s goes dull.", msg.c_str());
+                break;
+
+            case SPWPN_CONCUSSION:
+                if (showMsgs)
+                    mprf("%s stops radiating force.", msg.c_str());
+                break;
+
+            case SPWPN_DEVIOUS:
+                mpr("You feel guileless.");
+                you.duration[DUR_DEVIOUS] = 0;
+                you.redraw_evasion = true;
                 break;
             }
         }
@@ -2451,7 +2523,7 @@ static void _handle_regen_item_equip(const item_def& item)
     }
 #endif
     if (regen_mp && !regen_hp && !player_regenerates_mp()
-        && !item.is_type(OBJ_JEWELLERY, AMU_ALCHEMY))
+        && !item.is_type(OBJ_JEWELLERY, AMU_CHEMISTRY))
     {
         mprf("The %s feel%s cold and inert.", item_name.c_str(),
              plural ? "" : "s");
@@ -2579,7 +2651,7 @@ static void _equip_jewellery_effect(item_def &item, bool unmeld)
         _change_wildshape_status();
         break;
 
-    case AMU_ALCHEMY:
+    case AMU_CHEMISTRY:
         mpr("You feel a deeper understanding of alchemy.");
         break;
 
@@ -2705,17 +2777,18 @@ void unwield_distortion(bool brand)
                            "weapon.", brand ? "rebrand" : "unwield").c_str());
         return;
     }
-    // Makes no sense to discourage unwielding a temporarily
-    // branded weapon since you can wait it out. This also
-    // fixes problems with unwield prompts (mantis #793).
+
     if (coinflip())
-        you_teleport_now(false, true, "Space warps around you!");
+    {
+        you.props[TELEPORTITIS_SOURCE].get_int() = MID_PLAYER;
+        you_teleport_now(false, "Space warps around you!");
+    }
     else if (coinflip())
     {
         you.banish(nullptr,
                    make_stringf("%sing a weapon of distortion",
                                 brand ? "rebrand" : "unwield").c_str(),
-                   you.get_experience_level(), true);
+                   true);
     }
     else
     {

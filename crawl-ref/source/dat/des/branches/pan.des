@@ -155,7 +155,7 @@ disco_choices = {
         end
     end,
     function (x, y, ballx, bally, turn, rand)
-        local angle = math.atan2(y - bally, x - ballx)
+        local angle = math.atan(y - bally, x - ballx)
         local segment = (math.floor(angle / (2 * math.pi) * (2 * #colours)) + 2 * #colours) % (2 * #colours)
         local index = (math.floor((segment + turn) / 2) % #colours) + 1
         if rand > 60 then
@@ -264,15 +264,15 @@ function pan_entry_vault_contents(e, glyph)
         e.kmons(glyph .. "1 = " .. tiertwo)
         e.kmons("2 = " .. tierthree)
         e.nsubst("2 = 2 = 22. / *:.")
-        e.nsubst("1 = 1:112 / *:.")
+        e.nsubst("1 = 1:1 / *:.")
     else
         e.subst("12 = .")
         e.kmons(glyph .. " = " .. tiertwo .. " / " ..
                 tierthree .. " / " .. tierthree)
     end
 
-    e.ftile(".+12O : floor_demonic_red / floor_demonic_blue / " ..
-                    "floor_demonic_green / floor_demonic_magenta")
+    e.ftile(".+12O$ : floor_demonic_red / floor_demonic_blue / " ..
+                     "floor_demonic_green / floor_demonic_magenta")
 end
 
 function pan_declare_demonic_rune(holy)
@@ -307,7 +307,7 @@ function demonic_rune_vault_is_decoy(e)
     return false
   end
 
-  local tag, tag2 = unpack(params)
+  local tag, tag2 = table.unpack(params)
   return tag ~= nil and string.find(tag, "lure")
 end
 

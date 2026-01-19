@@ -109,8 +109,9 @@ static TextDB AllDBs[] =
             "insult.txt",   // imp/demon taunts
             "godspeak.txt", // god speech
             "monname.txt",  // names for Beogh apostles and Hep ancestors
-                            // and weapon spirits
-            "colourname.txt", // colour names
+                            // and weapon spirits, plus graffiti authors
+            "colourname.txt", // colour/colour pattern names
+            "graffiti.txt", // graffiti
             "miscast.txt",  // spell miscasts
             }),
 
@@ -123,8 +124,11 @@ static TextDB AllDBs[] =
           { "miscname.txt", // names for miscellaneous things
             "godname.txt",  // god-related names (mostly His Xomminess)
             "montitle.txt", // titles for monsters (i.e. uniques)
-            "decorlines.txt", //  miscellaneous lines for walking on decoration
-            "colourname.txt", // colour names again
+            "decorlines.txt", // miscellaneous lines for walking on decoration
+            "monname.txt",  // names for Beogh apostles and Hep ancestors
+                            // and weapon spirits, plus graffiti authors, again
+            "colourname.txt", // colour/colour pattern names, again
+            "graffiti.txt", // graffiti, again
             "gizmo.txt",    // name-assembling for gizmos
             }),
 

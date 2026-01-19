@@ -897,9 +897,10 @@ flows heavily through it, overlaying this reality with countless others where
 its domain remains pristine.
 
 Each tesseract is inextricably linked to the other, and destroying one will
-destroy both (and expel many of the creatures they have beckoned to this
-reality). But so long as they are allowed to exist, there will be no end to the
-forces which seek to keep you from the Orb.
+destroy both (and expel all the creatures they have beckoned to this reality,
+as well as dazing even those which they have not). But so long as they are
+allowed to exist, there will be no end to the forces which seek to keep you from
+the Orb.
 %%%%
 brain worm
 
@@ -927,6 +928,12 @@ burial acolyte
 
 A masked priest in the service of Kikubaaqudgha, well-versed in choral rituals
 to both rouse the dead and send them to eternal rest.
+%%%%
+burstshroom
+
+A rapidly-growing mushroom whose life-cycle culminates in an explosive release
+of spores. These spores have a mild psychoactive effect and can sometimes daze
+creatures who breathe them in.
 %%%%
 bush
 
@@ -976,6 +983,12 @@ caustic shrike
 
 A swift, nightmarish bird whose razor-sharp metallic feathers drip with
 corrosive acid.
+%%%%
+caustic sporangium
+
+A balloon-like sac of slime mold spores, suspended in a nutrient slurry to
+sustain them on their search for a new home. To the great misfortune of any
+adventurers in the vicinity, this slurry is also a highly potent acid.
 %%%%
 centaur
 
@@ -1031,6 +1044,12 @@ A mechanical insect powered by an intricate array of gears and springs. It is
 vicious and resilient to damage, but its clockwork naturally winds down as it
 attacks, eventually leaving it unable to move until its creator winds it again.
 %%%%
+colossal amoeba
+
+An unfathomably massive pile of mystic pulsating protoplasm. The slightest
+threat will cause it to undergo rapid weaponised mitosis, rapidly overwhelming
+potential meals in a cytoplasmic tidal wave.
+%%%%
 crawling flesh cage
 
 A modern breakthrough in arcane experimentation, this mobile prison cell
@@ -1042,6 +1061,12 @@ creeping inferno
 A formless mass of ancient fire, bound by heat and malevolence. It longs to
 unleash itself as a wild fire storm, yet must first patiently burn towards its
 victims with implaceable inevitability.
+%%%%
+creeping plasmodium
+
+An enormous and unnervingly motile slime mold colony. It creeps along the
+crevices of the walls in search of nutrients and can spread itself to new
+locations by launching enormous sporangia.
 %%%%
 crimson imp
 
@@ -1413,6 +1438,14 @@ entropy weaver
 A gaunt humanoid with flaking, pale chitin. Its spindly limbs are capable of
 startlingly quick movement and end in razor-sharp talons.
 %%%%
+erythrospite
+
+A churning mass of flowing blood that throbs to the beat of an absent heart.
+
+Does it wish to bury itself in your arteries because it recognises, on some
+primordial level, that this is where it belongs? Alas, all it is capable of in
+this fleeing moment of sentience is violence.
+%%%%
 ettin
 
 A two-headed giant, stronger than most, and able to land devastating blows left
@@ -1426,6 +1459,12 @@ scythe-like blades.
 eye of devastation
 
 A huge eyeball, encased in a levitating globe of incandescent energy.
+%%%%
+eye of draining
+
+A hovering horror, rare and unnatural even amongst servitor eyes, radiating
+baleful energies. They monitor the flow of chaotic life and ever-present death
+for the divine Jiyva.
 %%%%
 faun
 
@@ -2107,6 +2146,15 @@ the brim with explosives. It can rapidly fill an area with bomblets, and when
 commanded by its creator, will explode them all (and itself) to devastating
 effect.
 %%%%
+morphogenic ooze
+
+A multihued mire of roiling flesh and fluctuating sludge, striving and failing
+for more coherence than any other slime. As a fresh carrier of the ruinous
+contagion that overtook the Slime Pits, it can impart unto others the same
+horrible fate. While it may not be a permanent transformation for you, the
+melding of weapons and armour, as well as the severe weakening of spells, may
+make it a lethal one regardless.
+%%%%
 moth of wrath
 
 A moth known for its ability to inspire rage by touching its foes, or merely
@@ -2171,6 +2219,11 @@ nameless horror
 A malign force from the space between planes. It is hostile to the magic forces
 that removed it from its home. These horrors are often the result of mistaken
 summoning spells and have slain many aspiring wizards.
+%%%%
+nascent plasmodium
+
+A slime mold colony in an early phase of its life cycle. Not yet mature enough
+to reproduce, it can still defend itself by firing globs of potent acid.
 %%%%
 nargun
 
@@ -2859,6 +2912,19 @@ An icky glob of slime that slithers along the ground. It can merge with other
 slime creatures to become dramatically more dangerous, and is especially likely
 to do so in confined spaces.
 %%%%
+slymdra
+
+A quivering amalgam of viscous slime, its many pseudopods gnashing at the air
+like a throng of reptilian maws. It rapidly absorbs nearby slime creatures into
+itself, growing a new 'head' for each one and becoming even more resilient.
+
+Whether through convergent evolution or genetic memory, it also shares the
+hydra's most infamous trait: lopping off a head with a bladed weapon will just
+make it grow two more unless the wound is cauterised by a flaming weapon.
+
+When not stalking prey, its constituent slimes may separate from it again,
+perhaps to seek new food sources on their own.
+%%%%
 small abomination
 
 A hideous mass of body parts. Each varies in speed, strength, or resilience by
@@ -2979,6 +3045,12 @@ spriggan rider
 
 A spriggan that has tamed a hornet as its mount, and is tasked with protecting
 the spriggan fens and cairns from intruders.
+%%%%
+star jelly
+
+A white gelatinous mound that pulses with a strange iridescence. Its body
+absorbs magical energy like a sponge, and when sufficiently injured, will
+unleash this energy as a flurry of shooting stars.
 %%%%
 starcursed mass
 
@@ -3279,10 +3351,10 @@ with a humanoid.
 %%%%
 void ooze
 
-The viscous detritus of a thousand failed spells, surging forward with a speed
-that defies its towering size. Its very substance is a hole in the fabric of
-magic; enchantments find no purchase there and it leaches magical power from
-anything it touches like a dry sponge in water.
+The viscous detritus of a thousand failed spells, surging forward with unnerving
+speed. Its very substance is a hole in the fabric of magic; enchantments find no
+purchase there and even momentary contact with it can leave one's spells greatly
+diminished.
 %%%%
 walking alembic
 

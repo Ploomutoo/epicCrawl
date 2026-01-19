@@ -50,6 +50,7 @@
 #include "mon-speak.h"
 #include "mon-tentacle.h"
 #include "nearby-danger.h"
+#include "player-notices.h"
 #include "religion.h"
 #include "shout.h"
 #include "spl-book.h"
@@ -67,6 +68,7 @@
 #include "terrain.h"
 #include "throw.h"
 #include "timed-effects.h"
+#include "transform.h"
 #include "traps.h"
 #include "viewchar.h"
 #include "view.h"
@@ -216,7 +218,7 @@ static void _melee_attack_player(monster &mons, monster* ru_target)
         fight_melee(&mons, ru_target);
     }
     else
-        fight_melee(&mons, &you, nullptr, false);
+        fight_melee(&mons, &you);
 }
 
 static energy_use_type _get_swim_or_move(monster& mon)
@@ -255,20 +257,16 @@ static bool _ranged_ally_in_dir(monster* mon, coord_def p)
 
         if (mons_aligned(mon, ally))
         {
-            // Hostile monsters only move aside for monsters of the same type.
-            if (mon->wont_attack() && mons_genus(mon->type) != mons_genus(ally->type))
-                return false;
-
             // XXX: Sometimes the player wants allies in front of them to stay
             // out of LOF. However use of allies for cover is extremely common,
             // so it doesn't work well to always have allies move out of player
             // LOF. Until a better interface or method can be found to handle
             // both cases, have allies move out of the way only for other
             // monsters.
-            if (ally->is_monster())
+            if (ally->is_monster() && !mon->was_created_by(*ally))
             {
                 return grid_distance(mon->pos(), ally->pos())
-                            <= ally->as_monster()->threat_range(true, false);
+                            < ally->as_monster()->threat_range(true, false);
             }
         }
         break;
@@ -292,9 +290,10 @@ static bool _allied_monster_at(monster* mon, coord_def delta)
     if (ally->is_stationary() || ally->reach_range() > 1)
         return false;
 
-    // Hostile monsters of normal intelligence only move aside for
-    // monsters of the same genus.
+    // Hostile monsters of animal intelligence only move aside for monsters of
+    // the same genus. Human intelligence monsters will do so for any ally.
     if (_unfriendly_or_impaired(*mon)
+        && mons_intel(*mon) < I_HUMAN
         && mons_genus(mon->type) != mons_genus(ally->type))
     {
         return false;
@@ -775,7 +774,7 @@ static bool _handle_swoop_or_flank(monster& mons)
         || (mons_aligned(&mons, defender) && !mons.has_ench(ENCH_FRENZIED))
         || mons_is_fleeing(mons) || mons.pacified()
         || mons.is_constricted()
-        || mons.has_ench(ENCH_BOUND)
+        || mons.cannot_move()
         || !could_harm(&mons, defender))
     {
         return false;
@@ -853,7 +852,6 @@ static bool _handle_swoop_or_flank(monster& mons)
  */
 static bool _handle_reaching(monster& mons)
 {
-    bool       ret = false;
     const int range = mons.reach_range();
     actor *foe = mons.get_foe();
 
@@ -877,14 +875,11 @@ static bool _handle_reaching(monster& mons)
         // The monster has to be attacking the correct position.
         && mons.target == foepos)
     {
-        ret = true;
-
-        ASSERT(foe->is_player() || foe->is_monster());
-
         fight_melee(&mons, foe);
+        return true;
     }
 
-    return ret;
+    return false;
 }
 
 static void _handle_boulder_movement(monster& boulder)
@@ -1120,15 +1115,12 @@ static void _handle_hellfire_mortar(monster& mortar)
                 return;
             }
 
-            if (_do_move_monster(mortar, new_pos - mortar.pos()))
-                return;
+            mortar.move_to(new_pos);
+            break;
         }
     }
 
-    // Generally we shouldn't reach this point, but if we're unable to move
-    // *and* don't look like we should die either, consume energy so we don't
-    // cause an infinite loop.
-    mortar.lose_energy(EUT_ATTACK);
+    mortar.lose_energy(EUT_MOVE);
 }
 
 static void _check_blazeheart_golem_link(monster& mons)
@@ -1151,12 +1143,6 @@ static void _check_blazeheart_golem_link(monster& mons)
         {
             mons.del_ench(ENCH_PARALYSIS, true);
             simple_monster_message(mons, " core flares to life once more.", true);
-
-            // Since we check this at the END of the golem's move, even if it
-            // started its turn with the player next to them (due to player
-            // movement), grant some instant energy to make it look like it
-            // activated first.
-            //mons.speed_increment += mons.action_energy(EUT_MOVE);
         }
 
         // Give the golem another turn before it goes cold.
@@ -1370,6 +1356,66 @@ static void _handle_lightning_spire(monster& spire)
     }
 }
 
+static void _burstshroom_grow(monster& mons)
+{
+    mons.number -= 1;
+    if (mons.number <= 0)
+    {
+        if (mons.was_created_by(you, MON_SUMM_SPORE) && !you.can_see(mons))
+        {
+            monster_die(mons, KILL_TIMEOUT, NON_MONSTER);
+            return;
+        }
+
+        vector<monster*> affected;
+        bool need_redraw = false;
+        for (adjacent_iterator ai(mons.pos()); ai; ++ai)
+        {
+            if (monster* mon_at = monster_at(*ai))
+            {
+                if (mons_aligned(&mons, mon_at))
+                    continue;
+
+                if (!mon_at->is_unbreathing())
+                    affected.push_back(mon_at);
+            }
+
+            if (you.see_cell(*ai) && !cell_is_solid(*ai))
+            {
+                flash_tile(*ai, WHITE, 0);
+                need_redraw = true;
+            }
+        }
+
+        simple_monster_message(mons, " violently releases its spores.");
+        if (need_redraw)
+            animation_delay(20, true);
+
+        bolt spores;
+        zappy(ZAP_BURSTSPORE, 1, false, spores);
+        spores.damage = get_form(transformation::spore)->get_special_damage();
+        spores.set_agent(&you);
+        spores.source = mons.pos();
+        spores.hit_verb = "engulf";
+        spores.in_explosion_phase = true;
+
+        for (monster* targ : affected)
+        {
+            spores.explosion_affect_cell(targ->pos());
+            if (targ->alive() && !targ->has_ench(ENCH_DAZED)
+                && x_chance_in_y(get_form(transformation::spore)->get_level(10), targ->get_hit_dice() * 30))
+            {
+                targ->daze(random_range(2, 5));
+                simple_monster_message(*targ, " is dazed by the spores.");
+            }
+        }
+
+        monster_die(mons, KILL_RESET, NON_MONSTER);
+    }
+    else
+        mons.lose_energy(EUT_MOVE);
+}
+
 static void _mons_fire_wand(monster& mons, spell_type mzap, bolt &beem)
 {
     if (!simple_monster_message(mons, " zaps a wand."))
@@ -1438,7 +1484,7 @@ static bool _handle_wand(monster& mons)
     return true;
 }
 
-bool handle_throw(monster* mons, bolt & beem, bool teleport, bool check_only)
+bool handle_throw(monster* mons, bolt & beem, bool teleport, bool check_only, bool force)
 {
     // Yes, there is a logic to this ordering {dlb}:
     if (mons->incapacitated()
@@ -1480,27 +1526,21 @@ bool handle_throw(monster* mons, bolt & beem, bool teleport, bool check_only)
     if (mons_is_fleeing(*mons) || mons->pacified())
         return false;
 
-    const item_def *launcher = mons->launcher();
+    item_def *launcher = mons->launcher();
     item_def *throwable = mons->missiles();
     const bool can_throw = (throwable && is_throwable(mons, *throwable));
-    item_def fake_proj;
-    item_def *missile = &fake_proj;
-    bool using_launcher = false;
+    item_def *wpn = nullptr;
     // If a monster somehow has both a launcher and a throwable, use the
     // launcher 2/3 of the time.
     if (launcher && (!can_throw || !one_chance_in(3)))
-    {
-        populate_fake_projectile(*launcher, fake_proj);
-        using_launcher = true;
-    }
+        wpn = launcher;
     else if (can_throw)
-        missile = throwable;
+        wpn = throwable;
     else
         return false;
 
     const actor *act = actor_at(beem.target);
-    ASSERT(missile->base_type == OBJ_MISSILES);
-    if (act && missile->sub_type == MI_THROWING_NET)
+    if (act && wpn->is_type(OBJ_MISSILES, MI_THROWING_NET))
     {
         // Throwing a net at a target that is already caught would be
         // completely useless, so bail out.
@@ -1512,43 +1552,42 @@ bool handle_throw(monster* mons, bolt & beem, bool teleport, bool check_only)
             return false;
     }
 
-    if (prefer_ranged_attack)
+    // The random chance to not bother to fire should only occur as part of 'normal'
+    // monster behavior and not when specifially telling them to shoot something.
+    if (!check_only && !force)
     {
-        // Master archers are always quite likely to shoot you, if they can.
-        //
-        // (They always fire when in melee, to keep them from rarely swapping
-        // their launchers away when they inevitably bump attack their target
-        // anyway)
-        if (one_chance_in(10) && !adjacent(beem.target, mons->pos()))
+        if (prefer_ranged_attack)
+        {
+            // Master archers are always quite likely to shoot you, if they can.
+            //
+            // (They always fire when in melee, to keep them from rarely swapping
+            // their launchers away when they inevitably bump attack their target
+            // anyway)
+            if (one_chance_in(10) && !adjacent(beem.target, mons->pos()))
+                return false;
+        }
+        else if (launcher)
+        {
+            // Fellas with ranged weapons are likely to use them, though slightly
+            // less likely than master archers. XXX: this is a bit silly and we
+            // could probably collapse this chance and master archers' together.
+            if (one_chance_in(5))
+                return false;
+        }
+        else if (!one_chance_in(3))
+        {
+            // Monsters with throwing weapons only use them one turn in three
+            // if they're not master archers.
             return false;
-    }
-    else if (launcher)
-    {
-        // Fellas with ranged weapons are likely to use them, though slightly
-        // less likely than master archers. XXX: this is a bit silly and we
-        // could probably collapse this chance and master archers' together.
-        if (one_chance_in(5))
-            return false;
-    }
-    else if (!one_chance_in(3))
-    {
-        // Monsters with throwing weapons only use them one turn in three
-        // if they're not master archers.
-        return false;
+        }
     }
 
     // Ok, we'll try it.
-    setup_monster_throw_beam(mons, beem);
-
-    // Set fake damage for the tracer.
-    beem.damage = dice_def(10, 10);
-
-    // Set item for tracer, even though it probably won't be used
-    beem.item = missile;
+    ranged_attack_beam ratk(*mons, *wpn, beem);
 
     ru_interference interference = DO_NOTHING;
     // See if Ru worshippers block or redirect the attack.
-    if (does_ru_wanna_redirect(*mons))
+    if (!check_only && does_ru_wanna_redirect(*mons))
     {
         interference = get_ru_attack_interference_level();
         if (interference == DO_BLOCK_ATTACK)
@@ -1582,7 +1621,7 @@ bool handle_throw(monster* mons, bolt & beem, bool teleport, bool check_only)
                 {
                     mons->target = new_target->pos();
                     mons->foe = new_target->mindex();
-                    beem.target = mons->target;
+                    ratk.beam.target = mons->target;
                 }
             }
         }
@@ -1591,13 +1630,10 @@ bool handle_throw(monster* mons, bolt & beem, bool teleport, bool check_only)
     targeting_tracer tracer;
     // Fire tracer.
     if (!teleport)
-        fire_tracer(mons, tracer, beem);
-
-    // Clear fake damage (will be set correctly in mons_throw).
-    beem.damage = dice_def();
+        fire_tracer(mons, tracer, ratk.beam);
 
     // Good idea?
-    if (teleport || mons_should_fire(beem, tracer) || interference != DO_NOTHING)
+    if (teleport || mons_should_fire(ratk.beam, tracer) || interference != DO_NOTHING)
     {
         if (check_only)
             return true;
@@ -1605,11 +1641,10 @@ bool handle_throw(monster* mons, bolt & beem, bool teleport, bool check_only)
         // Monsters shouldn't shoot if fleeing, so let them "turn to attack".
         make_mons_stop_fleeing(mons);
 
-        if (launcher && using_launcher && launcher != mons->weapon())
+        if (wpn == launcher && launcher != mons->weapon())
             mons->swap_weapons();
 
-        beem.name.clear();
-        return mons_throw(mons, beem, teleport);
+        return mons_throw(mons, ratk, teleport, interference == DO_REDIRECT_ATTACK);
     }
 
     return false;
@@ -1788,8 +1823,6 @@ static void _pre_monster_move(monster& mons)
 
     if (mons.type == MONS_SHAPESHIFTER)
         mons.add_ench(ENCH_SHAPESHIFTER);
-
-    mons.check_speed();
 }
 
 // Handle weird stuff like spells/special abilities, item use,
@@ -1799,7 +1832,8 @@ static bool _mons_take_special_action(monster &mons, int old_energy)
 {
     if ((mons.asleep() || mons_is_wandering(mons))
         // Slime creatures can split while wandering or resting.
-        && mons.type != MONS_SLIME_CREATURE)
+        && mons.type != MONS_SLIME_CREATURE
+        && mons.type != MONS_SLYMDRA)
     {
         return false;
     }
@@ -1827,7 +1861,8 @@ static bool _mons_take_special_action(monster &mons, int old_energy)
     if (friendly_or_near
         || mons.type == MONS_TEST_SPAWNER
         // Slime creatures can split when offscreen.
-        || mons.type == MONS_SLIME_CREATURE)
+        || mons.type == MONS_SLIME_CREATURE
+        || mons.type == MONS_SLYMDRA)
     {
         // [ds] Special abilities shouldn't overwhelm
         // spellcasting in monsters that have both. This aims
@@ -1859,7 +1894,7 @@ static bool _mons_take_special_action(monster &mons, int old_energy)
     if (friendly_or_near)
     {
         bolt beem = setup_targeting_beam(mons);
-        if (handle_throw(&mons, beem, false, false))
+        if (handle_throw(&mons, beem, false, false, false))
         {
             DEBUG_ENERGY_USE_REF("_handle_throw()");
             return true;
@@ -2051,6 +2086,12 @@ void handle_monster_move(monster* mons)
         }
     }
 
+    if (mons->type == MONS_BURSTSHROOM)
+    {
+        _burstshroom_grow(*mons);
+        return;
+    }
+
     mons->shield_blocks = 0;
     check_spectral_weapon(*mons);
 
@@ -2083,6 +2124,13 @@ void handle_monster_move(monster* mons)
     if (mons->type == MONS_JEREMIAH && !mons->asleep())
         for (int i = 0; i < 2; i++)
             _passively_summon_butterfly(*mons);
+
+    if (mons->has_ench(ENCH_VEXED))
+    {
+        do_vexed_attack(*mons);
+        mons->lose_energy(EUT_ATTACK);
+        return;
+    }
 
     // Please change _slouch_damage to match!
     if (mons->cannot_act()
@@ -2144,13 +2192,6 @@ void handle_monster_move(monster* mons)
     if (mons_is_player_shadow(*mons))
     {
         mons->lose_energy(EUT_MOVE);
-        return;
-    }
-
-    if (mons->has_ench(ENCH_VEXED))
-    {
-        do_vexed_attack(*mons);
-        mons->lose_energy(EUT_ATTACK);
         return;
     }
 
@@ -2350,7 +2391,7 @@ void handle_monster_move(monster* mons)
             return;
         }
 
-        if (mons->cannot_act() || !_monster_move(mons, mmov))
+        if (!_monster_move(mons, mmov))
             mons->speed_increment -= non_move_energy;
     }
     you.update_beholder(mons);
@@ -2672,20 +2713,18 @@ vector<monster *> just_seen_queue;
 
 void mons_set_just_seen(monster *mon)
 {
-    mon->seen_context = SC_JUST_SEEN;
-    just_seen_queue.push_back(mon);
+    if (!mon->is_firewood())
+        just_seen_queue.push_back(mon);
 }
 
 void mons_reset_just_seen()
 {
-    // this may be called when the pointers are not valid, so don't mess with
-    // seen_context.
     just_seen_queue.clear();
 }
 
-static void _display_just_seen()
+void print_mons_left_view_messages()
 {
-    // these are monsters that were marked as SC_JUST_SEEN at some point since
+    // these are monsters that were marked as SC_NEWLY_SEEN at some point since
     // last time this was called. We announce any that leave all at once so
     // as to handle monsters that may move multiple times per world_reacts.
     if (in_bounds(you.pos()))
@@ -2698,7 +2737,7 @@ static void _display_just_seen()
             // The monster should be visible to be in this queue.
             if (in_bounds(m->pos()) && !you.see_cell(m->pos()))
             {
-                mprf(MSGCH_PLAIN, "%s moves out of view.",
+                mprf(MSGCH_PLAIN, "%s leaves your sight.",
                      m->name(DESC_THE, true).c_str());
             }
         }
@@ -2765,7 +2804,6 @@ void handle_monsters(bool with_noise)
             break;
         }
     }
-    _display_just_seen();
 
     // Process noises now (before clearing the sleep flag).
     if (with_noise)
@@ -3019,19 +3057,15 @@ static void _mons_open_door(monster& mons, const coord_def &pos)
         open_str += noun;
         open_str += ".";
 
-        // Should this be conditionalized on you.can_see(mons?)
-        mons.seen_context = (all_door.size() <= 2) ? SC_DOOR : SC_GATE;
-
         if (!you.can_see(mons))
         {
             mprf("Something unseen %s", open_str.c_str());
             interrupt_activity(activity_interrupt::sense_monster);
         }
-        else if (!you_are_delayed())
-        {
-            mprf("%s %s", mons.name(DESC_A).c_str(),
-                 open_str.c_str());
-        }
+        else
+            mprf("%s %s", mons.name(DESC_A).c_str(), open_str.c_str());
+
+        update_monsters_in_view();
     }
 
     mons.lose_energy(EUT_MOVE);
@@ -3315,6 +3349,15 @@ bool mon_can_move_to_pos(const monster* mons, const coord_def& delta,
         }
     }
 
+    // Plasmodium can only move along the surface of walls.
+    if ((mons->type == MONS_CREEPING_PLASMODIUM
+         || mons->type == MONS_NASCENT_PLASMODIUM)
+        && feat_is_wall(target_grid)
+        && !has_non_solid_adjacent(targ))
+    {
+        return false;
+    }
+
     // Submerged water creatures avoid the shallows where
     // they would be forced to surface. -- bwr
     // [dshaligram] Monsters now prefer to head for deep water only if
@@ -3539,20 +3582,15 @@ static bool _monster_swaps_places(monster* mon, const coord_def& delta)
         return false;
 
     _swim_or_move_energy(*mon);
-    _swim_or_move_energy(*m2);
 
     mon->check_redraw(m2->pos());
     m2->check_redraw(mon->pos());
-
-    // The seen context no longer applies if the monster is moving normally.
-    mon->seen_context = SC_NONE;
-    m2->seen_context = SC_NONE;
 
     // Pushing past a seeker gets you hit (since only opposed monsters will try)
     if (mons_is_seeker(*m2))
         seeker_attack(*m2, *mon);
 
-    return false;
+    return true;
 }
 
 static void _maybe_randomize_energy(monster &mons, coord_def orig_pos)
@@ -3606,6 +3644,7 @@ static void _maybe_launch_opportunity_attack(monster &mon, coord_def orig_pos)
     // and before the monster's.
     // No, there is no logic to this ordering (pf):
     if (!mon.alive()
+        || mon.type == MONS_SPECTRAL_WEAPON
         || !one_chance_in(3)
         || mon.wont_attack()
         || !mons_has_attacks(mon)
@@ -3667,7 +3706,7 @@ static bool _do_move_monster(monster& mons, const coord_def& delta)
         return true;
     }
 
-    if (mons.is_constricted() && !mons.has_ench(ENCH_BOUND))
+    if (mons.is_constricted() && !mons.cannot_move())
     {
         if (mons.attempt_escape())
             simple_monster_message(mons, " escapes!");
@@ -3681,7 +3720,7 @@ static bool _do_move_monster(monster& mons, const coord_def& delta)
 
     // We should have handled all cases of a monster attempting to attack instead of *just* move, so it should fine to simply silently
     // stand in place here.
-    if (mons.has_ench(ENCH_BOUND))
+    if (mons.cannot_move())
         return false;
 
     ASSERT(!cell_is_runed(f)); // should be checked in mons_can_traverse
@@ -3705,6 +3744,8 @@ static bool _do_move_monster(monster& mons, const coord_def& delta)
                 }
                 else
                     simple_monster_message(mons, " bursts through the door, destroying it!");
+
+                update_monsters_in_view();
             }
         }
         else if (mons_can_open_door(mons, f))
@@ -3731,6 +3772,8 @@ static bool _do_move_monster(monster& mons, const coord_def& delta)
                 }
                 else
                     simple_monster_message(mons, " eats the door!");
+
+                update_monsters_in_view();
             }
         } // done door-eating jellies
     }
@@ -3745,27 +3788,11 @@ static bool _do_move_monster(monster& mons, const coord_def& delta)
         learned_something_new(HINT_MONSTER_LEFT_LOS, mons.pos());
     }
 
-    // The seen context no longer applies if the monster is moving normally.
-    mons.seen_context = SC_NONE;
-
     if (mons_is_seeker(mons))
         --mons.steps_remaining;
 
-    if (env.grid(mons.pos()) == DNGN_DEEP_WATER && env.grid(f) != DNGN_DEEP_WATER
-        && !monster_habitable_feat(&mons, DNGN_DEEP_WATER))
-    {
-        // er, what?  Seems impossible.
-        mons.seen_context = SC_NONSWIMMER_SURFACES_FROM_DEEP;
-    }
-
     mons.move_to(f, MV_DELIBERATE);
     mons.check_redraw(mons.pos() - delta);
-
-    if (!invalid_monster(&mons) && you.can_see(mons))
-    {
-        handle_seen_interrupt(&mons);
-        seen_monster(&mons);
-    }
 
     _swim_or_move_energy(mons);
 
@@ -4059,6 +4086,9 @@ static bool _monster_move(monster* mons, coord_def& delta)
 
         if (mons->type == MONS_CURSE_TOE)
             place_cloud(CLOUD_MIASMA, mons->pos(), 2 + random2(3), mons);
+
+        if (mons->type == MONS_ERYTHROSPITE)
+            bleed_onto_floor(mons->pos(), MONS_ERYTHROSPITE, 100, false);
     }
     else
     {
@@ -4104,4 +4134,89 @@ static bool _monster_move(monster* mons, coord_def& delta)
     }
 
     return ret;
+}
+
+void seen_monsters_react()
+{
+    if (you.duration[DUR_TIME_STEP] || crawl_state.game_is_arena())
+        return;
+
+    const int stealth = player_stealth();
+
+#ifdef DEBUG_STEALTH
+    // Too annoying for regular diagnostics.
+    mprf(MSGCH_DIAGNOSTICS, "stealth: %d", stealth);
+#endif
+
+    for (monster_near_iterator mi(you.pos()); mi; ++mi)
+    {
+        if ((mi->asleep() || mi->behaviour == BEH_WANDER)
+            && check_awaken(*mi, stealth))
+        {
+            behaviour_event(*mi, ME_ALERT, &you, you.pos(), false);
+
+            // That might have caused a pacified monster to leave the level.
+            if (!(*mi)->alive())
+                continue;
+
+            if (!vampire_mesmerism_check(**mi))
+                monster_consider_shouting(**mi);
+        }
+
+        if (!mi->visible_to(&you))
+            continue;
+
+        if (!mi->has_ench(ENCH_FRENZIED) && mi->can_see(you))
+        {
+            // Trigger Duvessa & Dowan upgrades
+            if (mi->props.exists(ELVEN_ENERGIZE_KEY))
+            {
+                mi->props.erase(ELVEN_ENERGIZE_KEY);
+                elven_twin_energize(*mi);
+            }
+            else if (mi->type == MONS_BORIS && player_has_orb()
+                     && !mi->props.exists(BORIS_ORB_KEY))
+            {
+                mi->props[BORIS_ORB_KEY] = true;
+                boris_covet_orb(*mi);
+            }
+#if TAG_MAJOR_VERSION == 34
+            else if (mi->props.exists(OLD_DUVESSA_ENERGIZE_KEY))
+            {
+                mi->props.erase(OLD_DUVESSA_ENERGIZE_KEY);
+                elven_twin_energize(*mi);
+            }
+            else if (mi->props.exists(OLD_DOWAN_ENERGIZE_KEY))
+            {
+                mi->props.erase(OLD_DOWAN_ENERGIZE_KEY);
+                elven_twin_energize(*mi);
+            }
+#endif
+        }
+    }
+}
+
+bool mon_enemies_around(const monster* mons)
+{
+    // If the monster has a foe, return true.
+    if (mons->foe != MHITNOT && mons->foe != MHITYOU)
+        return true;
+
+    if (crawl_state.game_is_arena())
+    {
+        // If the arena-mode code in _handle_behaviour() hasn't set a foe then
+        // we don't have one.
+        return false;
+    }
+    else if (mons->wont_attack())
+    {
+        // Additionally, if an ally is nearby and *you* have a foe,
+        // consider it as the ally's enemy too.
+        return you.can_see(*mons) && there_are_monsters_nearby(true);
+    }
+    else
+    {
+        // For hostile monster* you* are the main enemy.
+        return mons->can_see(you);
+    }
 }

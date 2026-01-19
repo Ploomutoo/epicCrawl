@@ -122,7 +122,8 @@ static int _check_adjacent(dungeon_feature_type feat, coord_def& delta)
 
 static bool _cancel_barbed_move()
 {
-    if (you.duration[DUR_BARBS] && !you.props.exists(BARBS_MOVE_KEY))
+    if (you.duration[DUR_BARBS] && !you.props.exists(BARBS_MOVE_KEY)
+        && !crawl_state.disables[DIS_CONFIRMATIONS])
     {
         std::string prompt = "The barbs in your skin will harm you if you move.";
         prompt += " Continue?";
@@ -248,7 +249,7 @@ bool apply_cloud_trail(const coord_def old_pos)
     if (you.duration[DUR_CLOUD_TRAIL])
     {
         if (cell_is_solid(old_pos))
-            ASSERT(you.wizmode_teleported_into_rock);
+            return false;
         else
         {
             auto cloud = static_cast<cloud_type>(
@@ -517,9 +518,14 @@ bool prompt_dangerous_portal(dungeon_feature_type ftype)
     {
     case DNGN_ENTER_PANDEMONIUM:
     case DNGN_ENTER_ZIGGURAT:
-    case DNGN_ENTER_ABYSS:
         return yesno("If you enter this portal you might not be able to return "
                      "immediately. Continue?", false, 'n');
+    case DNGN_ENTER_ABYSS:
+    {
+        return yesno(make_stringf("If you enter this portal you could be pulled as "
+                     "deep as Abyss:%d and might not be able to return immediately. "
+                     "Continue?", abyss_default_depth(true)).c_str(), false, 'n');
+    }
     default:
         return true;
     }
@@ -552,7 +558,7 @@ monster* get_rampage_target(coord_def move)
     // Don't rampage if the player has status effects that should prevent it.
     if (you.is_nervous()
         || you.confused()
-        || !you.is_motile()
+        || you.cannot_move()
         || you.is_constricted())
     {
         return nullptr;
@@ -658,7 +664,7 @@ static void _handle_trying_to_move_into_unpassable_terrain(coord_def targ)
 // Returns true if movement handling should continue after this point.
 static bool _adjust_confused_movement(coord_def& move)
 {
-    if (!you.is_motile())
+    if (you.cannot_move())
     {
         // Don't choose a random location to try to attack into - allows
         // abuse, since trying to move (not attack) takes no time, and
@@ -681,7 +687,6 @@ static bool _adjust_confused_movement(coord_def& move)
         if (move.origin())
         {
             mpr("You're too confused to move!");
-            you.apply_berserk_penalty = true;
             you.turn_is_over = true;
             crawl_state.cancel_cmd_repeat();
             return false;
@@ -696,7 +701,6 @@ static bool _adjust_confused_movement(coord_def& move)
         mprf("You bump into %s.",
                     feature_description_at(new_targ, false,
                                         DESC_THE).c_str());
-        you.apply_berserk_penalty = true;
         you.turn_is_over = true;
         crawl_state.cancel_cmd_repeat();
         return false;
@@ -705,7 +709,6 @@ static bool _adjust_confused_movement(coord_def& move)
     {
         mprf("You nearly stumble into %s!",
                 feature_description_at(new_targ, false, DESC_THE).c_str());
-        you.apply_berserk_penalty = true;
         you.turn_is_over = true;
         crawl_state.cancel_cmd_repeat();
         return false;
@@ -734,10 +737,19 @@ static string _get_move_verb(bool is_rampage)
            : walk_verb_to_present(lowercase_first(species::walking_verb(you.species)));
 }
 
+static bool _cannot_step_into(const coord_def& pos)
+{
+    return !you.can_pass_through(pos)
+            && (!you.digging
+                || !in_bounds(pos)
+                || !feat_is_diggable(env.grid(pos))
+                || env.grid(pos) == DNGN_SLIMY_WALL);
+}
+
 // Handles the player trying to move/attack/swap into a given location.
 // Returns true if handling of further steps should continue after this.
 static bool _handle_player_step(const coord_def& targ, int& delay, bool rampaging,
-                                bool& did_move, bool& did_attack)
+                                bool& did_move, bool& did_attack, bool& did_open_door)
 {
     const coord_def initial_pos = you.pos();
     monster* mon = monster_at(targ);
@@ -760,12 +772,14 @@ static bool _handle_player_step(const coord_def& targ, int& delay, bool rampagin
         // Attempt to attack the monster.
         if (!mon->wont_attack() || you.confused())
         {
-            if (!fight_melee(&you, mon))
+            if (!fight_melee(&you, mon, rampaging))
             {
-                // SALMON
                 stop_running();
                 return false;
             }
+
+            if (rampaging && mon->alive())
+                mon->stagger(5);
 
             did_attack = true;
             you.turn_is_over = true;
@@ -797,6 +811,12 @@ static bool _handle_player_step(const coord_def& targ, int& delay, bool rampagin
             || !you.running)
         {
             open_door_action(targ - you.pos());
+
+            // Used to not interrupt travel, even if we didn't 'move' this turn.
+            // (Technically the player may not have opened the door, due to a
+            // cancelled prompt, but an interrupt will have already stopped
+            // travel in that case.)
+            did_open_door = true;
         }
         return false;
     }
@@ -804,21 +824,16 @@ static bool _handle_player_step(const coord_def& targ, int& delay, bool rampagin
     // Now we know we actually want to move *into* this spot, let's see if we can.
     // XXX: Liquids the player cannot enter are handled by check_moveto_terrain(),
     //      which has already been called, so no need to check again.
-    if (!you.is_motile())
+    if (you.cannot_move())
     {
         canned_msg(MSG_CANNOT_MOVE);
         return false;
     }
-    else if (!you.can_pass_through(targ))
+    else if (_cannot_step_into(targ))
     {
-        if (!you.digging
-            || !feat_is_diggable(env.grid(targ))
-            || env.grid(targ) == DNGN_SLIMY_WALL)
-        {
-            _handle_trying_to_move_into_unpassable_terrain(targ);
-            you.digging = false;
-            return false;
-        }
+        _handle_trying_to_move_into_unpassable_terrain(targ);
+        you.digging = false;
+        return false;
     }
 
     if (!you.confused())
@@ -934,7 +949,13 @@ void move_player_action(coord_def move)
     ASSERT(!in_bounds(you.pos()) || !cell_is_solid(you.pos())
            || you.wizmode_teleported_into_rock);
 
-    ASSERT(!you.turn_is_over);
+    // XXX: In theory, it should be impossible to reach this function while this
+    //      statement is untrue. But current bugs with mouse input handling can
+    //      sometimes result in taking an action in the middle of taking another
+    //      action. Simple abort silently in this case, until the more
+    //      fundamental bugs can be fixed.
+    if (you.turn_is_over)
+        return;
 
     if (you.running.check_stop_running())
         return;
@@ -964,17 +985,24 @@ void move_player_action(coord_def move)
     const int end_step = rampage_attack ? num_steps - 2 : num_steps - 1;
     for (int i = 0; i < num_steps; ++i)
     {
+        if (you.cannot_move())
+            break;
+
         targ += move;
 
-        // Don't warn about traps or clouds on a space we will not be entering.
+        // Don't warn about traps or clouds on spaces we will not be entering.
+        if (_cannot_step_into(targ))
+            break;
+
         if (monster* mon_at = monster_at(targ))
         {
             coord_def dummy;
             if (you.can_see(*mon_at)
                 && !mon_at->wont_attack()
-                   || !swap_check(mon_at, dummy, true))
+                   || !(fedhas_passthrough(mon_at)
+                        || swap_check(mon_at, dummy, true)))
             {
-                continue;
+                break;
             }
         }
 
@@ -1003,11 +1031,13 @@ void move_player_action(coord_def move)
     // Now, we can assume the player has been fully prompted for any movement,
     // so take each step in order (tracking whether we actually moved or attack,
     // and how much time it took to move through each space).
+    const coord_def initial_pos = you.pos();
     targ = you.pos();
     int delay = 0;
     int steps_taken = 0;
     bool did_move = false;
     bool did_attack = false;
+    bool did_open_door = false;
     for (; steps_taken < num_steps; ++steps_taken)
     {
         // If we have somehow ended up somewhere other than where we tried
@@ -1025,17 +1055,18 @@ void move_player_action(coord_def move)
             break;
         }
 
-        if (!_handle_player_step(targ, delay, num_steps > 1, did_move, did_attack))
+        if (!_handle_player_step(targ, delay, num_steps > 1, did_move, did_attack, did_open_door))
             break;
 
     }
 
     // Movement delay is the average of the delay of all steps we took, unless
-    // we ended with an attack (in which case use the attack delay already set).
-    if (steps_taken > 0 && !you.turn_is_over)
+    // we attacked without moving (in which case use the delay already set by
+    // fight_melee())
+    if (did_move)
     {
         delay = div_rand_round(delay, steps_taken);
-        you.time_taken = div_rand_round(you.time_taken * delay, BASELINE_DELAY);
+        you.time_taken = div_rand_round(player_speed() * delay, BASELINE_DELAY);
         you.turn_is_over = true;
     }
 
@@ -1068,11 +1099,12 @@ void move_player_action(coord_def move)
             apply_rampage_heal(steps_taken);
     }
 
-    if (did_attack)
+    if (!did_move && !did_attack && !did_open_door)
     {
-        you.apply_berserk_penalty = false;
-        you.berserk_penalty = 0;
+        stop_running();
+        crawl_state.cancel_cmd_repeat();
     }
 
-    request_autopickup();
+    if (you.pos() != initial_pos || i_feel_safe())
+        request_autopickup();
 }

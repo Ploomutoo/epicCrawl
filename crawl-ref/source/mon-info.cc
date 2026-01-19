@@ -40,6 +40,7 @@
 #include "nearby-danger.h"
 #include "options.h"
 #include "religion.h"
+#include "shout.h"
 #include "skills.h"
 #include "spl-book.h"
 #include "spl-goditem.h" // dispellable_enchantments
@@ -105,7 +106,7 @@ static map<enchant_type, monster_info_flags> trivial_ench_mb_mappings = {
     { ENCH_SIGN_OF_RUIN,    MB_SIGN_OF_RUIN },
     { ENCH_SAP_MAGIC,       MB_SAP_MAGIC },
     { ENCH_CORROSION,       MB_CORROSION },
-    { ENCH_REPEL_MISSILES,  MB_REPEL_MSL },
+    { ENCH_DEFLECT_MISSILES,MB_DEFLECT_MSL },
     { ENCH_RESISTANCE,      MB_RESISTANCE },
     { ENCH_HEXED,           MB_HEXED },
     { ENCH_EMPOWERED_SPELLS, MB_EMPOWERED_SPELLS },
@@ -252,7 +253,8 @@ static bool _is_public_key(string key)
      || key == KNOWN_MAX_HP_KEY
      || key == VAULT_HD_KEY
      || key == POLY_SET_KEY
-     || key == NOBODY_MEMORIES_KEY)
+     || key == NOBODY_MEMORIES_KEY
+     || key == ORIGINAL_TYPE_KEY)
     {
         return true;
     }
@@ -286,10 +288,12 @@ static void _translate_tentacle_ref(monster_info& mi, const monster* m,
 }
 
 /// is the given monster_info a hydra, zombie hydra, lerny, etc?
-static bool _has_hydra_multi_attack(const monster_info &mi)
+bool monster_info::has_hydra_multi_attack() const
 {
-    return mons_genus(mi.type) == MONS_HYDRA
-           || mons_genus(mi.base_type) == MONS_HYDRA;
+    return mons_genus(type) == MONS_HYDRA
+           || mons_genus(base_type) == MONS_HYDRA
+           || type == MONS_SLYMDRA
+           || base_type == MONS_SLYMDRA;
 }
 
 monster_info::monster_info(monster_type p_type, monster_type p_base_type)
@@ -306,7 +310,7 @@ monster_info::monster_info(monster_type p_type, monster_type p_base_type)
                 : classy_drac ? MONS_DRACONIAN
                 : type;
 
-    if (_has_hydra_multi_attack(*this))
+    if (has_hydra_multi_attack())
         num_heads = 1;
     else
         number = 0;
@@ -321,9 +325,11 @@ monster_info::monster_info(monster_type p_type, monster_type p_base_type)
     ac = get_mons_class_ac(type);
     ev = base_ev = get_mons_class_ev(type);
     sh = 0;
+    slay = 0;
     mresists = get_mons_class_resists(type);
-    mr = mons_class_willpower(type, base_type);
-    can_see_invis = mons_class_sees_invis(type, base_type);
+    wl = mons_class_willpower(type, base_type);
+    if (mons_class_sees_invis(type, base_type))
+        mb.set(MB_SEE_INVIS);
 
     if (mons_resists_drowning(type, base_type))
         mb.set(MB_RES_DROWN);
@@ -376,9 +382,9 @@ monster_info::monster_info(monster_type p_type, monster_type p_base_type)
         ev += get_mons_class_ev(base_type);
     }
 
-    if (mons_is_unique(type))
+    if (mons_is_unique(type) || mons_is_unique(base_type))
     {
-        if (mons_is_the(type))
+        if (mons_is_the(type) || mons_is_the(base_type))
             mb.set(MB_NAME_THE);
         else
         {
@@ -451,7 +457,7 @@ monster_info::monster_info(const monster* m, int milev)
         slime_size = m->blob_size;
     else if (type == MONS_BALLISTOMYCETE)
         is_active = !!m->ballisto_activity;
-    else if (_has_hydra_multi_attack(*this))
+    else if (has_hydra_multi_attack())
         num_heads = m->num_heads;
     else if (type == MONS_SEISMOSAURUS_EGG)
         number = m->number;
@@ -497,9 +503,9 @@ monster_info::monster_info(const monster* m, int milev)
             mb.set(MB_UNREWARDING);
     }
 
-    if (mons_is_unique(type))
+    if (mons_is_unique(type) || mons_is_unique(base_type))
     {
-        if (mons_is_the(type))
+        if (mons_is_the(type) || mons_is_the(base_type))
             mb.set(MB_NAME_THE);
         else
         {
@@ -573,13 +579,15 @@ monster_info::monster_info(const monster* m, int milev)
     ev = m->evasion();
     base_ev = m->base_evasion();
     sh = m->shield_class();
-    mr = m->willpower();
-    can_see_invis = m->can_see_invisible();
+    wl = m->willpower();
+    slay = m->slaying(false, false);
+    if (m->can_see_invisible())
+        mb.set(MB_SEE_INVIS);
     if (m->nightvision())
         props[NIGHTVISION_KEY] = true;
     mresists = m->all_resists();
     mitemuse = mons_itemuse(*m);
-    mbase_speed = mons_base_speed(*m, true);
+    mbase_speed = mons_base_speed(*m);
     menergy = mons_energy(*m);
     can_go_frenzy = m->can_go_frenzy();
     can_feel_fear = m->can_feel_fear(false);
@@ -797,7 +805,7 @@ monster_info::monster_info(const monster* m, int milev)
     constricting_name.clear();
 
     // Name of what this monster is directly constricted by, if any
-    if (m->constricted_type == CONSTRICT_MELEE)
+    if (m->constricted_type == CONSTRICT_MELEE || m->constricted_type == CONSTRICT_ENTANGLE)
     {
         const actor * const constrictor = actor_by_mid(m->constricted_by);
         ASSERT(constrictor);
@@ -856,6 +864,12 @@ monster_info::monster_info(const monster* m, int milev)
     if (m->damage_immune(&you))
         mb.set(MB_PLAYER_DAMAGE_IMMUNE);
 
+    if (m->flags & MF_TESSERACT_SPAWN)
+        mb.set(MB_TESSERACT_SPAWN);
+
+    if (m->sunder_is_ready())
+        mb.set(MB_SUNDERING_READY);
+
     // this must be last because it provides this structure to Lua code
     if (milev > MILEV_SKIP_SAFE)
     {
@@ -893,6 +907,8 @@ int monster_info::get_known_max_hp() const
 
     if (type == MONS_SLIME_CREATURE)
         mhp *= slime_size;
+    else if (type == MONS_SLYMDRA)
+        mhp += num_heads * SLYMDRA_HP_PER_HEAD * scale;
 
     mhp /= scale;
 
@@ -1036,7 +1052,7 @@ string monster_info::_core_name() const
             if (inv[MSLOT_WEAPON])
             {
                 const item_def& item = *inv[MSLOT_WEAPON];
-                s = item.name(DESC_PLAIN);
+                s = "dancing " + item.name(DESC_PLAIN);
             }
             break;
 
@@ -1121,7 +1137,9 @@ string monster_info::common_name(description_level_type desc) const
     const string core = _core_name();
     const bool nocore = mons_class_is_zombified(type)
                           && mons_is_unique(base_type)
-                          && base_type == mons_species(base_type)
+                          // XXX: Hack to keep zombified Gehenna SoH's name.
+                          && (base_type == mons_species(base_type)
+                              && base_type != MONS_SERPENT_OF_HELL)
                         || type == MONS_MUTANT_BEAST && !is(MB_NAME_REPLACE);
 
     ostringstream ss;
@@ -1147,7 +1165,7 @@ string monster_info::common_name(description_level_type desc) const
     if (type == MONS_BALLISTOMYCETE)
         ss << (is_active ? "active " : "");
 
-    if (_has_hydra_multi_attack(*this)
+    if (has_hydra_multi_attack()
         && type != MONS_SENSED
         && !mons_class_is_remnant(type))
     {
@@ -1352,7 +1370,7 @@ bool monster_info::less_than(const monster_info& m1, const monster_info& m2,
         }
 
         // Both monsters are hydras or hydra zombies, sort by number of heads.
-        if (_has_hydra_multi_attack(m1))
+        if (m1.has_hydra_multi_attack())
         {
             if (m1.num_heads > m2.num_heads)
                 return true;
@@ -1599,7 +1617,7 @@ int monster_info::randarts(artefact_prop_type ra_prop) const
  */
 bool monster_info::can_see_invisible() const
 {
-    return can_see_invis;
+    return is(MB_SEE_INVIS);
 }
 
 /**
@@ -1612,7 +1630,12 @@ bool monster_info::nightvision() const
 
 int monster_info::willpower() const
 {
-    return mr;
+    return wl;
+}
+
+int monster_info::slaying() const
+{
+    return slay;
 }
 
 static bool _add_energy_desc(int energy, string name, int speed, vector<string> &out)
@@ -1752,7 +1775,7 @@ bool monster_info::net_escape_capable() const
     return false;
 }
 
-bool monster_info::cannot_act() const
+bool monster_info::helpless() const
 {
     return is(MB_PARALYSED) || is(MB_PETRIFIED);
 }
@@ -1766,7 +1789,7 @@ bool monster_info::asleep() const
 bool monster_info::incapacitated() const
 {
     // Duplicates actor::incapacitated
-    return cannot_act()
+    return helpless()
             || asleep()
             || is(MB_CONFUSED)
             || is(MB_CAUGHT);
@@ -2199,4 +2222,12 @@ monster* monster_info::get_known_summoner() const
 bool monster_info::is_stationary() const
 {
     return mons_class_is_stationary(type);
+}
+
+int monster_info::perception() const
+{
+    if (is(MB_CANT_SEE_YOU) || is(MB_BLIND))
+        return 5;
+
+    return monster_perception(hd, mintel, is(MB_SLEEPING) || is(MB_DORMANT));
 }

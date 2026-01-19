@@ -92,18 +92,17 @@ public:
     virtual size_type body_size(size_part_type psize = PSIZE_TORSO,
                                 bool base = false) const = 0;
 
-    virtual brand_type damage_brand(int which_attack = -1) = 0;
-    virtual vorpal_damage_type damage_type(int which_attack = -1) = 0;
     virtual item_def *weapon(int which_attack = -1) const = 0;
     const item_def *primary_weapon() const
     {
         return weapon(0);
     }
     virtual item_def *offhand_weapon() const { return nullptr; }
-    virtual random_var attack_delay(const item_def *projectile = nullptr,
-                                    bool rescale = true) const = 0;
+    virtual random_var attack_delay(const item_def *projectile = nullptr) const = 0;
+    virtual random_var melee_attack_delay() const = 0;
     virtual int has_claws(bool allow_tran = true) const = 0;
     virtual item_def *shield() const = 0;
+    virtual item_def *offhand_item() const = 0;
     virtual item_def *body_armour() const = 0;
     virtual int wearing(object_class_type obj_type, int sub_type,
                         bool count_plus = 0, bool check_attuned = false) const = 0;
@@ -161,7 +160,7 @@ public:
     virtual bool has_bones(bool temp = true) const = 0;
     virtual bool is_stationary() const = 0;
     virtual bool malmutate(const actor* source, const string &reason = "") = 0;
-    virtual bool polymorph(int dur, bool allow_immobile = true) = 0;
+    virtual bool polymorph(int dur) = 0;
     virtual bool doom(int amount) = 0;
     virtual bool drain(const actor *agent, bool quiet = false,
                        int pow = 3) = 0;
@@ -174,7 +173,7 @@ public:
                       bool attacker_effects = true) = 0;
     virtual bool heal(int amount) = 0;
     virtual void banish(const actor *agent, const string &who = "",
-                        const int power = 0, bool force = false) = 0;
+                        bool force = false) = 0;
     virtual void blink(bool ignore_stasis = false) = 0;
     virtual void teleport(bool right_now = false,
                           bool wizard_tele = false) = 0;
@@ -193,6 +192,7 @@ public:
     virtual void diminish(const actor *attacker, int pow) = 0;
     virtual bool strip_willpower(actor *attacker, int dur,
                                  bool quiet = false) = 0;
+    virtual bool drain_magic(actor *attacker, int pow) = 0;
     virtual void daze(int duration) = 0;
     virtual void vitrify(const actor *attacker, int duration, bool quiet = false) = 0;
     virtual bool floodify(const actor *attacker, int duration, const char* substance = "water") = 0;
@@ -238,7 +238,7 @@ public:
     virtual int shield_bonus() const = 0;
     virtual int shield_bypass_ability(int tohit) const = 0;
     virtual void shield_block_succeeded(actor *attacker);
-    virtual bool missile_repulsion() const = 0;
+    virtual int missile_repulsion() const = 0;
 
     virtual monster_type mons_species(bool zombie_base = false) const = 0;
 
@@ -276,6 +276,7 @@ public:
     virtual bool no_tele(bool blink = false, bool temp = true) const = 0;
     virtual int inaccuracy() const;
     int inaccuracy_penalty() const;
+    virtual int slaying(bool throwing = false, bool random = true) const = 0;
     virtual bool antimagic_susceptible() const = 0;
 
     bool has_notele_item(vector<const item_def *> *matches = nullptr) const;
@@ -288,6 +289,7 @@ public:
     virtual bool no_cast(bool items = true) const;
     virtual bool reflection(bool items = true) const;
     virtual int extra_harm(bool items = true) const;
+    virtual bool sunder_is_ready() const = 0;
 
     virtual bool rmut_from_item() const;
     virtual bool evokable_invis() const;
@@ -306,7 +308,9 @@ public:
     virtual int  dragon_level() const;
 
     virtual bool paralysed() const = 0;
+    virtual bool cannot_move() const = 0;
     virtual bool cannot_act() const = 0;
+    virtual bool helpless() const = 0;
     virtual bool confused() const = 0;
     virtual bool asleep() const { return false; }
     virtual bool is_silenced() const = 0;
@@ -392,8 +396,7 @@ public:
     void stop_constricting(mid_t whom, bool intentional = false,
                            bool quiet = false, const string& escape_verb = "");
     void stop_constricting_all(bool intentional = false, bool quiet = false);
-    void stop_directly_constricting_all(bool intentional = false,
-                                        bool quiet = false);
+    void stop_directly_constricting_all(bool entangling_only = false);
     void stop_being_constricted(bool quiet = false, const string& escape_verb = "");
 
     virtual bool attempt_escape() = 0;
@@ -419,7 +422,7 @@ public:
     void collide(coord_def newpos, const actor *agent, int damage);
     bool knockback(const actor &cause, int dist, int pow, string source_name);
     coord_def stumble_pos(coord_def targ) const;
-    void stumble_away_from(coord_def targ, string src = "");
+    bool stumble_away_from(coord_def targ, string src = "");
 
     static const actor *ensure_valid_actor(const actor *act);
     static actor *ensure_valid_actor(actor *act);

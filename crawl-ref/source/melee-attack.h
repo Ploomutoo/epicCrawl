@@ -25,8 +25,10 @@ enum unarmed_attack_type
     UNAT_EXECUTIONER_BLADE,
     UNAT_FUNGAL_FISTICLOAK,
     UNAT_MEDUSA_STINGER,
+    UNAT_TALISMAN_BLADE_1,
+    UNAT_TALISMAN_BLADE_2,  // 'Same' aux, but can trigger twice
     UNAT_FIRST_ATTACK = UNAT_CONSTRICT,
-    UNAT_LAST_ATTACK = UNAT_MEDUSA_STINGER,
+    UNAT_LAST_ATTACK = UNAT_TALISMAN_BLADE_2,
     NUM_UNARMED_ATTACKS,
 };
 
@@ -57,14 +59,17 @@ public:
     bool         is_projected;    // projected weapon spell attack (eg: from
                                   // Manifold Assault)
     bool         is_bestial_takedown;   // bestial takedown attack
+    bool         is_sunder;       // triggered attack from Sundering brand
     int          charge_pow;      // electric charge bonus damage
     bool         never_cleave;    // if this attack shouldn't trigger cleave
                                   // followups, even if it ordinariy would.
     int          dmg_mult;        // percentage multiplier to max damage roll
                                   // (0 = +0% damage, 50 = +50% damage, etc.)
     int          flat_dmg_bonus;  // flat damage to add to this attack, pre-AC
-    bool         never_prompt;    // whether to skip prompting the player about
-                                  // harming allies
+    int          to_hit_bonus;    // flat to-hit bonus on this attack
+    bool         is_involuntary;  // whether this attack was forced (eg: by Vex)
+                                  // and should neither prompt the player nor
+                                  // upset their god.
     wu_jian_attack_type wu_jian_attack;
     int wu_jian_number_of_targets;
     coord_def attack_position;
@@ -73,9 +78,9 @@ public:
 public:
     melee_attack(actor *attacker, actor *defender,
                  int attack_num = 0, int effective_attack_num = 0);
-    void set_weapon(item_def *weapon, bool offhand = false);
+    void set_weapon(item_def *weapon);
 
-    bool launch_attack_set(bool allow_rev = true);
+    bool launch_attack_set(bool skip_player_post_attack = false);
     bool attack();
     int calc_to_hit(bool random) override;
     int post_roll_to_hit_modifiers(int mhit, bool random) override;
@@ -93,17 +98,17 @@ public:
 private:
     /* Attack phases */
     bool handle_phase_attempted() override;
-    bool handle_phase_blocked() override;
-    bool handle_phase_dodged() override;
+    void handle_phase_blocked() override;
+    void handle_phase_dodged() override;
     bool handle_phase_hit() override;
     bool handle_phase_damaged() override;
     bool handle_phase_aux(); // specific to melee attacks
-    bool handle_phase_killed() override;
-    bool handle_phase_end() override;
+    void handle_phase_killed() override;
+    void handle_phase_end() override;
 
     // Handle cleaving and quick blade additional attacks
     bool handle_phase_cleaving();
-    void handle_phase_multihit();
+    bool handle_phase_multihit();
 
     /* Combat Calculations */
     bool using_weapon() const override;
@@ -122,8 +127,10 @@ private:
     bool attack_chops_heads(int damage_done);
     void decapitate();
 
-    bool run_attack_set();
-    bool swing_with(item_def &weapon, bool offhand);
+    bool run_player_attack_set();
+    bool swing_with(item_def &weapon);
+
+    bool run_monster_attack_set();
 
     /* Axe cleaving */
     void cleave_setup();
@@ -161,7 +168,7 @@ private:
 private:
     // Monster-attack specific stuff
     bool mons_attack_effects() override;
-    void mons_apply_attack_flavour();
+    void mons_apply_attack_flavour(attack_flavour flavour = AF_PLAIN);
     string mons_attack_verb();
     string mons_attack_desc();
     // TODO: Unify do_poison and poison_monster
@@ -203,6 +210,9 @@ private:
     bool player_unrand_bad_attempt(bool check_only = false);
     void _defender_die();
     void handle_spectral_brand();
+    void do_valour_beam();
+    bool is_sundering_weapon() const;
+    void handle_concussion_brand();
 
     // Spell effects.
     void maybe_trigger_detonation();
@@ -218,7 +228,7 @@ private:
     // XXX: set up a copy constructor instead?
     void copy_params_to(melee_attack &other);
 
-    int do_followup_attacks(list<actor*>& targets, bool is_cleaving);
+    bool do_followup_attacks(list<actor*>& targets, bool is_cleaving);
 
     bool is_attacking_hostiles;
 

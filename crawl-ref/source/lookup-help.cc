@@ -10,6 +10,7 @@
 #include <functional>
 
 #include "ability.h"
+#include "abyss.h"
 #include "artefact.h"
 #include "branch.h"
 #include "cio.h"
@@ -815,7 +816,7 @@ static MenuEntry* _cloud_menu_gen(char letter, const string &str, string &key)
     cloud_struct fake_cloud;
     fake_cloud.type = cloud;
     fake_cloud.decay = 1000;
-    me->colour = element_colour(get_cloud_colour(fake_cloud));
+    me->colour = element_colour(get_cloud_colour(fake_cloud), fake_cloud.pos);
 
     cloud_info fake_cloud_info;
     fake_cloud_info.type = cloud;
@@ -1256,6 +1257,11 @@ static string _branch_depth(branch_type br)
     const int depth = branches[br].numlevels;
 
     // Abyss depth is explained in the description.
+    if (br == BRANCH_ABYSS)
+    {
+        desc = make_stringf("\n(If you entered the Abyss now, you could be "
+                            "pulled as deep as Abyss:%d.)", abyss_default_depth(true));
+    }
     if (depth > 1 && br != BRANCH_ABYSS)
     {
         desc = make_stringf("\n\nThis %s is %d levels deep.",

@@ -37,6 +37,7 @@
 #include "mon-place.h"
 #include "nearby-danger.h"
 #include "orb.h"
+#include "player-notices.h"
 #include "random.h"
 #include "religion.h"
 #include "shout.h"
@@ -408,18 +409,16 @@ void trap_def::trigger(actor& triggerer)
         else
             mprf("%s enters %s!", triggerer.name(DESC_THE).c_str(),
                     name(DESC_A).c_str());
-        mid_t triggerer_mid = triggerer.mid;
-        apply_visible_monsters([triggerer_mid] (monster& mons) {
-                return (mons.mid != triggerer_mid) && !mons.no_tele() && monster_blink(&mons);
-            }, pos);
-        if (!you_trigger && you.see_cell_no_trans(pos))
-        {
-            you.blink();
-            if (!you.no_tele(true))
-                interrupt_activity(activity_interrupt::teleport);
-        }
-        // Don't chain disperse
-        triggerer.blink();
+
+        for (monster_near_iterator mi(pos, LOS_NO_TRANS); mi; ++mi)
+            if (!mi->no_tele())
+                mi->blink();
+
+        you.blink();
+
+        // Make the trap go dormant briefly.
+        temp_change_terrain(pos, DNGN_TRAP_DISPERSAL_INACTIVE,
+                            random_range(4, 7) * BASELINE_DELAY);
         break;
     }
     case TRAP_TELEPORT:
@@ -992,7 +991,7 @@ void do_trap_effects()
     //  it would be into a dangerous end.
     if (_is_valid_shaft_effect_level() && you.shaftable())
         available_traps.push_back(TRAP_SHAFT);
-    // No alarms on the first 3 floors
+    // No alarms on the first 4 floors
     if (env.absdepth0 > 3)
         available_traps.push_back(TRAP_ALARM);
 
@@ -1024,10 +1023,15 @@ void do_trap_effects()
             mpr("With a horrendous wail, an alarm goes off!");
             fake_noisy(40, you.pos());
             you.sentinel_mark(true);
+            apply_noises(); // Otherwise the noise from them won't kick in until the end of the turn.
             break;
 
         case TRAP_TELEPORT:
         {
+            // XXX: Approximate old chance of triggering on an average floor.
+            if (!one_chance_in(3) || !hostile_teleport_is_possible())
+                break;
+
             string msg = make_stringf("%s and a teleportation trap "
                                       "spontaneously manifests!",
                                       _malev_msg().c_str());
@@ -1037,7 +1041,8 @@ void do_trap_effects()
                 simple_god_message(" warns you in time for you to avoid it.");
                 return;
             }
-            you_teleport_now(false, true, msg);
+            mpr(msg);
+            hostile_teleport_player();
             break;
         }
 
@@ -1325,8 +1330,7 @@ void player::struggle_against_net()
 
     // Handle nets now.
     const int damage = random_range(1, 4);
-    you.attribute[ATTR_HELD] -= damage;
-    if (you.attribute[ATTR_HELD] <= 0)
+    if (damage >= you.attribute[ATTR_HELD])
     {
         mprf("You %s the net and break free!", damage > 3 ? "shred" : "rip");
         stop_being_caught();
@@ -1337,6 +1341,8 @@ void player::struggle_against_net()
         mpr("You tear a large gash into the net.");
     else
         mpr("You struggle against the net.");
+
+    you.attribute[ATTR_HELD] -= damage;
 }
 
 void player::stop_being_caught(bool drop_net)

@@ -32,12 +32,14 @@
 #include "losglobal.h"
 #include "message.h"
 #include "mon-act.h"
+#include "mon-abil.h"
 #include "mon-behv.h"
 #include "mon-death.h"
 #include "mon-gear.h"
 #include "mon-pick.h"
 #include "mon-poly.h"
 #include "mon-tentacle.h"
+#include "player-notices.h"
 #include "random.h"
 #include "religion.h"
 #include "shopping.h"
@@ -306,15 +308,19 @@ void spawn_random_monsters()
         mg.foe = MHITYOU;
         // Don't count orb run spawns in the xp_by_level dump
         mg.xp_tracking = XP_UNTRACKED;
+        mg.announce_type = SC_ORBRUN;
     }
 
-    // Deep Abyss can also do orbrun-style spawns in LOS.
-    if (player_in_branch(BRANCH_ABYSS)
-        && you.depth > 5
-        && one_chance_in(10 / (you.depth - 5)))
+    if (player_in_branch(BRANCH_ABYSS))
     {
-        mg.proximity = PROX_CLOSE_TO_PLAYER;
-        mg.foe = MHITYOU;
+        mg.announce_type = SC_ABYSS;
+
+        // Deep Abyss can also do orbrun-style spawns in LOS.
+        if (you.depth > 5 && one_chance_in(10 / (you.depth - 5)))
+        {
+            mg.proximity = PROX_CLOSE_TO_PLAYER;
+            mg.foe = MHITYOU;
+        }
     }
 
     mons_place(mg);
@@ -744,29 +750,6 @@ monster* place_monster(mgen_data mg, bool force_pos, bool dont_place)
 
     if (chose_ood_monster)
         mon->props[MON_OOD_KEY].get_bool() = true;
-
-    if (mg.needs_patrol_point())
-    {
-        mon->patrol_point = mon->pos();
-#ifdef DEBUG_PATHFIND
-        mprf("Monster %s is patrolling around (%d, %d).",
-             mon->name(DESC_PLAIN).c_str(), mon->pos().x, mon->pos().y);
-#endif
-    }
-
-    if (player_in_branch(BRANCH_ABYSS)
-        && !mg.summoner
-        && !(mg.extra_flags & MF_WAS_IN_VIEW))
-    {
-        big_cloud(CLOUD_TLOC_ENERGY, mon, mon->pos(), 3 + random2(3), 3, 3);
-
-        if (you.can_see(*mon)
-             && !crawl_state.generating_level
-             && !crawl_state.is_god_acting())
-        {
-            mon->seen_context = SC_ABYSS;
-        }
-    }
 
     // Now, forget about banding if the first placement failed, or there are
     // too many monsters already.
@@ -1203,8 +1186,8 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
     }
 
 
-    if (mon->has_spell(SPELL_REPEL_MISSILES))
-        mon->add_ench(mon_enchant(ENCH_REPEL_MISSILES, mon, INFINITE_DURATION));
+    if (mon->has_spell(SPELL_DEFLECT_MISSILES))
+        mon->add_ench(mon_enchant(ENCH_DEFLECT_MISSILES, mon, INFINITE_DURATION));
 
     if (mons_class_flag(mon->type, M_FIRE_RING))
         mon->add_ench(ENCH_RING_OF_FLAMES);
@@ -1272,6 +1255,14 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
         mon->max_hit_points *= mon->blob_size;
     }
 
+    if (mon->type == MONS_SLYMDRA)
+    {
+        // Heads beyond the default number should count as additional real slimes
+        // (since they will be able to generate them).
+        mon->props[SLYMDRA_SLIMES_EATEN_KEY].get_int() = (mon->num_heads - 4);
+        slymdra_scale_hp(*mon);
+    }
+
     // Set attitude, behaviour and target.
     mon->attitude  = ATT_HOSTILE;
     mon->behaviour = mg.behaviour;
@@ -1320,6 +1311,25 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
         return 0;
     }
 
+    // Keep random monsters created inside the Orb vault from passively
+    // wandering out until the tesseracts are activated.
+    bool needs_patrol = false;
+    if (mg.place == level_id(BRANCH_ZOT, 5) && !mg.is_summoned())
+    {
+        const vault_placement *vp = dgn_vault_at(mon->pos());
+        if (vp && vp->map_name_at(mon->pos()) == "hall_of_Zot")
+            needs_patrol = true;
+    }
+
+    if (mg.needs_patrol_point() || needs_patrol)
+    {
+        mon->patrol_point = mon->pos();
+#ifdef DEBUG_PATHFIND
+        mprf("Monster %s is patrolling around (%d, %d).",
+             mon->name(DESC_PLAIN).c_str(), mon->pos().x, mon->pos().y);
+#endif
+    }
+
     // Don't leave shifters in their starting shape.
     // (This must be done after they are moved into a real position, or
     // monster_polymorph will veto any possible thing they could turn into.)
@@ -1357,6 +1367,33 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
 
         if (mon->attitude == ATT_HOSTILE && you.has_bane(BANE_HUNTED))
             mon->add_ench(mon_enchant(ENCH_HAUNTING, &you, INFINITE_DURATION));
+    }
+
+    if ((mg.flags & MG_COPY_PARENT) && mg.summoner && mg.summoner->is_monster())
+    {
+        const monster* parent = mg.summoner->as_monster();
+
+        // Copy the underlying attitude of the parent, along with any temporary
+        // changes to it.
+        mon->attitude = parent->attitude;
+        if (parent->has_ench(ENCH_CHARM))
+            mon->add_ench(parent->get_ench(ENCH_CHARM));
+        if (parent->has_ench(ENCH_HEXED))
+            mon->add_ench(parent->get_ench(ENCH_HEXED));
+        if (parent->has_ench(ENCH_FRIENDLY_BRIBED))
+            mon->add_ench(parent->get_ench(ENCH_FRIENDLY_BRIBED));
+        if (parent->has_ench(ENCH_NEUTRAL_BRIBED))
+            mon->add_ench(parent->get_ench(ENCH_NEUTRAL_BRIBED));
+
+        // Then mark the child as summoned if the parent is.
+        if (parent->is_summoned())
+        {
+            const int summ_type = mon->has_ench(ENCH_SUMMON) ? mon->get_ench(ENCH_SUMMON).degree
+                                                             : parent->get_ench(ENCH_SUMMON).degree;
+            const int summ_dur = parent->get_ench(ENCH_SUMMON_TIMER).duration;
+
+            mon->mark_summoned(summ_type, summ_dur, true, parent->is_abjurable());
+        }
     }
 
     // Perm summons shouldn't leave gear either.
@@ -1505,6 +1542,35 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
     }
 
     mon->origin_level = level_id::current();
+
+    if (mg.behaviour > NUM_BEHAVIOURS)
+    {
+        if (!(mg.flags & MG_FORCE_BEH) && !crawl_state.game_is_arena())
+            check_lovelessness(*mon);
+
+        behaviour_event(mon, ME_EVAL);
+    }
+
+    // If MG_AUTOFOE is set, find the nearest valid foe and point this monster
+    // towards it immediately.
+    if (mg.flags & MG_AUTOFOE && (mon->attitude == ATT_FRIENDLY
+                                  || mg.behaviour == BEH_CHARMED))
+    {
+        set_nearest_monster_foe(mon, true);
+        const actor* foe = mon->get_foe();
+        if (foe)
+        {
+            mon->behaviour = BEH_SEEK;
+            mon->target = foe->pos();
+        }
+    }
+
+    // Random Abyss monster spawns.
+    if (mg.announce_type == SC_ABYSS)
+        big_cloud(CLOUD_TLOC_ENERGY, mon, mon->pos(), 3 + random2(3), 3, 3);
+
+    if (mg.announce_type != SC_NONE)
+        queue_monster_announcement(*mon, mg.announce_type);
 
     return mon;
 }
@@ -1797,6 +1863,7 @@ static const map<monster_type, band_set> bands_by_leader = {
     { MONS_CAUSTIC_SHRIKE,  { {}, {{ BAND_CAUSTIC_SHRIKE, {2, 5} }}}},
     { MONS_SHARD_SHRIKE,    { {}, {{ BAND_SHARD_SHRIKE, {1, 4} }}}},
     { MONS_SLIME_CREATURE,  { {}, {{ BAND_SLIME_CREATURES, {2, 6} }}}},
+    { MONS_SLYMDRA,         { {}, {{ BAND_SLIME_CREATURES, {3, 5} }}}},
     { MONS_YAK,             { {}, {{ BAND_YAKS, {2, 6} }}}},
     { MONS_VERY_UGLY_THING, { {0, 19}, {{ BAND_VERY_UGLY_THINGS, {2, 6} }}}},
     { MONS_UGLY_THING,      { {0, 13}, {{ BAND_UGLY_THINGS, {2, 6} }}}},
@@ -1876,6 +1943,14 @@ static const map<monster_type, band_set> bands_by_leader = {
     { MONS_FORMLESS_JELLYFISH, { { 0, 0, []() {
         return player_in_branch(BRANCH_SLIME); }},
                                   {{ BAND_JELLYFISH, {1, 3} }}}},
+    { MONS_COLOSSAL_AMOEBA, { {0, 0, [](){
+        return player_in_branch(BRANCH_SLIME)
+               && x_chance_in_y(you.depth + 2, you.depth + 11); }},
+                                   {{ BAND_AMOEBA_ORGANS, {1, 2} }}}},
+    { MONS_EYE_OF_DEVASTATION, { { 0, 0, []() {
+        return player_in_branch(BRANCH_SLIME); }},
+                                  {{ BAND_GOLDEN_EYE, {0, 2} }}}},
+    { MONS_MORPHOGENIC_OOZE, { {}, {{ BAND_MORPHOGENIC_OOZE, {1, 4} }}}},
     { MONS_POLYPHEMUS,      { {}, {{ BAND_POLYPHEMUS, {3, 6}, true }}}},
     { MONS_HARPY,           { {}, {{ BAND_HARPIES, {2, 5} }}}},
     { MONS_CHONCHON,        { {2}, {{ BAND_CHONCHON, {2, 3} }}}},
@@ -1953,6 +2028,10 @@ static const map<monster_type, band_set> bands_by_leader = {
         return branch_has_monsters(you.where_are_you)
             || !vault_mon_types.empty();
     }},                           {{ BAND_RANDOM_SINGLE, {1, 3} }}}},
+    { MONS_EYE_OF_DRAINING,        { {2, 0, []() {
+        return branch_has_monsters(you.where_are_you)
+            || !vault_mon_types.empty();
+    }},                           {{ BAND_RANDOM_SINGLE, {1, 2} }}}},
     { MONS_CEREBOV,         { {}, {{ BAND_CEREBOV, {5, 8}, true }}}},
     { MONS_GLOORX_VLOQ,     { {}, {{ BAND_GLOORX_VLOQ, {5, 8}, true }}}},
     { MONS_MNOLEG,          { {}, {{ BAND_MNOLEG, {5, 8}, true }}}},
@@ -2176,6 +2255,14 @@ static band_type _choose_band(monster_type mon_type, int *band_size_p,
             band_size = random2(min(brdepth[BRANCH_ABYSS], you.depth));
         break;
 
+    case MONS_EYE_OF_DRAINING:
+        if (player_in_branch(BRANCH_SLIME))
+        {
+            natural_leader = true;
+            band = BAND_DRAINING_EYE_CORPS;
+        }
+        break;
+
     case MONS_SPHINX_MARAUDER:
          if (player_in_branch(BRANCH_VAULTS))
          {
@@ -2374,6 +2461,18 @@ static const map<band_type, vector<member_possibilities>> band_membership = {
 
                                  {{MONS_VERY_UGLY_THING, 1}}}},
 
+    { BAND_AMOEBA_ORGANS,       {{{MONS_GLASS_EYE, 2},
+                                  {MONS_GLOWING_ORANGE_BRAIN, 1}}}},
+
+    { BAND_DRAINING_EYE_CORPS,  {{{MONS_VOID_OOZE, 1},
+                                  {MONS_EYE_OF_DEVASTATION, 2},
+                                  {MONS_GLOWING_ORANGE_BRAIN, 1}}}},
+
+    { BAND_MORPHOGENIC_OOZE,    {{{MONS_MORPHOGENIC_OOZE, 1}},
+
+                                 {{MONS_GOLDEN_EYE, 4},
+                                  {MONS_GREAT_ORB_OF_EYES, 1}}}},
+
     { BAND_MARGERY,             {{{MONS_HELLEPHANT, 4},
                                   {MONS_SEARING_WRETCH, 3}},
 
@@ -2550,6 +2649,7 @@ static const map<band_type, vector<member_possibilities>> band_membership = {
                                   {MONS_SALAMANDER, 1}},
 
                                  {{MONS_SALAMANDER, 1}}}},
+
     { BAND_ROBIN,               {{{MONS_GOBLIN, 3},
                                   {MONS_HOBGOBLIN, 1}}}},
 
@@ -2847,42 +2947,6 @@ monster* mons_place(mgen_data mg)
 
     dprf(DIAG_MONPLACE, "Created %s.", creation->base_name(DESC_A, true).c_str());
 
-    // Look at special cases: CHARMED, FRIENDLY, NEUTRAL, GOOD_NEUTRAL,
-    // HOSTILE.
-    if (mg.behaviour > NUM_BEHAVIOURS)
-    {
-        if (mg.behaviour == BEH_FRIENDLY)
-            creation->flags |= MF_NO_REWARD;
-
-        if (mg.behaviour == BEH_NEUTRAL || mg.behaviour == BEH_GOOD_NEUTRAL)
-            creation->flags |= MF_WAS_NEUTRAL;
-
-        if (mg.behaviour == BEH_CHARMED)
-        {
-            creation->attitude = ATT_HOSTILE;
-            creation->add_ench(ENCH_CHARM);
-        }
-
-        if (!(mg.flags & MG_FORCE_BEH) && !crawl_state.game_is_arena())
-            check_lovelessness(*creation);
-
-        behaviour_event(creation, ME_EVAL);
-    }
-
-    // If MG_AUTOFOE is set, find the nearest valid foe and point this monster
-    // towards it immediately.
-    if (mg.flags & MG_AUTOFOE && (creation->attitude == ATT_FRIENDLY
-                                  || mg.behaviour == BEH_CHARMED))
-    {
-        set_nearest_monster_foe(creation, true);
-        const actor* foe = creation->get_foe();
-        if (foe)
-        {
-            creation->behaviour = BEH_SEEK;
-            creation->target = foe->pos();
-        }
-    }
-
     return creation;
 }
 
@@ -3119,13 +3183,15 @@ monster* create_monster(mgen_data mg, bool fail_msg)
         || you.pos() == mg.pos && !fedhas_passthrough_class(mg.cls)
         || !mons_class_can_pass(montype, env.grid(mg.pos)))
     {
+        const bool unfriendly = mg.behaviour != BEH_FRIENDLY
+                                && !(mg.behaviour == BEH_COPY && mg.summoner->wont_attack());
+
         mg.pos = find_newmons_square(montype, mg.pos, mg.range_preferred,
                                      mg.range_max, mg.range_min,
                                      (mg.flags & MG_SEE_SUMMONER)
                                         ? mg.summoner
                                         : nullptr,
-                                      mg.behaviour != BEH_FRIENDLY
-                                        || mons_is_tentacle_segment(montype));
+                                      unfriendly || mons_is_tentacle_segment(montype));
     }
 
     if (in_bounds(mg.pos))

@@ -648,8 +648,25 @@ int adjacent_huddlers(coord_def pos, bool only_in_sight)
     return adj_count;
 }
 
-static int _ozo_adj_dam(int base_dam, int adj_actors, bool actual)
+static int _ozo_adj_dam(int base_dam, int adj_actors, bool actual, bool targ_is_player)
 {
+    if (targ_is_player)
+    {
+        switch (adj_actors)
+        {
+        case 0:
+            return base_dam;
+        case 1:
+            if (actual)
+                return div_rand_round(85 * base_dam, 100);
+            return 85 * base_dam / 100;
+        default:
+            if (actual)
+                return div_rand_round(3 * base_dam, 4);
+            return base_dam * 3 / 4;
+        }
+    }
+
     switch (adj_actors)
     {
     case 0:
@@ -797,7 +814,7 @@ static spret _cast_los_attack_spell(spell_type spell, int pow,
             continue;
 
         if (spell == SPELL_OZOCUBUS_REFRIGERATION)
-            beam.damage.size = _ozo_adj_dam(base_dam_size, ozo_adj_count[a], actual);
+            beam.damage.size = _ozo_adj_dam(base_dam_size, ozo_adj_count[a], actual, a->is_player());
 
         int this_damage = _los_spell_damage_actor(agent, *a, beam, actual,
                                                     spell == SPELL_DRAIN_LIFE);
@@ -1404,7 +1421,7 @@ static bool _init_frag_grid(frag_effect &effect,
    else
    {
        effect.colour = element_colour(get_feature_def(grid).colour(),
-                                     false, target);
+                                     target, false);
    }
     return true;
 }
@@ -2814,7 +2831,8 @@ dice_def arcjolt_damage(int pow, bool random)
 }
 
 static vector<coord_def> _get_chain_targets(const actor &agent,
-                                            vector<coord_def>& seed_points, bool actual)
+                                            vector<coord_def>& seed_points, bool actual,
+                                            bool skip_allies = false)
 {
     set<coord_def> seen;
     vector<coord_def> targets;
@@ -2839,9 +2857,12 @@ static vector<coord_def> _get_chain_targets(const actor &agent,
             if (!could_harm(&agent, act))
                 continue;
 
+            if (skip_allies && mons_aligned(&agent, act) && !act->is_firewood())
+                continue;
+
             targets.push_back(p);
 
-            for (adjacent_iterator ai(p); ai; ++ai)
+            for (fair_adjacent_iterator ai(p); ai; ++ai)
             {
                 if (!seen.count(*ai) && agent.see_cell(*ai))
                 {
@@ -2965,6 +2986,33 @@ void do_galvanic_jolt(const actor& agent, coord_def pos, dice_def damage)
 {
     auto targets = galvanic_targets(agent, pos, true);
     _do_chain_jolt(agent, targets, damage);
+}
+
+void do_eel_melee_jolt(coord_def pos)
+{
+    vector<coord_def> targets;
+    targets.push_back(pos);
+
+    targets = _get_chain_targets(you, targets, true, true);
+    targets.resize(random_range(3, 6));
+    _do_chain_jolt(you, targets, get_form()->get_special_damage());
+}
+
+void do_eel_arcjolt()
+{
+    mprf("Your %s violently discharge electricity!", you.hand_name(true).c_str());
+
+    vector<coord_def> to_check;
+    to_check.push_back(you.pos());
+
+    for (radius_iterator ri(you.pos(), 2, C_SQUARE, LOS_NO_TRANS, true); ri; ++ri)
+        to_check.push_back(*ri);
+
+    to_check = _get_chain_targets(you, to_check, true);
+
+    dice_def dmg = get_form()->get_special_damage();
+    dmg.size *= 2;
+    _do_chain_jolt(you, to_check, dmg);
 }
 
 static bool _plasma_targetable(const actor &agent, monster &m, bool actual)
@@ -4296,7 +4344,6 @@ static void _imb_actor(actor * act, int pow, coord_def source)
     beam.target          = act->pos();
 
     beam.flavour          = BEAM_VISUAL;
-    beam.affects_nothing = true;
     beam.fire();
 
     zappy(ZAP_MYSTIC_BLAST, pow, false, beam);
@@ -5295,41 +5342,4 @@ void do_catalyst_explosion(coord_def center, const item_def* wpn)
 
     for (coord_def pos : blast_targets)
         _explosion_square(&you, beam_actual, pos, pos == center, SPELL_DETONATION_CATALYST);
-}
-
-bool find_life_bolt_ray(coord_def& source, coord_def target, ray_def& ray)
-{
-    bool has_ray = find_ray(source, target, ray, opc_no_trans);
-    if (!has_ray)
-        return false;
-    while (true)
-    {
-        ray_def next_ray = ray;
-        next_ray.advance();
-        if (next_ray.pos() == target)
-        {
-            source = ray.pos();
-            break;
-        }
-        ray = next_ray;
-    }
-    return true;
-}
-
-void fire_life_bolt(actor& attacker, coord_def target)
-{
-    bolt beam;
-    beam.thrower = attacker.is_player() ? KILL_YOU : KILL_MON;
-    beam.source = attacker.pos();
-    beam.source_id = attacker.mid;
-    beam.attitude = attacker.temp_attitude();
-    beam.range = 4;
-    beam.target = target;
-    beam.chose_ray = true;
-    zappy(ZAP_SWORD_BEAM, 100, false, beam);
-    bool has_ray = find_life_bolt_ray(beam.source, beam.target, beam.ray);
-    if (!has_ray)
-        return;
-
-    beam.fire();
 }

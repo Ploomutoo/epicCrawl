@@ -94,17 +94,17 @@ giving -1 to both your Strength and Intelligence for each level.
 weak mutation
 
 Your muscles have grown unnaturally weak. Each level of this mutation provides
--2 Strength.
+-3 Strength.
 %%%%
 dopey mutation
 
-Your mind has become unnaturally dopey. Each level of this mutation provides -2
+Your mind has become unnaturally dopey. Each level of this mutation provides -3
 Intelligence.
 %%%%
 clumsy mutation
 
 Your reflexes have become unnaturally clumsy. Each level of this mutation
-provides -2 Dexterity.
+provides -3 Dexterity.
 %%%%
 high mp mutation
 
@@ -154,20 +154,13 @@ types, doubling the duration of all status effects gained via potions.
 protean grace mutation
 
 Your limbs are overflowing with morphogenic power, guiding your every movement.
-Each non-innate mutation you have also provides +1 EV and Slay +1, improving
-your accuracy and damage with melee and ranged attacks. This still applies even
-when the mutations would be suppressed by a different form. Past seven or more
-non-innate mutations, this bonus only applies every other mutation.
+Every two non-innate mutations you have (rounded up) also provides +1 EV and
+Slay +1, improving your accuracy and damage with melee and ranged attacks. This
+still applies even when the mutations would be suppressed by a different form.
 
 You currently gain
 {{
-    num = 1
-    muts = you.how_mutated(true, false, false, true, false)
-    if muts > 7 then
-        num = 7 + math.floor((muts - 7) / 2)
-    else
-        num = muts
-    end
+    num = math.ceil(you.how_mutated(true, false, false, true, false) / 2)
     return "+" .. num .. " EV and Slay +" .. num .. " from this mutation."
 }}
 %%%%
@@ -452,8 +445,12 @@ but less powerful. Each level of this mutation increases both effects further.
 # ------ Badmuts without matching goodmuts -----
 teleportitis mutation
 
-You occasionally teleport across the level to hostile monsters. Each level of
-this mutation increases the frequency with which this occurs.
+You periodically teleport towards hostile monsters. You will sense yourself
+destabilising several turns in advance of this happening, and may suppress it
+temporarily by reading a scroll of teleportation.
+
+Each level of this mutation increases the frequency with which you start to
+teleport.
 %%%%
 deformed body mutation
 
@@ -463,10 +460,11 @@ by armour enchantments.
 %%%%
 screaming mutation
 
-You are sometimes seized by an uncontrollable urge to scream at foes when they
-first come into sight. All of your shouts are also louder than usual. The
-second level of this mutation makes this urge harder to resist and makes your
-shouts even louder.
+You are sometimes seized by an uncontrollable urge to scream whenever you
+sustain an injury. All of your shouts are also louder than usual.
+
+The second level of this mutation makes this urge harder to resist and makes
+your shouts even louder.
 %%%%
 poor constitution mutation
 
@@ -491,8 +489,46 @@ You absorb twice as much mutagenic energy from being contaminated.
 %%%%
 initially attractive mutation
 
-The first time you see a monster, it may be magically pulled toward you.
-This does not wake sleeping monsters.
+The first time you see a monster, it may be magically pulled toward you. This
+has a chance of waking sleeping monsters, though they will not necessarily be
+alerted to your position.
+
+The second level of this mutation increases the chance of this happening.
+%%%%
+booming voice mutation
+
+When reading scrolls in sight of hostile monsters, your voice resounds with a
+truly stupendous volume.
+%%%%
+potion fungus mutation
+
+Your body is covered in a fungus that metabolises beneficial potions you drink
+and sometimes emits spores which transmit their effects to nearby monsters -
+whether friend or foe.
+%%%%
+spiteful blood
+
+Your blood pulses with a strange predatory malice. When you become significantly
+injured, some of it may rise up to attack you - though this may not happen again
+until you heal fully.
+
+The second level of this mutation causes two erythrospites to be created at
+once.
+%%%%
+spatial entanglement mutation
+
+Whenever you translocate, there is a chance that another monster is pulled
+along to your new location. If you translocated a short distance, this will
+always be some monster in sight of your previous location, but long distance
+teleports may pull a monster from anywhere else on the floor.
+
+The experience is mildly disorienting for the monster, and it will not be able
+to act immediately after being pulled this way.
+%%%%
+meek mutation
+
+All of your attacks are less effective, dealing less damage and being a little
+less accurate. This effect worsens with each level of this mutation.
 %%%%
 # ------ Demonspawn mutations -----
 demonic guardian mutation
@@ -721,7 +757,8 @@ both arm-pairs.
 retaliatory headbutt mutation
 
 When a foe misses you in melee, you may reflexively retaliate, attempting to
-gore your attacker with your horns.
+gore your attacker with your horns. You can perform this against a given enemy
+no more than once per player action.
 %%%%
 multi-lived mutation
 
@@ -983,8 +1020,7 @@ vampire fangs mutation
 
 When you perform a stab attack against a living monster with blood, you heal for
 a portion of the total damage dealt. When you are at 50% of your max HP or less,
-this has a chance to happen on all melee attacks which increases with your
-Shapeshifting skill.
+this has a 2/3 chance to happen on all melee attacks.
 %%%%
 bloodcurse mutation
 
@@ -1100,6 +1136,62 @@ When you strike an enemy in melee, a portion of the transmutational energy
 surging through will contaminate them. Upon landing the third strike in a row,
 this contamination will grow so acute that it will twist their bodily form,
 inflicting significant AC-ignoring damage and malmutating them.
+%%%%
+maw attack mutation
+
+Your maw sometimes bites enemies in melee, at a rate independant of your own
+attack speed (once per 15 aut, on average). Its base damage is directly
+increased by 3/4rd of your strength.
+%%%%
+devouring maw mutation
+
+When you kill an edible enemy in melee (anything which drops a corpse), your
+maw devours it, greatly increasing your regeneration for a short while. More
+powerful enemies provide a longer duration of this effect.
+%%%%
+growling stomach mutation
+
+Your maw's appetite is insatiable. Whenever you first encounter an edible
+monster, there is a chance to become mesmerised by it and let out a loud growl.
+%%%%
+eel punch mutation
+
+Your melee hits have a 50% chance of discharging an arc of electricity that
+travels between several connected enemies.
+%%%%
+eeljolt mutation
+
+When your health drops to 40% of your max HP, your eels violently discharge
+electricity, striking all connected targets within 2 tiles of yourself - be they
+friend or foe - for twice the damage their electricity normally does.
+
+This effect cannot activate again until you fully heal.
+%%%%
+blade parry mutation
+
+You briefly gain SH equal to your slaying whenever you perform a melee attack
+(with an additional flat bonus based on your Shapeshifting skill).
+%%%%
+sporulate mutation
+
+Your melee attacks cause multiple burstshrooms to begin growing on unoccupied
+tiles behind your target. If they are allowed to grow for several turns, they
+will explode in a burst of spores that damages nearby enemies and can briefly
+daze them.
+%%%%
+armoured shell mutation
+
+Your body armour is fused into your shell, multiplying its base AC by a factor
+that increases with your Shapeshifting skill. The effectiveness of its ego and
+most artefact properties will also be doubled, though certain rare artefacts may
+be too unusual to enhance this way.
+%%%%
+hypnotic gaze mutation
+
+Your gaze has a hypnotic effect on many creatures. Whenever a living, demonic,
+or holy monster first notices you, it may become momentarily dazed, preventing
+it from shouting. Creatures which fail a Willpower check will be dazed for even
+longer.
 %%%%
 # ------ Makhleb destruction flavours ------
 Gehenna destruction mutation
@@ -1226,19 +1318,17 @@ period of time, in exchange for being dragged down into the Crucible of Flesh
 afterward and made to fight for your freedom.
 %%%%
 # ------ Ru sacrifices ------
-potion hoarding mutation
+renounce potions mutation
 
 You refuse to drink potions in combat unless badly injured. While enemies are in
 your line of sight (and for several turns afterward), you will be unable to
-drink anything unless your HP is below 65% or 40% of its maximum, depending on
-the level of the mutation.
+drink anything unless your HP is below 50% of its maximum.
 %%%%
-scroll hoarding mutation
+renounce scrolls mutation
 
 You refuse to read scrolls in combat unless badly injured. While enemies are in
 your line of sight (and for several turns afterward), you will be unable to
-read anything unless your HP is below 65% or 40% of its maximum, depending on
-the level of the mutation.
+read anything unless your HP is below 50% of its maximum.
 %%%%
 missing a hand mutation
 
@@ -1397,8 +1487,9 @@ current level of electrical resistance.
 %%%%
 claustrophobia bane
 
-Your damage and accuracy with weapons is decreased for each wall you are
-currently adjacent to.
+You suffer a penalty to the damage and accuracy of your attacks and the power of
+your spells based on the number of solid feature you are currently adjacent to.
+(-2 slaying and -10% spell power per solid feature.)
 %%%%
 stumbling bane
 
@@ -1442,7 +1533,7 @@ they will never lose track of your position, no matter where you flee.
 %%%%
 mortality bane
 
-When you are injured and alone, a reaper may come to claim you. These reapers
+When you are badly injured and alone, a reaper may come to claim you. These reapers
 will be immune to all damage from non-adjacent sources and, if your XL is less
 than 14, will additionally be slow. At higher XL, multiple reapers may appear at
 once.

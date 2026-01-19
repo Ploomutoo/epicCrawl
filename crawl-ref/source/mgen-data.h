@@ -8,6 +8,7 @@
 #include "mon-flags.h"
 #include "mon-util.h"
 #include "player.h"
+#include "seen-context-type.h"
 #include "xp-tracking-type.h"
 
 // Hash key for passing a weapon to be given to
@@ -120,6 +121,8 @@ struct mgen_data
     // What class of XP is this for LevelXPInfo tracking purposes.
     xp_tracking_type xp_tracking;
 
+    seen_context_type announce_type;
+
     mgen_data(monster_type mt = RANDOM_MONSTER,
               beh_type beh = BEH_HOSTILE,
               const coord_def &p = coord_def(-1, -1),
@@ -132,7 +135,8 @@ struct mgen_data
           base_type(MONS_NO_MONSTER), colour(COLOUR_INHERIT),
           proximity(PROX_ANYWHERE), place(level_id::current()), hd(0), hp(0),
           exp(0), extra_flags(MF_NO_FLAGS), mname(""), non_actor_summoner(""),
-          initial_shifter(RANDOM_MONSTER), xp_tracking(XP_NON_VAULT)
+          initial_shifter(RANDOM_MONSTER), xp_tracking(XP_NON_VAULT),
+          announce_type(SC_NONE)
     { }
 
     mgen_data &set_non_actor_summoner(string nas)
@@ -230,6 +234,19 @@ struct mgen_data
         return *this;
     }
 
+    // Mark this monster as copying the summon/charm status of another monster.
+    // (For instance, to ensure that you can't get permanently friendly
+    // monsters by charming certain things.)
+    mgen_data &copy_from_parent(const actor* mon)
+    {
+        // XXX: Otherwise charmed monsters will produce unrewarding children since
+        //      they were 'created friendly'.
+        behaviour = BEH_HOSTILE;
+        summoner = mon;
+        flags |= MG_COPY_PARENT;
+        return *this;
+    }
+
     bool permit_bands() const
     {
         // The permit flag is set but the forbid flag is not.
@@ -247,7 +264,7 @@ struct mgen_data
     //      designate a band member's leader, so we need to rule that out.
     bool is_summoned() const { return summon_type != SPELL_NO_SPELL
                                       || summon_duration > 0
-                                      || (summoner != nullptr && !(flags & MG_BAND_MINION)); }
+                                      || (summoner != nullptr && !(flags & (MG_BAND_MINION | MG_COPY_PARENT))); }
 
     static mgen_data sleeper_at(monster_type what,
                                 const coord_def &where,
