@@ -773,6 +773,11 @@ void melee_attack::maybe_do_mesmerism()
 
 static void _grow_mushrooms(const monster& mon)
 {
+    // Can't extract position from a reset monster (which may have happened due
+    // to disto banishment).
+    if (mon.type == MONS_NO_MONSTER || mon.is_firewood() || mon.wont_attack())
+        return;
+
     vector<coord_def> spots = get_wall_ring_spots(mon.pos(),
                                                   mon.pos() + (mon.pos() - you.pos()),
                                                   3);
@@ -981,7 +986,8 @@ bool melee_attack::handle_phase_hit()
     {
         _grow_mushrooms(*defender->as_monster());
 
-        if (!defender->is_unbreathing() && mons_has_attacks(*defender->as_monster(), false)
+        if (defender->alive() && !defender->is_unbreathing()
+            && mons_has_attacks(*defender->as_monster(), false)
             && coinflip())
         {
             mprf("%s is engulfed in spores.", defender->name(DESC_THE).c_str());
@@ -5249,9 +5255,12 @@ bool coglin_spellmotor_attack()
     if (delay > 10 && !x_chance_in_y(10, delay))
         return false;
 
-    // Gather all possible targets in attack range
+    // Gather all possible targets in attack range.
+    // (We have to manually add aqua form's reaching bonus, since it normally
+    // doesn't apply to cleaving attacks.)
     list<actor*> targets;
-    get_cleave_targets(you, coord_def(), targets, -1, true);
+    get_cleave_targets(you, coord_def(), targets, -1, true, nullptr,
+                       you.form == transformation::aqua ? 2 : 0);
 
     // Test that we have at least one valid non-prompting attack
     vector<actor*> targs;
