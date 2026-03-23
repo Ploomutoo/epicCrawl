@@ -676,6 +676,7 @@ static bool _ely_protect_ally(monster* mons, killer_type killer)
     if (mons->holiness() & ~(MH_HOLY | MH_NATURAL | MH_PLANT)
         || !mons->friendly()
         || !you.can_see(*mons) // for simplicity
+        || !monster_habitable_grid(mons, mons->pos())
         || !one_chance_in(20))
     {
         return false;
@@ -702,6 +703,7 @@ static bool _ely_heal_monster(monster* mons, killer_type killer, int i)
         || mons->is_peripheral()
         || mons->props.exists(ELY_WRATH_HEALED_KEY)
         || mons->get_experience_level() < random2(you.experience_level)
+        || !monster_habitable_grid(mons, mons->pos())
         || !one_chance_in(3))
     {
         return false;
@@ -762,7 +764,7 @@ static bool _yred_bind_soul(monster* mons, killer_type killer)
 
 static bool _vampire_make_thrall(monster* mons, killer_type killer)
 {
-    if (!mons->props.exists(VAMPIRIC_THRALL_KEY) || you.allies_forbidden())
+    if (you.allies_forbidden() || mons->has_ench(ENCH_SUMMON_TIMER))
         return false;
 
     // Check if another thrall is already alive.
@@ -787,7 +789,6 @@ static bool _vampire_make_thrall(monster* mons, killer_type killer)
 
     mons->hit_points = mons->max_hit_points;
     mons->flags |= MF_FAKE_UNDEAD;
-    mons->props.erase(VAMPIRIC_THRALL_KEY);
 
     // End constriction and all status effects.
     mons->stop_constricting_all();
@@ -1087,6 +1088,7 @@ void blorkula_bat_merge(monster& bat)
     blork->move_to(pos, MV_INTERNAL);
 
     _blorkula_bat_merge_message(blork, bat_count);
+    behaviour_event(blork, ME_ALERT);
 }
 
 static void _blorkula_bat_merge_message(monster* blork, int bat_count)
@@ -1115,6 +1117,12 @@ static void _blorkula_bat_merge_message(monster* blork, int bat_count)
 static bool _monster_avoided_death(monster* mons, killer_type killer,
                                    int killer_index)
 {
+    // We need to clean this property up no matter how the monster returns to
+    // life as it should only be on dead monsters
+    const bool can_be_thrall = mons->props.exists(VAMPIRIC_THRALL_KEY);
+    if (can_be_thrall)
+        mons->props.erase(VAMPIRIC_THRALL_KEY);
+
     if (mons->max_hit_points <= 0 || mons->get_hit_dice() < 1)
         return false;
 
@@ -1171,7 +1179,7 @@ static bool _monster_avoided_death(monster* mons, killer_type killer,
     if (_ely_heal_monster(mons, killer, killer_index))
         return true;
 
-    if (_vampire_make_thrall(mons, killer))
+    if (can_be_thrall && _vampire_make_thrall(mons, killer))
         return true;
 
     return false;
@@ -1216,22 +1224,8 @@ void fire_monster_death_event(monster* mons,
                       mons->mid, killer));
     }
 
-    bool terrain_changed = false;
-
-    for (map_marker *mark : env.markers.get_all(MAT_TERRAIN_CHANGE))
-    {
-        map_terrain_change_marker *marker =
-                dynamic_cast<map_terrain_change_marker*>(mark);
-
-        if (marker->mon_num != 0 && monster_by_mid(marker->mon_num) == mons)
-        {
-            terrain_changed = true;
-            marker->duration = 0;
-        }
-    }
-
-    if (terrain_changed)
-        timeout_terrain_changes(0, true);
+    if (mons->type != MONS_HELLFIRE_MORTAR)
+        end_terrain_changes(*mons);
 
     if (killer == KILL_BANISHED)
         return;
@@ -1492,8 +1486,11 @@ static string _derived_undead_message(const monster &mons, monster_type which_z,
         return "The dead are flying!";
 
     const auto shape = get_mon_shape(mons);
-    if (shape == MON_SHAPE_SNAKE || shape == MON_SHAPE_SNAIL)
+    if (shape == MON_SHAPE_SNAKE || shape == MON_SHAPE_SNAIL
+        || shape == MON_SHAPE_NAGA)
+    {
         return "The dead are slithering!";
+    }
     if (shape == MON_SHAPE_ARACHNID || shape == MON_SHAPE_CENTIPEDE)
         return "The dead are crawling!"; // to say nothing of creeping
 
@@ -1929,16 +1926,7 @@ static void _cassandra_death_ambush()
 
 static bool _mons_reaped(actor &killer, monster& victim)
 {
-    beh_type beh;
-
-    if (killer.is_player())
-        beh     = BEH_FRIENDLY;
-    else
-    {
-        monster* mon = killer.as_monster();
-        beh = SAME_ATTITUDE(mon);
-    }
-
+    beh_type beh = SAME_ATTITUDE(&killer);
     string msg = victim.name(DESC_ITS) + " spirit is torn from " +
                      victim.pronoun(PRONOUN_POSSESSIVE) + " body!";
     string fail_msg = victim.name(DESC_ITS) + " spirit is momentarily torn from " +
@@ -2519,8 +2507,7 @@ item_def* monster_die(monster& mons, killer_type killer,
 
     const bool spectralised = testbits(mons.flags, MF_SPECTRALISED);
 
-    if (!silent && !mount_death
-        && _monster_avoided_death(&mons, killer, killer_index))
+    if (!mount_death && _monster_avoided_death(&mons, killer, killer_index))
     {
         mons.flags &= ~MF_EXPLODE_KILL;
 
@@ -2803,7 +2790,7 @@ item_def* monster_die(monster& mons, killer_type killer,
     else if (mons.type == MONS_PLAYER_SHADOW)
         dithmenos_cleanup_player_shadow(&mons);
     else if (mons.type == MONS_ORB_GUARDIAN
-             && real_death
+             && (real_death || killer == KILL_BANISHED)
              && level_id::current() == level_id(BRANCH_ZOT, 5)
              && !player_on_orb_run()
              && !you.props.exists(TESSERACT_SPAWN_COUNTER_KEY))
@@ -2835,6 +2822,11 @@ item_def* monster_die(monster& mons, killer_type killer,
     }
     else if (mons.type == MONS_ERYTHROSPITE && !mons.is_abjurable())
         bleed_onto_floor(mons.pos(), MONS_ERYTHROSPITE, 100, false);
+    else if (mons.type == MONS_ROYAL_JELLY && mons.hit_points > 0
+             && real_death && !summoned)
+    {
+        schedule_trj_spawn_fineff(&you, &mons, mons.pos(), mons.hit_points);
+    }
 
     if (mons.has_ench(ENCH_MAGNETISED))
     {
@@ -2983,6 +2975,9 @@ item_def* monster_die(monster& mons, killer_type killer,
                     "With a roar, the tentacle is hauled back through the portal!");
             }
             silent = true;
+            for (map_marker* mark : env.markers.get_markers_at(mons.pos(), MAT_MALIGN_GATEWAY))
+                if (dynamic_cast<map_malign_gateway_marker*>(mark)->tentacle == mons.mid)
+                    env.markers.remove(mark);
         }
     }
     else if (mons.type == MONS_DROWNED_SOUL)
@@ -3723,6 +3718,11 @@ void monster_cleanup(monster* mons)
     if (mons->type == MONS_SEISMOSAURUS_EGG)
         for (distance_iterator di(mons->pos(), false, false, 4); di; ++di)
             env.pgrid(*di) &= ~FPROP_SEISMOROCK;
+    else if (mons->type == MONS_HELLFIRE_MORTAR && mons->summoner == MID_PLAYER)
+    {
+        const int dur = hellfire_mortar_cooldown_length(mons->props[HELLFIRE_PATH_KEY].get_vector().size());
+        you.duration[DUR_HELLFIRE_MORTAR_COOLDOWN] = dur;
+    }
 
     // May have been constricting something. No message because that depends
     // on the order in which things are cleaned up: If the constrictee is
@@ -3839,10 +3839,7 @@ void mons_check_pool(monster* mons, const coord_def &oldpos,
         killnum = mons->mindex();
     }
 
-    // Yredelemnul special, redux: It's the only one that can
-    // work on drowned monsters.
-    if (!_yred_bind_soul(mons, killer))
-        monster_die(*mons, killer, killnum, true);
+    monster_die(*mons, killer, killnum, true);
 }
 
 // Make all of the monster's original equipment disappear, unless it's a fixed

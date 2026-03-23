@@ -377,6 +377,16 @@ void monster::add_enchantment_effect(const mon_enchant &ench, bool quiet)
     default:
         break;
     }
+
+    if (ench.who == KC_YOU && you.unrand_equipped(UNRAND_SWAMP_WITCH_SCALES) &&
+        ench_triggers_trickster(ench.ench))
+    {
+        // 4 levels for rPois0 or rPois-, 1 level for rPois, or 0 further up.
+        // Gets pretty message spammy with mass effects if we actually printed
+        // any messages in poisoning others, alas.
+        int pois = res_poison() > 2 ? 0 : res_poison() == 1 ? 1 : 4;
+        poison_monster(this, &you, pois, true);
+    }
 }
 
 
@@ -1066,6 +1076,11 @@ void monster::remove_enchantment_effect(const mon_enchant &me, bool quiet)
         monster_die(*this, KILL_TIMEOUT, NON_MONSTER);
         break;
 
+    case ENCH_EXPOSED:
+        if (!quiet)
+            simple_monster_message(*this, " is no longer exposed.");
+        break;
+
     default:
         break;
     }
@@ -1387,6 +1402,7 @@ void monster::apply_enchantment(const mon_enchant &me)
     case ENCH_MIRROR_DAMAGE:
     case ENCH_DRAINED:
     case ENCH_SUNDER_CHARGE:
+    case ENCH_EXPOSED:
         decay_enchantment(en);
         break;
 
@@ -1512,31 +1528,6 @@ void monster::apply_enchantment(const mon_enchant &me)
                 add_ench(ENCH_EXPLODING);
         }
 
-    }
-    break;
-
-    case ENCH_PORTAL_TIMER:
-    {
-        if (decay_enchantment(en))
-        {
-            coord_def base_position = props[BASE_POSITION_KEY].get_coord();
-            // Do a thing.
-            if (you.see_cell(base_position))
-                mprf("The portal closes; %s is severed.", name(DESC_THE).c_str());
-
-            if (env.grid(base_position) == DNGN_MALIGN_GATEWAY)
-                env.grid(base_position) = DNGN_FLOOR;
-
-            maybe_bloodify_square(base_position);
-            add_ench(ENCH_SEVERED);
-
-            // Severed tentacles immediately become "hostile" to everyone
-            // (or frenzied)
-            attitude = ATT_NEUTRAL;
-            mons_att_changed(this);
-            if (!crawl_state.game_is_arena())
-                behaviour_event(this, ME_ALERT);
-        }
     }
     break;
 
@@ -2032,9 +2023,9 @@ static const char *enchant_names[] =
     "swift", "tide",
     "frenzied", "silenced", "awaken_forest", "exploding",
 #if TAG_MAJOR_VERSION == 34
-    "bleeding",
+    "bleeding", "tethered",
 #endif
-    "tethered", "severed", "antimagic",
+    "severed", "antimagic",
 #if TAG_MAJOR_VERSION == 34
     "fading_away", "preparing_resurrect",
 #endif
@@ -2149,6 +2140,7 @@ static const char *enchant_names[] =
     "vampire_thrall", "pyrrhic_recollection", "clockwork_bee_cast",
     "phalanx_barrier", "figment", "paradox-touched", "warding",
     "diminished_spells", "orb_cooldown", "sunder_charge",
+    "exposed",
     "buggy", // NUM_ENCHANTMENTS
 };
 
@@ -2357,10 +2349,6 @@ int mon_enchant::calc_duration(const monster* mons,
     case ENCH_BREATH_WEAPON:
         // Must be set by creature.
         return 0;
-
-    case ENCH_PORTAL_TIMER:
-        cturn = 30 * 10 / _mod_speed(10, mons->speed);
-        break;
 
     case ENCH_SUMMON_TIMER:
         // The duration is:

@@ -328,29 +328,6 @@ static monster* _do_split(monster* thing, const coord_def & target, bool quiet =
     return new_slime;
 }
 
-// Cause a monster to lose a turn. has_gone should be true if the
-// monster has already moved this turn.
-static void _lose_turn(monster* mons, bool has_gone)
-{
-    const monsterentry* entry = get_monster_data(mons->type);
-
-    // We want to find out if mons will move next time it has a turn
-    // (assuming for the sake of argument the next delay is 10). If it's
-    // already going to lose a turn we don't need to do anything.
-    mons->speed_increment += entry->speed;
-    if (!mons->has_action_energy())
-        return;
-    mons->speed_increment -= entry->speed;
-
-    mons->speed_increment -= entry->energy_usage.move;
-
-    // So we subtracted some energy above, but if mons hasn't moved yet
-    // /this turn, that will just cancel its turn in this round of
-    // world_reacts().
-    if (!has_gone)
-        mons->speed_increment -= entry->energy_usage.move;
-}
-
 // Actually merge two slime creatures, pooling their hp, etc.
 // initial_slime is the one that gets killed off by this process.
 static void _do_merge_slimes(monster* initial_slime, monster* merge_to)
@@ -378,13 +355,12 @@ static void _do_merge_slimes(monster* initial_slime, monster* merge_to)
         merge_to->props[OKAWARU_DUEL_CURRENT_KEY] = true;
     }
 
-    // Merging costs the combined slime some energy. The idea is that if 2
-    // slimes merge you can gain a space by moving away the turn after (maybe
-    // this is too nice but there will probably be a lot of complaints about
-    // the damage on higher level slimes). We see if mons has gone already by
-    // checking its mindex (this works because handle_monsters just iterates
-    // over env.mons in ascending order).
-    _lose_turn(merge_to, merge_to->mindex() < initial_slime->mindex());
+    // Give the player 10 aut to act without the merged slime creature acting
+    // (if the slime isn't hasted). The idea is that if 2 slimes merge you can
+    // gain a space by moving away the turn after (maybe this is too nice but
+    // there will probably be a lot of complaints about the damage on higher
+    // level slimes).
+    merge_to->speed_increment = 79 - mons_class_base_speed(merge_to->type);
 
     // Overwrite the state of the slime getting merged into, because it
     // might have been resting or something.
@@ -612,15 +588,17 @@ bool slime_creature_polymorph(monster& slime, poly_power_type power)
     return monster_polymorph(&slime, RANDOM_POLYMORPH_MONSTER, power);
 }
 
-static int _slymdra_split(monster& slymdra, int count = -1, bool quiet = false)
+int slymdra_split(monster& slymdra, int count, bool quiet)
 {
+    ASSERT(slymdra.type == MONS_SLYMDRA);
+
     int num_splits = 0;
     int& fake_heads = slymdra.props[SLYMDRA_FAKE_HEADS_KEY].get_int();
     int& real_slimes = slymdra.props[SLYMDRA_SLIMES_EATEN_KEY].get_int();
     if (count == -1)
         count = slymdra.num_heads - 4;
 
-    if (real_slimes == 0 && fake_heads == 0)
+    if (count <= 0 || real_slimes == 0 && fake_heads == 0)
         return 0;
     for (distance_iterator di(slymdra.pos(), true, true, 2); di; ++di)
     {
@@ -637,7 +615,7 @@ static int _slymdra_split(monster& slymdra, int count = -1, bool quiet = false)
                 }
 
                 // If we've split out as many things as we want or as many as we *can*, return.
-                if (++num_splits == count || real_slimes == 0 && fake_heads == 0)
+                if (++num_splits >= count || real_slimes == 0 && fake_heads == 0)
                     return num_splits;
             }
         }
@@ -649,7 +627,7 @@ static int _slymdra_split(monster& slymdra, int count = -1, bool quiet = false)
 bool slymdra_polymorph(monster& slymdra, poly_power_type power)
 {
     ASSERT(slymdra.type == MONS_SLYMDRA);
-    int count = _slymdra_split(slymdra, -1, true);
+    int count = slymdra_split(slymdra, -1, true);
 
     if (you.can_see(slymdra) && count > 0)
     {
@@ -730,11 +708,14 @@ static void _starcursed_scream(monster* mon, actor* target)
     {
         if (you.see_cell(target->pos()))
         {
-            mprf(target->as_monster()->friendly() ? MSGCH_FRIEND_SPELL
-                                                  : MSGCH_MONSTER_SPELL,
-                 "%s writhes in pain as voices assail %s mind.",
+            bool mind = mons_intel(*target->as_monster()) > I_BRAINLESS;
+            mprf(mon->friendly() ? MSGCH_FRIEND_SPELL
+                                 : MSGCH_MONSTER_SPELL,
+                 "%s writhes%s as voices assail %s %s.",
                  target->name(DESC_THE).c_str(),
-                 target->pronoun(PRONOUN_POSSESSIVE).c_str());
+                 mind ? " in pain" : "",
+                 target->pronoun(PRONOUN_POSSESSIVE).c_str(),
+                 mind ? "mind" : "being" );
         }
     }
     else
@@ -1117,16 +1098,16 @@ static bool _slymdra_try_merge(monster* mons)
 
 static bool _slymdra_split_or_merge(monster* mons)
 {
-    if (mons->behaviour == BEH_SEEK)
+    const actor* foe = mons->get_foe();
+    if (mons->behaviour == BEH_SEEK
+        && foe && mons->see_cell_no_trans(foe->pos()) && coinflip())
     {
-        const actor* foe = mons->get_foe();
-        if (foe && mons->see_cell_no_trans(foe->pos()) && coinflip())
-            return _slymdra_try_merge(mons);
+        return _slymdra_try_merge(mons);
     }
-    else if (mons->behaviour == BEH_WANDER && mons->num_heads > 4
-             && one_chance_in(15))
+    else if (mons->num_heads > 4
+             && (!foe || !mons->see_cell(foe->pos())) && one_chance_in(10))
     {
-        return _slymdra_split(*mons, 1);
+        return slymdra_split(*mons, 1);
     }
 
     return false;
@@ -1507,9 +1488,6 @@ bool pyrrhic_recollection(monster& nobody)
         mons_speaks_msg(&nobody, speech, MSGCH_TALK);
     }
 
-    // Heal and move.
-    if (was_injured)
-        monster_blink(&nobody, true, true);
     nobody.heal(nobody.max_hit_points);
 
     // If this was a phantom mirror copy, allow it to revive, but don't wipe out
@@ -1530,12 +1508,15 @@ bool pyrrhic_recollection(monster& nobody)
     // but we don't have that at the moment.
     mon_enchant haste = nobody.get_ench(ENCH_HASTE);
     mon_enchant might = nobody.get_ench(ENCH_MIGHT);
-    nobody.timeout_enchantments();
+    nobody.timeout_enchantments(10000, true);
     nobody.add_ench(summon_timer);
     nobody.add_ench(haste);
     nobody.add_ench(might);
 
     nobody.add_ench(mon_enchant(ENCH_PYRRHIC_RECOLLECTION, &nobody, random_range(300, 500)));
+
+    if (was_injured)
+        monster_blink(&nobody, true, true);
 
     // Don't immediately expire summons (we want them to stick around into the next phase),
     // but at least make them time out a bit faster.

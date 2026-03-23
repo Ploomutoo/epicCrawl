@@ -67,6 +67,7 @@
 #include "spl-damage.h"
 #include "spl-goditem.h"
 #include "spl-monench.h"
+#include "spl-other.h"
 #include "spl-summoning.h"
 #include "spl-transloc.h"
 #include "spl-util.h"
@@ -143,6 +144,7 @@ static ai_action::goodness _foe_not_nearby(const monster &caster);
 static ai_action::goodness _foe_near_lava(const monster &caster);
 static ai_action::goodness _mons_likes_blinking(const monster &caster);
 static ai_action::goodness _mesmerise_is_effective(monster* mons, bool check_hearing);
+static ai_action::goodness _spike_launcher_goodness(const monster& caster);
 static void _cast_injury_mirror(monster &mons, mon_spell_slot, bolt&);
 static void _cast_smiting(monster &mons, mon_spell_slot slot, bolt&);
 static void _cast_brain_bite(monster &mons, mon_spell_slot slot, bolt&);
@@ -495,7 +497,7 @@ static const map<spell_type, mons_spell_logic> spell_to_logic = {
     { SPELL_ANTIMAGIC_GAZE, {
         _caster_sees_foe,
         [](monster &caster, mon_spell_slot slot, bolt&) {
-            flash_tile(caster.get_foe()->pos(), MAGENTA, 120, TILE_BOLT_DRAINING_GAZE);
+            flash_tile(caster.get_foe()->pos(), MAGENTA, 120, TILE_BOLT_ANTIMAGIC_GAZE);
             caster.get_foe()->drain_magic(&caster, mons_spellpower(caster, slot.spell));
         },
     } },
@@ -1056,6 +1058,12 @@ static const map<spell_type, mons_spell_logic> spell_to_logic = {
             _cast_landbreaker(caster, beam);
         },
         _zap_setup(SPELL_LANDBREAKER) } },
+    { SPELL_SPIKE_LAUNCHER, {
+        _spike_launcher_goodness,
+       [](monster &caster, mon_spell_slot, bolt&) {
+            cast_spike_launcher(caster, mons_spellpower(caster, SPELL_SPIKE_LAUNCHER), false);
+        }
+    } },
 };
 
 // Logic for special-cased Aphotic Marionette hijacking of monster buffs to
@@ -1107,7 +1115,7 @@ static const map<spell_type, mons_spell_logic> marionette_spell_to_logic {
     } },
     { SPELL_MALIGN_GATEWAY, {
         [](const monster&) {
-            return ai_action::good_or_impossible(can_cast_malign_gateway());
+            return ai_action::good_or_impossible(can_cast_malign_gateway(you));
         },
         [] (monster&, mon_spell_slot /*slot*/, bolt& /*beem*/) {
             cast_malign_gateway(&you, 200);
@@ -1468,8 +1476,11 @@ static void _cast_draining_gaze(monster &caster, mon_spell_slot, bolt&)
     {
         // 10% of max HP post-draining: takes 8 casts to drain to 50% at rN0,
         // 15 at rN+, and 29 at rN++. No minimum amount.
-        flash_tile(foe->pos(), CYAN, 160, TILE_BOLT_DRAINING_GAZE);
         drain = 75 * you.hp_max / (you.hp_max - you.hp_max_adj_temp);
+        flash_tile(caster.pos(), CYAN, 0, TILE_BOLT_DRAINING_SMIRK);
+        flash_tile(foe->pos(), CYAN,
+                   180 + (75 * -you.hp_max_adj_temp / you.hp_max),
+                   TILE_BOLT_DRAINING_GAZE);
         drain_player(drain, false, false, false);
     }
     else
@@ -1685,6 +1696,8 @@ static bool _cast_landbreaker(const monster& caster, bolt& beam, bool check_only
     if (targs.empty())
         return false;
 
+    // Just in case something kills in along the way.
+    const coord_def caster_pos = caster.pos();
     const int pow = mons_spellpower(caster, SPELL_LANDBREAKER);
     const unsigned int num_targs = 2 + div_rand_round((int)max(0, pow - 50), 40);
     shuffle_array(targs);
@@ -1711,7 +1724,7 @@ static bool _cast_landbreaker(const monster& caster, bolt& beam, bool check_only
         beam.fire();
 
         // Place rubble 'behind' the target, relative to the caster.
-        const coord_def aim((targs[i]->pos() - caster.pos()) + targs[i]->pos());
+        const coord_def aim((targs[i]->pos() - caster_pos) + targs[i]->pos());
         vector<coord_def> spots = get_wall_ring_spots(targs[i]->pos(), aim, random_range(3, 5));
         for (coord_def& spot : spots)
         {
@@ -1727,7 +1740,7 @@ static bool _cast_landbreaker(const monster& caster, bolt& beam, bool check_only
 
     // Place some additional rumble at random locations.
     const int bonus_rubble = max(0, 8 - rubble_made);
-    rubble.pos = caster.pos();
+    rubble.pos = caster_pos;
     rubble.set_range(4, 7, 1);
     for (int i = 0; i < bonus_rubble; ++i)
     {
@@ -3202,7 +3215,7 @@ static void _corrupt_locale(monster &mons)
     lugonu_corrupt_level_monster(mons);
 }
 
-static void _set_door(set<coord_def> door, dungeon_feature_type feat)
+static void _set_door(const vector<coord_def>& door, dungeon_feature_type feat)
 {
     for (const auto &dc : door)
     {
@@ -3211,9 +3224,10 @@ static void _set_door(set<coord_def> door, dungeon_feature_type feat)
     }
 }
 
-static int _tension_door_closed(set<coord_def> door,
-                                dungeon_feature_type old_feat)
+static int _tension_door_closed(const vector<coord_def>& door)
 {
+    ASSERT(!door.empty());
+    const dungeon_feature_type old_feat = env.grid(door[0]);
     // this unwind is a bit heavy, but because out-of-los clouds dissipate
     // instantly, they can be wiped out by these door tests.
     unwind_var<map<coord_def, cloud_struct>> cloud_state(env.cloud);
@@ -3224,145 +3238,188 @@ static int _tension_door_closed(set<coord_def> door,
 }
 
 /**
- * Can any actors and items be pushed out of a doorway? An actor can be pushed
+ * Can all actors and items be pushed out of a doorway? An actor can be pushed
  * for purposes of this check if there is a habitable target location and the
  * actor is either the player or non-hostile. Items can be moved if there is
  * any free space.
  *
- * @param door the door position
+ * @param door_spots the positions of all the squares that contain the door
  *
- * @return true if any actors and items can be pushed out of the door.
+ * @return true if all actors and items can be pushed out of the door.
  */
-static bool _can_force_door_shut(const coord_def& door)
+static bool _can_force_door_shut(const vector<coord_def>& door_spots)
 {
-    if (!feat_is_open_door(env.grid(door)))
-        return false;
-
-    set<coord_def> all_door;
-    find_connected_identical(door, all_door);
-    auto veto_spots = vector<coord_def>(all_door.begin(), all_door.end());
-    auto door_spots = veto_spots;
-
-    for (const auto &dc : all_door)
+    for (coord_def dc : door_spots)
     {
-        // Only attempt to push players and non-hostile monsters out of
-        // doorways
-        actor* act = actor_at(dc);
-        if (act)
-        {
-            if (act->is_player()
-                || act->is_monster()
-                    && act->as_monster()->attitude != ATT_HOSTILE)
-            {
-                vector<coord_def> targets = get_push_spaces(dc, true, &veto_spots);
-                if (targets.empty())
-                    return false;
-                veto_spots.push_back(targets.front());
-            }
-            else
-                return false;
-        }
         // If there are items in the way, see if there's room to push them
         // out of the way. Having push space for an actor doesn't guarantee
         // push space for items (e.g. with a flying actor over lava).
-        if (env.igrid(dc) != NON_ITEM)
+        if (env.igrid(dc) != NON_ITEM
+            && !has_push_spaces(dc, false, &door_spots))
         {
-            if (!has_push_spaces(dc, false, &door_spots))
+            return false;
+        }
+    }
+
+    for (coord_def dc : door_spots)
+    {
+        const actor* act = actor_at(dc);
+        if (!act)
+            continue;
+        // Only attempt to push players and non-hostile monsters out of
+        // doorways
+        bool should_push = act->is_player()
+                           || act->as_monster()->attitude != ATT_HOSTILE;
+        if (!should_push)
+            return false;
+    }
+
+    vector<const actor*> pushed_actors;
+    vector<vector<coord_def>> push_locations;
+    vector<unsigned int> push_location_indices;
+    for (coord_def dc : door_spots)
+    {
+        const actor* act = actor_at(dc);
+        if (!act)
+            continue;
+        pushed_actors.push_back(act);
+        vector<coord_def> targets = get_push_spaces(dc, true, &door_spots);
+        if (targets.empty())
+            return false;
+        push_locations.push_back(std::move(targets));
+        push_location_indices.push_back(0);
+    }
+
+    if (pushed_actors.empty())
+        return true;
+    unsigned int pushed_actor_count = (unsigned int)pushed_actors.size();
+
+    while (true)
+    {
+        set<coord_def> used_push_locations;
+        for (unsigned int i = 0; i < pushed_actor_count; ++i)
+        {
+            coord_def pos = push_locations[i][push_location_indices[i]];
+            used_push_locations.insert(pos);
+        }
+        if (used_push_locations.size() == pushed_actor_count)
+            return true;
+        for (unsigned int i = 0;;)
+        {
+            push_location_indices[i]++;
+            if (push_location_indices[i] < push_locations[i].size())
+                break;
+            push_location_indices[i] = 0;
+            ++i;
+            if (i >= pushed_actor_count)
                 return false;
         }
     }
-
-    // Didn't find any actors or items we couldn't displace
-    return true;
+    return false;
 }
 
 /**
- * Get push spaces for an actor that maximize tension. If there are any push
- * spaces at all, this function is guaranteed to return something.
+ * Get push spaces that maximize tension for all actors in a door.
  *
- * @param pos the position of the actor
- * @param excluded a set of pre-excluded spots
+ * @param door_spots the positions of all the squares that contain the door
+ * @param positions[out] the push locations for the actors
  *
- * @return a vector of coordinates, empty if there are no push spaces at all.
+ * @return the tension with all the actors push from the door
  */
-static vector<coord_def> _get_push_spaces_max_tension(const coord_def& pos,
-                                            const vector<coord_def>* excluded)
+static int _find_shut_door_actor_positions_with_max_tension(
+                                           const vector<coord_def>& door_spots,
+                                           vector<coord_def>& positions)
 {
-    vector<coord_def> possible_spaces = get_push_spaces(pos, true, excluded);
-    if (possible_spaces.empty())
-        return possible_spaces;
-    vector<coord_def> best;
-    int max_tension = -1;
-    actor *act = actor_at(pos);
-    ASSERT(act);
+    positions.clear();
 
-    for (auto c : possible_spaces)
+    vector<actor*> pushed_actors;
+    vector<coord_def> old_actor_positions;
+    vector<vector<coord_def>> push_locations;
+    vector<unsigned int> push_location_indices;
+    for (coord_def dc : door_spots)
     {
-        set<coord_def> all_door;
-        find_connected_identical(pos, all_door);
-        dungeon_feature_type old_feat = env.grid(pos);
+        actor* act = actor_at(dc);
+        if (!act)
+            continue;
+        pushed_actors.push_back(act);
+        old_actor_positions.push_back(act->pos());
+        vector<coord_def> targets = get_push_spaces(dc, true, &door_spots);
+        // at this point, _can_force_door_shut should have
+        // indicated that the door can be shut.
+        ASSERTM(!targets.empty(), "No push space from (%d,%d)",
+                dc.x, dc.y);
+        push_locations.push_back(std::move(targets));
+        push_location_indices.push_back(0);
 
-        act->set_position(c);
-        int new_tension = _tension_door_closed(all_door, old_feat);
-        act->set_position(pos);
+    }
+    if (pushed_actors.empty())
+        return _tension_door_closed(door_spots);
+    unsigned int pushed_actor_count = (unsigned int)pushed_actors.size();
 
-        if (new_tension == max_tension)
-            best.push_back(c);
-        else if (new_tension > max_tension)
+    int best_tension = -1;
+    bool done = false;
+    while (!done)
+    {
+        set<coord_def> used_push_locations;
+        for (unsigned int i = 0; i < pushed_actor_count; ++i)
         {
-            max_tension = new_tension;
-            best.clear();
-            best.push_back(c);
+            coord_def pos = push_locations[i][push_location_indices[i]];
+            used_push_locations.insert(pos);
+        }
+        if (used_push_locations.size() == pushed_actor_count)
+        {
+            for (unsigned int i = 0; i < pushed_actor_count; ++i)
+            {
+                coord_def pos = push_locations[i][push_location_indices[i]];
+                actor* act = pushed_actors[i];
+                act->set_position(pos);
+            }
+            int new_tension = _tension_door_closed(door_spots);
+            for (unsigned int i = 0; i < pushed_actor_count; ++i)
+                pushed_actors[i]->set_position(old_actor_positions[i]);
+            if (new_tension > best_tension)
+            {
+                best_tension = new_tension;
+                positions.clear();
+                for (unsigned int i = 0; i < pushed_actor_count; ++i)
+                {
+                    coord_def p = push_locations[i][push_location_indices[i]];
+                    positions.push_back(p);
+                }
+            }
+        }
+        for (unsigned int i = 0;;)
+        {
+            push_location_indices[i]++;
+            if (push_location_indices[i] < push_locations[i].size())
+                break;
+            push_location_indices[i] = 0;
+            ++i;
+            if (i >= pushed_actor_count)
+            {
+                done = true;
+                break;
+            }
         }
     }
-    return best;
+    ASSERT(!positions.empty());
+    return best_tension;
 }
 
 /**
  * Would forcing a door shut (possibly pushing the player) lower tension too
  * much?
  *
- * @param door the door to check
+ * @param cur_tension the tension with the door open
+ *
+ * @param new_tension the tension with the door closed
  *
  * @return true iff forcing the door shut won't lower tension by more than 1/3.
  */
-static bool _should_force_door_shut(const coord_def& door)
+static bool _should_force_door_shut(int cur_tension, int new_tension)
 {
-    if (!feat_is_open_door(env.grid(door)))
-        return false;
 
-    dungeon_feature_type old_feat = env.grid(door);
-
-    set<coord_def> all_door;
-    find_connected_identical(door, all_door);
-    auto veto_spots = vector<coord_def>(all_door.begin(), all_door.end());
-
-    bool player_in_door = false;
-    for (const auto &dc : all_door)
-    {
-        if (you.pos() == dc)
-        {
-            player_in_door = true;
-            break;
-        }
-    }
-
-    const int cur_tension = get_tension(GOD_NO_GOD);
-    coord_def oldpos = you.pos();
-
-    if (player_in_door)
-    {
-        coord_def newpos =
-                _get_push_spaces_max_tension(you.pos(), &veto_spots).front();
-        you.set_position(newpos);
-    }
-
-    const int new_tension = _tension_door_closed(all_door, old_feat);
-
-    if (player_in_door)
-        you.set_position(oldpos);
-
-    dprf("Considering sealing cur tension: %d, new tension: %d",
+    dprf("Considering sealing current tension: %d, new tension: %d",
          cur_tension, new_tension);
 
     // If closing the door would reduce player tension by too much, probably
@@ -3402,49 +3459,47 @@ static bool _seal_doors_and_stairs(const monster* warden,
 
         if (feat_is_open_door(env.grid(*ri)))
         {
-            if (!_can_force_door_shut(*ri))
+            set<coord_def> all_door;
+            find_connected_identical(*ri, all_door);
+            const vector<coord_def> door_spots(all_door.begin(), all_door.end());
+
+            if (!_can_force_door_shut(door_spots))
                 continue;
 
+            int current_tension = get_tension(GOD_NO_GOD);
+            vector<coord_def> positions;
+            int new_tension = _find_shut_door_actor_positions_with_max_tension(
+                                                                    door_spots,
+                                                                    positions);
+
             // If it's scarier to leave this door open, do so
-            if (!_should_force_door_shut(*ri))
+            if (!_should_force_door_shut(current_tension, new_tension))
                 continue;
 
             if (check_only)
                 return true;
 
-            set<coord_def> all_door;
-            find_connected_identical(*ri, all_door);
-            auto veto_spots = vector<coord_def>(all_door.begin(), all_door.end());
-            auto door_spots = veto_spots;
-
-            for (const auto &dc : all_door)
+            unsigned int actor_index = 0;
+            for (coord_def dc : door_spots)
             {
+                push_items_from(dc, &door_spots);
                 // If there are things in the way, push them aside
                 // This is only reached for the player or non-hostile actors
                 actor* act = actor_at(dc);
-                if (act)
-                {
-                    vector<coord_def> targets =
-                                _get_push_spaces_max_tension(dc, &veto_spots);
-                    // at this point, _can_force_door_shut should have
-                    // indicated that the door can be shut.
-                    ASSERTM(!targets.empty(), "No push space from (%d,%d)",
-                                                                dc.x, dc.y);
-                    coord_def newpos = targets.front();
-
-                    act->move_to(newpos, MV_DEFAULT, true);
-                    pushed.push_back(act);
-                    if (act->is_player())
-                        player_pushed = true;
-                    veto_spots.push_back(newpos);
-                }
-                push_items_from(dc, &door_spots);
+                if (!act)
+                    continue;
+                coord_def new_pos = positions[actor_index];
+                act->move_to(new_pos, MV_DEFAULT, true);
+                pushed.push_back(act);
+                if (act->is_player())
+                    player_pushed = true;
+                ++actor_index;
             }
 
             // Close the door
             bool seen = false;
             vector<coord_def> excludes;
-            for (const auto &dc : all_door)
+            for (coord_def dc : door_spots)
             {
                 dgn_close_door(dc);
                 set_terrain_changed(dc);
@@ -3461,7 +3516,7 @@ static bool _seal_doors_and_stairs(const monster* warden,
 
             if (seen)
             {
-                for (const auto &dc : all_door)
+                for (coord_def dc : door_spots)
                 {
                     if (env.map_knowledge(dc).seen())
                     {
@@ -5893,6 +5948,26 @@ static coord_def _mons_boulder_tracer(const monster* mons)
     return coord_def();
 }
 
+// Checks if it is a reasonable idea to cast Spike Launcher now. Will prefer not
+// to cast if one is already active and in range of something, or if nothing
+// would be in range if it did cast.
+static ai_action::goodness _spike_launcher_goodness(const monster& caster)
+{
+    vector<coord_def> spots = find_spike_launcher_walls(caster.pos());
+    if (spots.empty())
+        return ai_action::impossible();
+
+    for (map_active_feature_marker* mark : env.markers.get_active_features(DNGN_SPIKE_LAUNCHER, caster.mid))
+        if (has_adjacent_enemy(mark->pos, caster))
+            return ai_action::bad();
+
+    for (const coord_def& spot : spots)
+        if (has_adjacent_enemy(spot, caster))
+            return ai_action::good();
+
+    return ai_action::bad();
+}
+
 void setup_breath_timeout(monster* mons)
 {
     if (mons->has_ench(ENCH_BREATH_WEAPON))
@@ -6029,11 +6104,11 @@ static void _mesmerise_los(monster& agent, int power, bool check_hearing)
             }
 
             if (!mons->has_ench(ENCH_DAZED))
-                mons->add_ench(mon_enchant(ENCH_DAZED, &agent, random_range(50, 90)));
+                mons->add_ench(mon_enchant(ENCH_DAZED, &agent, random_range(50, 80)));
             else
             {
                 mon_enchant dazed = mons->get_ench(ENCH_DAZED);
-                dazed.duration = min(120, random_range(50, 90));
+                dazed.duration = max(dazed.duration, min(100, dazed.duration + random_range(50, 80)));
                 mons->update_ench(dazed);
             }
         }
@@ -6800,8 +6875,8 @@ static void _sheep_message(int num_sheep, int sleep_pow, bool seen, actor& foe)
         return;
 
     const string foe_name = foe.name(DESC_THE);
-    const auto chan = foe.as_monster()->friendly() ? MSGCH_MONSTER_SPELL
-                                                   : MSGCH_FRIEND_SPELL;
+    const auto chan = foe.friendly() ? MSGCH_MONSTER_SPELL
+                                     : MSGCH_FRIEND_SPELL;
     if (!seen)
     {
         if (!sleep_pow)
@@ -7390,7 +7465,7 @@ static bool _cast_dominate_undead(const monster& caster, int pow, bool check_onl
             }
 
             simple_monster_message(*mon, " is compelled to serve!");
-            mon->add_ench(mon_enchant(ENCH_HEXED, &caster));
+            mon->add_ench(mon_enchant(caster.wont_attack() ? ENCH_CHARM : ENCH_HEXED, &caster));
             flash_tile(mon->pos(), BLUE);
         }
         else if (targ->is_player())
@@ -7933,12 +8008,6 @@ void mons_cast(monster* mons, bolt pbolt, spell_type spell_cast,
         return;
 
     case SPELL_MALIGN_GATEWAY:
-        if (!can_cast_malign_gateway())
-        {
-            dprf("ERROR: %s can't cast malign gateway, but is casting anyway! "
-                 "Counted %d gateways.", mons->name(DESC_THE).c_str(),
-                 count_malign_gateways());
-        }
         cast_malign_gateway(mons, 200);
         return;
 
@@ -8536,9 +8605,8 @@ void mons_cast(monster* mons, bolt pbolt, spell_type spell_cast,
 
     case SPELL_SPORULATE:
     {
-        mgen_data mgen (MONS_BALLISTOMYCETE_SPORE,
-                mons->friendly() ? BEH_FRIENDLY : BEH_HOSTILE, mons->pos(),
-                mons->foe);
+        mgen_data mgen (MONS_BALLISTOMYCETE_SPORE, SAME_ATTITUDE(mons),
+                        mons->pos(), mons->foe);
         mgen.set_summoned(mons, SPELL_SPORULATE, random_range(40, 70), false, false);
         // Add 1HD to the spore for each additional HD the spawner has.
         mgen.hd = mons_class_hit_dice(MONS_BALLISTOMYCETE_SPORE) +
@@ -8551,9 +8619,8 @@ void mons_cast(monster* mons, bolt pbolt, spell_type spell_cast,
 
     case SPELL_LAUNCH_SPORANGIUM:
     {
-        mgen_data mgen (MONS_CAUSTIC_SPORANGIUM,
-                mons->friendly() ? BEH_FRIENDLY : BEH_HOSTILE, mons->pos(),
-                mons->foe, MG_FORCE_PLACE);
+        mgen_data mgen (MONS_CAUSTIC_SPORANGIUM, SAME_ATTITUDE(mons),
+                        mons->pos(), mons->foe, MG_FORCE_PLACE);
         mgen.set_summoned(mons, SPELL_LAUNCH_SPORANGIUM, random_range(90, 220), false, false);
 
         // Since this is used by a wall monster, if we're actually trying to
@@ -8918,10 +8985,7 @@ static void _speech_fill_target(string& targ_prep, string& target,
             if (targ_prep == "at")
             {
                 if (env.grid(pbolt.target) != DNGN_FLOOR)
-                {
-                    target = feature_description(env.grid(pbolt.target),
-                                                 NUM_TRAPS, "", DESC_THE);
-                }
+                    target = feature_description(env.grid(pbolt.target), "", DESC_THE);
                 else
                     target = "thin air";
             }
@@ -9729,7 +9793,7 @@ ai_action::goodness monster_spell_goodness(monster* mon, spell_type spell)
             _glaciate_tracer(mon, mons_spellpower(*mon, spell), foe->pos()));
 
     case SPELL_MALIGN_GATEWAY:
-        return ai_action::good_or_bad(can_cast_malign_gateway());
+        return ai_action::good_or_bad(can_cast_malign_gateway(*mon));
 
     case SPELL_SIREN_SONG:
         return _mesmerise_is_effective(mon, true);

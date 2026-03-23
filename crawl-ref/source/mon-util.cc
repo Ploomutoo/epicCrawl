@@ -1003,7 +1003,7 @@ static void _destroy_mimic_feature(const coord_def &pos)
 void discover_mimic(const coord_def& pos)
 {
     item_def* item = item_mimic_at(pos);
-    const bool feature_mimic = !item && feature_mimic_at(pos);
+    const bool feature_mimic = !item && current_feature_is_mimic_at(pos);
     // Is there really a mimic here?
     if (!item && !feature_mimic)
         return;
@@ -2003,7 +2003,7 @@ mon_attack_def mons_attack_spec(const monster& m, int attk_number,
             attk.damage = 2 + (m.get_hit_dice() * 3 / 2);
     }
     else if (mon.type == MONS_ERYTHROSPITE)
-        attk.damage = 3 + m.get_experience_level();
+        attk.damage = 3 + m.get_experience_level() * 10 / 9;
 
     // Vampires get a bite aux in addition to normal attacks.
     if (mon.has_ench(ENCH_VAMPIRE_THRALL)
@@ -2578,6 +2578,11 @@ monster_type draconian_job_for_colour(monster_type colour)
 static mon_spellbook_type _get_mc_spellbook(const monster_type mon_type)
 {
     return static_cast<mon_spellbook_type>(get_monster_data(mon_type)->sec);
+}
+
+bool mon_type_has_spells(const monster_type mon_type)
+{
+    return _get_mc_spellbook(mon_type) != MST_NO_SPELLS;
 }
 
 mon_spellbook_type get_spellbook(const monster_info &mon)
