@@ -1775,8 +1775,6 @@ int player_spec_alchemy()
 
     sp += you.wearing_jewellery(AMU_CHEMISTRY);
 
-    sp += you.wearing_jewellery(AMU_ALCHEMY);
-
     sp += you.scan_artefacts(ARTP_ENHANCE_ALCHEMY);
 
     if (you.unrand_equipped(UNRAND_OLGREB))
