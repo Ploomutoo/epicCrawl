@@ -2958,7 +2958,6 @@ bool valid_marionette_spell(spell_type spell)
         case SPELL_STILL_WINDS:
         case SPELL_DIG:
         case SPELL_SILENCE:
-        case SPELL_WALL_OF_BRAMBLES:
         case SPELL_CALL_TIDE:
         case SPELL_DRUIDS_CALL:
 
@@ -2993,13 +2992,22 @@ static bool _marionette_spell_attempt(monster& caster, spell_type spell,
                                       vector<monster*>& targs,
                                       bool check_only = false)
 {
-    shuffle_array(targs);
+    const spell_flags flags = get_spell_flags(spell);
+    const bool aggressive = (flags & (spflag::targeting_mask))
+                            && !(flags & ((spflag::helpful | spflag::escape)));
 
+    shuffle_array(targs);
     for (monster* targ : targs)
     {
+        // Don't cast attack spells directly on ourselves.
+        // (This is a very crude approximation, but in general we assume
+        // untargeted AoE already won't hurt its own caster.)
+        if (targ == &caster && aggressive)
+            continue;
+
         // We verify alignment again at this point, just in case it's changed
         // in the middle of Marionette (eg: by the monster charming something).
-        if (!targ->alive() || targ->wont_attack())
+        if (!targ->alive() || (targ->wont_attack() && targ != &caster))
             continue;
 
         caster.foe = targ->mindex();

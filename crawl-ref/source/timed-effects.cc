@@ -533,7 +533,7 @@ void monster::timeout_enchantments(int time, bool no_drowning)
         case ENCH_MIRROR_DAMAGE: case ENCH_LIQUEFYING:
         case ENCH_SILVER_CORONA: case ENCH_DAZED:
         case ENCH_BREATH_WEAPON: case ENCH_WRETCHED:
-        case ENCH_SCREAMED: case ENCH_BLIND: case ENCH_WORD_OF_RECALL:
+        case ENCH_ABILITY_COOLDOWN: case ENCH_BLIND: case ENCH_WORD_OF_RECALL:
         case ENCH_INJURY_BOND: case ENCH_FLAYED: case ENCH_BARBS:
         case ENCH_AGILE: case ENCH_FROZEN: case ENCH_VITRIFIED:
         case ENCH_SIGN_OF_RUIN: case ENCH_SAP_MAGIC:

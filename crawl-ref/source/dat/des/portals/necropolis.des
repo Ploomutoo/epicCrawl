@@ -1696,7 +1696,6 @@ TAGS:    allow_dup luniq
 : if dgn.persist.necropolis_difficulty == "pre_lair_d" then
 WEIGHT:  5
 : end
-: crawl.mpr("Trying to place gammafunk_necropolis_ghost_cemetery.")
 KMONS:   DFH = player ghost
 KMONS:   p = withered plant
 : if dgn.persist.necropolis_difficulty == "pre_lair_d" then

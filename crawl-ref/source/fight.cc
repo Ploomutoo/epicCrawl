@@ -266,7 +266,7 @@ int mon_to_hit_pct(int to_land, int scaled_ev)
     for (int ev1 = 0; ev1 < ev; ev1++)
         for (int ev2 = 0; ev2 < ev; ev2++)
             hits_lower += max(0, to_land - (ev1 + ev2));
-    double hit_chance_lower = ((double)hits_lower) / (to_land * ev * ev);
+    double hit_chance_lower = ev ? ((double)hits_lower) / (to_land * ev * ev) : 1.0;
 
     int hits_upper = 0;
     for (int ev1 = 0; ev1 < ev+1; ev1++)
@@ -550,6 +550,9 @@ bool mons_fight(monster *attacker, actor *defender, bool *did_hit, bool simu)
         attacker->lose_energy(EUT_ATTACK);
         return false;
     }
+
+    if (attacker->type == MONS_THORN_HUNTER && defender->was_created_by(*attacker))
+        return false;
 
     melee_attack attk(attacker, defender);
     attk.simu = simu;

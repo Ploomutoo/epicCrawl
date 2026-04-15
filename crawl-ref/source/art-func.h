@@ -609,11 +609,6 @@ static void _WYRMBANE_melee_effects(item_def* weapon, actor* /*attacker*/,
     if (!defender || !defender->is_dragonkind())
         return;
 
-    // Since the target will become a DEAD MONSTER if it dies due to the extra
-    // damage to dragons, we need to grab this information now.
-    const int hd = defender->dragon_level();
-    string name = defender->name(DESC_THE);
-
     if (defender->alive())
     {
         int bonus_dam = 1 + random2(3 * dam / 2);
@@ -623,9 +618,15 @@ static void _WYRMBANE_melee_effects(item_def* weapon, actor* /*attacker*/,
             attack_strength_punctuation(bonus_dam).c_str());
 
         atk->inflict_damage(bonus_dam);
+        // The defender may be dead, but even if so we dont want to power up
+        // the lance, as this will happen on another call in the kill phase.
+        return;
     }
 
-    if (defender->alive() || !hd)
+    // XXX: This is only reached if the defender was already dead at the time this
+    // function was called (which should only be from melee_attack::handle_phase_killed())
+    const int hd = defender->dragon_level();
+    if (!hd)
         return;
 
     // The cap can be reached by:
@@ -645,12 +646,12 @@ static void _WYRMBANE_melee_effects(item_def* weapon, actor* /*attacker*/,
         {
             mprf("<white>The lance glows brightly as it skewers %s. You feel "
                  "that it has reached its full power.</white>",
-                 name.c_str());
+                 defender->name(DESC_THE).c_str());
         }
         else
         {
             mprf("<green>The lance glows as it skewers %s.</green>",
-                 name.c_str());
+                 defender->name(DESC_THE).c_str());
         }
 
         you.wield_change = true;

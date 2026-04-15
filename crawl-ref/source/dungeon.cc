@@ -5791,31 +5791,20 @@ bool seen_destroy_feat(dungeon_feature_type old_feat)
 void dgn_replace_area(int sx, int sy, int ex, int ey,
                       dungeon_feature_type replace,
                       dungeon_feature_type feature,
-                      unsigned mmask, bool needs_update)
+                      unsigned mmask)
 {
     dgn_replace_area(coord_def(sx, sy), coord_def(ex, ey),
-                      replace, feature, mmask, needs_update);
+                      replace, feature, mmask);
 }
 
 void dgn_replace_area(const coord_def& p1, const coord_def& p2,
                        dungeon_feature_type replace,
-                       dungeon_feature_type feature, uint32_t mapmask,
-                       bool needs_update)
+                       dungeon_feature_type feature, uint32_t mapmask)
 {
     for (rectangle_iterator ri(p1, p2); ri; ++ri)
     {
         if (env.grid(*ri) == replace && !map_masked(*ri, mapmask))
-        {
             env.grid(*ri) = feature;
-            if (needs_update && env.map_knowledge(*ri).seen())
-            {
-                env.map_knowledge(*ri).set_feature(feature, 0);
-#ifdef USE_TILE
-                // XXX: this will not be the correct tile for the feature...
-                tile_env.bk_bg(*ri) = feature;
-#endif
-            }
-        }
     }
 }
 

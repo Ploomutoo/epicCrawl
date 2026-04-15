@@ -1095,7 +1095,7 @@ static void _maybe_scream(mid_t source)
 
     if (x_chance_in_y(you.get_mutation_level(MUT_SCREAM), 20))
     {
-        yell(actor_by_mid(source));
+        yell(actor_by_mid(source, true));
         you.shouted_pos = you.pos();
     }
 }

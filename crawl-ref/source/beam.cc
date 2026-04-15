@@ -1256,50 +1256,6 @@ void bolt::do_fire()
 
         const dungeon_feature_type feat = env.grid(pos());
 
-        if (in_bounds(target)
-            // Starburst beams are essentially untargeted; some might even hit
-            // a victim if others have LOF blocked.
-            && origin_spell != SPELL_STARBURST
-            // We ran into a solid wall with a real beam...
-            && (feat_is_solid(feat)
-                && flavour != BEAM_DIGGING && flavour <= BEAM_LAST_REAL
-                && !cell_is_solid(target)
-            // Or hit a monster that'll stop our beam...
-                || at_blocking_monster())
-            // and it's a player tracer that cares about blocked paths...
-            && is_tracer() && tracer->is_collecting_warnings() && YOU_KILL(thrower)
-            // and we're actually between you and the target...
-            && !passed_target && pos() != target && pos() != source
-            // ?
-            && !tracer->has_hit_foe() && bounces == 0 && reflections == 0
-            // and you aren't shooting out of LOS.
-            && you.see_cell(target))
-        {
-            // Okay, with all those tests passed, this is probably an instance
-            // of the player manually targeting something whose line of fire
-            // is blocked, even though its line of sight isn't blocked. Give
-            // a warning about this fact.
-            const monster* mon = monster_at(target);
-
-            string blockee;
-            if (mon && mon->observable())
-                blockee = mon->name(DESC_THE);
-            else
-            {
-                blockee = "the targeted "
-                        + feature_description_at(target, false, DESC_PLAIN);
-            }
-
-            const string blocker = feat_is_solid(feat) ?
-                        feature_description_at(pos(), false, DESC_A) :
-                        monster_at(pos())->name(DESC_A);
-
-            tracer->blocked("Your line of fire to " + blockee
-                            + " is blocked by " + blocker + ".");
-            finish_beam();
-            return;
-        }
-
         // If requested to stop before hitting allies (or neutrals our god would
         // object to us harming), do so now.
         const actor* act_at = actor_at(pos());
@@ -2765,6 +2721,12 @@ void bolt::affect_endpoint()
         if (actor_at(p) || !monster_habitable_grid(MONS_PILE_OF_FLESH, p))
             p = get_last_affected_pos(0);
 
+        // If the bolt didn't affect anything, we can't create the flesh. This
+        // can for example happen if the bolt was redirected by Ru at something
+        // the monster can't actually hit.
+        if (p.origin())
+            break;
+
         create_monster(mgen_data(MONS_PILE_OF_FLESH,
                        SAME_ATTITUDE(agent(true)),
                        p, agent(true)->as_monster()->foe)
@@ -3349,7 +3311,7 @@ bool bolt::harmless_to_player() const
         return player_res_poison(false) > 0 || you.clarity();
 
     case BEAM_PETRIFY:
-        return you.res_petrify() || you.petrified();
+        return you.res_petrify() || you.petrified() || you.petrifying();
 
     case BEAM_COLD:
         return is_big_cloud() && actor_cloud_immune(you, CLOUD_COLD);
@@ -4883,7 +4845,7 @@ void bolt::tracer_affect_monster(monster* mon)
 {
     // Ignore unseen monsters.
     if ((agent() && !agent()->can_see(*mon))
-        || !cell_see_cell(source, mon->pos(), LOS_NO_TRANS))
+        || !cell_see_cell(source, mon->pos(), LOS_DEFAULT))
     {
         return;
     }
@@ -5497,27 +5459,6 @@ bool bolt::bush_immune(const monster &mons) const
         && target != mons.pos();
 }
 
-// Is there a visible monster at this position which will keep the beam from
-// continuing onward? (And, if so, is it firewood or something else we'd never
-// actually want to bother hitting?)
-bool bolt::at_blocking_monster() const
-{
-    const monster *mon = monster_at(pos());
-    if (!mon || !you.can_see(*mon))
-        return false;
-
-    if (!pierce && !ignores_monster(mon) && mon->is_firewood())
-        return true;
-    if (have_passive(passive_t::neutral_slimes)
-        && mons_is_slime(*mon)
-        && mon->wont_attack()
-        && flavour != BEAM_VILE_CLUTCH)
-    {
-        return true;
-    }
-    return false;
-}
-
 void bolt::affect_monster(monster* mon)
 {
     // Don't hit dead or fake monsters.
@@ -6016,7 +5957,7 @@ bool ench_flavour_affects_monster(actor *agent, beam_type flavour,
         break;
 
     case BEAM_PETRIFY:
-        rc = !mon->res_petrify();
+        rc = !mon->res_petrify() && !mon->petrifying() && !mon->petrified();
         break;
 
     case BEAM_INFESTATION:
@@ -7825,18 +7766,11 @@ void player_beam_tracer::monster_hit(const bolt& beam, const monster& mon)
     }
 }
 
-void player_beam_tracer::blocked(string message) noexcept
-{
-    blocked_message = std::move(message);
-    blocked_count++;
-}
-
 // Returns true if there is anything this tracer might possibly want to prompt
 // the player about.
 bool player_beam_tracer::has_any_warnings() noexcept
 {
-    return blocked_count > 0
-            || god_hated_target
+    return god_hated_target
             || bad_charm_target
             || hit_self_count > 0
             || !bad_attack_targets.empty();
@@ -7875,16 +7809,8 @@ int targeting_tracer::player_hit_count() noexcept
 }
 
 // returns true if the player wishes to cancel firing the bolt, false otherwise
-bool cancel_beam_prompt(const bolt& beam, const player_beam_tracer& tracer,
-                        int beams_fired)
+bool cancel_beam_prompt(const bolt& beam, const player_beam_tracer& tracer)
 {
-    ASSERT(beams_fired >= tracer.blocked_count);
-    if (tracer.blocked_count >= beams_fired)
-    {
-        mpr(tracer.blocked_message);
-        return true;
-    }
-
     const spell_type spell = beam.origin_spell;
 
     if (tracer.god_hated_target

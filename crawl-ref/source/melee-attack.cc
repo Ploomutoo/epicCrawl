@@ -3472,7 +3472,8 @@ bool melee_attack::apply_staff_damage()
             defender->poison(attacker, 2);
     }
 
-    if (you.wearing_ego(OBJ_ARMOUR, SPARM_ATTUNEMENT)
+    if (attacker->is_player()
+        && you.wearing_ego(OBJ_ARMOUR, SPARM_ATTUNEMENT)
         && you.magic_points < you.max_magic_points)
     {
         mpr("You draw in some of the released energy.");
@@ -4660,14 +4661,9 @@ void melee_attack::do_spines()
     }
     else if (defender->as_monster()->is_spiny())
     {
-        // Thorn hunters can attack their own brambles without injury
-        if (defender->type == MONS_BRIAR_PATCH
-            && attacker->type == MONS_THORN_HUNTER
-            // Don't let spines kill things out of LOS.
-            || !monster_los_is_valid(defender->as_monster(), attacker))
-        {
+        // Don't let friendly monster spines kill things out of LOS.
+        if (!monster_los_is_valid(defender->as_monster(), attacker))
             return;
-        }
 
         const bool cactus = defender->type == MONS_CACTUS_GIANT;
         if (attacker->alive() && (cactus || one_chance_in(3)))

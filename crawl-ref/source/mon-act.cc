@@ -1742,30 +1742,6 @@ static void _pre_monster_move(monster& mons)
         return;
     }
 
-    if (mons_stores_tracking_data(mons))
-    {
-        actor* foe = mons.get_foe();
-        if (foe)
-        {
-            if (!mons.props.exists(FAUX_PAS_KEY))
-                mons.props[FAUX_PAS_KEY].get_coord() = foe->pos();
-            else
-            {
-                if (mons.props[FAUX_PAS_KEY].get_coord().distance_from(mons.pos())
-                    > foe->pos().distance_from(mons.pos()))
-                {
-                    mons.props[FOE_APPROACHING_KEY].get_bool() = true;
-                }
-                else
-                    mons.props[FOE_APPROACHING_KEY].get_bool() = false;
-
-                mons.props[FAUX_PAS_KEY].get_coord() = foe->pos();
-            }
-        }
-        else
-            mons.props.erase(FAUX_PAS_KEY);
-    }
-
     fedhas_neutralise(&mons);
     slime_convert(&mons);
 
@@ -1842,9 +1818,18 @@ static bool _mons_take_special_action(monster &mons, int old_energy)
     // hitting their foes.
     if (mons.berserk_or_frenzied())
     {
-        if (!is_sanctuary(mons.pos()) && _handle_reaching(mons))
+        if (is_sanctuary(mons.pos()))
+            return false;
+
+        if (_handle_reaching(mons))
         {
             DEBUG_ENERGY_USE_REF("_handle_reaching()");
+            return true;
+        }
+
+        if (_handle_swoop_or_flank(mons))
+        {
+            DEBUG_ENERGY_USE_REF("_handle_swoop_or_flank()");
             return true;
         }
 
@@ -2263,6 +2248,9 @@ void handle_monster_move(monster* mons)
         return;
     }
 
+    if (mons->type == MONS_THORN_HUNTER)
+        thorn_hunter_raise_barrier(*mons);
+
     if (_handle_pickup(mons))
     {
         DEBUG_ENERGY_USE("handle_pickup()");
@@ -2293,9 +2281,9 @@ void handle_monster_move(monster* mons)
     if (!mons->alive())
         return;
 
-    // XXX: A bit hacky, but stores where we WILL move, if we don't take
-    //      another action instead (used for decision-making)
-    if (mons_stores_tracking_data(*mons))
+    // Stores where we WILL move, if we don't take another action instead
+    // (used for decision-making)
+    if (mons->type == MONS_BOULDER_BEETLE)
         mons->props[MMOV_KEY].get_coord() = mmov;
 
     if (_mons_take_special_action(*mons, old_energy))
@@ -2639,6 +2627,9 @@ static void _post_monster_move(monster* mons)
 
     if (mons->type == MONS_SEISMOSAURUS_EGG && egg_is_incubating(*mons))
         seismosaurus_egg_hatch(mons);
+
+    if (mons->type == MONS_THORN_HUNTER)
+        thorn_hunter_raise_barrier(*mons);
 
     update_mons_cloud_ring(mons);
 
@@ -3383,6 +3374,10 @@ bool mon_can_move_to_pos(const monster* mons, const coord_def& delta,
     // are aligned differently.
     if (monster* targmonster = monster_at(targ))
     {
+        // Thorn hunters can always freely move into their own briars
+        if (mons->type == MONS_THORN_HUNTER && targmonster->was_created_by(*mons))
+            return true;
+
         if (just_check)
         {
             if (targ == mons->pos())
@@ -3439,6 +3434,9 @@ bool mon_can_move_to_pos(const monster* mons, const coord_def& delta,
 // to get to the player if necessary.
 static bool _may_cutdown(monster* mons, monster* targ)
 {
+    if (!targ->is_firewood())
+        return false;
+
     // Save friendly plants from allies.
     // [ds] I'm deliberately making the alignment checks symmetric here.
     // The previous check involved good-neutrals never attacking friendlies
@@ -3448,13 +3446,25 @@ static bool _may_cutdown(monster* mons, monster* targ)
     {
         return false;
     }
-    // Outside of that case, can always cut mundane plants
-    // (but don't try to attack briars unless their damage will be insignificant)
-    return targ->is_firewood()
-        && (targ->type != MONS_BRIAR_PATCH
-            || (targ->friendly() && !mons_aligned(mons, targ))
-            || mons->type == MONS_THORN_HUNTER
-            || mons->armour_class() * mons->hit_points >= 400);
+
+    // Hostile monsters will always attack the player's briars, but otherwise
+    // avoid doing so unless the damage would be insignificant.
+    if (targ->type == MONS_BRIAR_PATCH)
+    {
+        if (mons->type == MONS_THORN_HUNTER && targ->was_created_by(*mons))
+            return false;
+        else
+        {
+            return targ->friendly() && !mons_aligned(mons, targ)
+                   || mons->armour_class() * mons->hit_points >= 400;
+        }
+    }
+    // Don't attack aligned barricades
+    else if (targ->type == MONS_SPLINTERFROST_BARRICADE && mons_aligned(mons, targ))
+        return false;
+
+    // Outside of these cases, can always cut mundane plants
+    return true;
 }
 
 static void _find_good_alternate_move(monster* mons, coord_def& delta,
@@ -3711,8 +3721,8 @@ static bool _do_move_monster(monster& mons, const coord_def& delta)
     // This includes the case where the monster attacks itself.
     if (monster* def = monster_at(f))
     {
-        mons_fight(&mons, def);
-        return true;
+        if (mons_fight(&mons, def))
+            return true;
     }
 
     if (mons.is_constricted() && !mons.cannot_move())
@@ -3799,6 +3809,15 @@ static bool _do_move_monster(monster& mons, const coord_def& delta)
 
     if (mons_is_seeker(mons))
         --mons.steps_remaining;
+
+    // Don't trample over our own briars if we're currently in range to fire
+    if (mons.type == MONS_THORN_HUNTER
+        && monster_at(f)
+        && monster_at(f)->was_created_by(mons)
+        && thorn_hunter_range_check(mons))
+    {
+        return false;
+    }
 
     mons.move_to(f, MV_DELIBERATE);
     mons.check_redraw(mons.pos() - delta);
@@ -4062,15 +4081,17 @@ static bool _monster_move(monster* mons, coord_def& delta)
                      || mons->confused()))
             {
                 ret = _monster_swaps_places(mons, delta);
+                delta.reset();  // Swapping can fail, but even if it does, we
+                                // shouldn't try hitting our ally later on.
             }
             else if (!delta.origin()) // confused self-hit handled below
             {
-                mons_fight(mons, targ);
-                ret = true;
+                if (mons_fight(mons, targ))
+                {
+                    ret = true;
+                    delta.reset();
+                }
             }
-
-            // If the monster swapped places, the work's already done.
-            delta.reset();
         }
 
         // The monster could die after a melee attack due to a mummy

@@ -515,8 +515,6 @@ mon_threat_level_type mons_threat_level(const monster &mon,
 
 bool mons_foe_is_marked(const monster& mons);
 
-bool mons_stores_tracking_data(const monster& mons);
-
 bool mons_is_player_shadow(const monster& mon);
 bool mons_is_wrath_avatar(const monster &mon);
 

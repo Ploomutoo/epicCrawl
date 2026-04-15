@@ -414,7 +414,8 @@ int make_mons_weapon(monster_type type, int level, bool melee_only)
     { { { WPN_SCIMITAR,         2 },
         { WPN_FALCHION,         1 },
         { WPN_RAPIER,           1 },
-        { WPN_ATHAME,           1 }, }, { },
+        { WPN_ATHAME,           1 }, },
+      { 1, 0, 4 },
       { { SPWPN_FLAMING,        1 },
         { SPWPN_FREEZING,       1 },
         { NUM_SPECIAL_WEAPONS,  3 } } };

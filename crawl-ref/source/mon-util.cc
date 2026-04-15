@@ -5208,13 +5208,6 @@ bool mons_is_recallable(const actor* caller, const monster& targ)
            && mons_class_is_threatening(targ.type);
 }
 
-bool mons_stores_tracking_data(const monster& mons)
-{
-    return mons.type == MONS_THORN_HUNTER
-           || mons.type == MONS_MERFOLK_AVATAR
-           || mons.type == MONS_BOULDER_BEETLE;
-}
-
 bool mons_is_beast(monster_type mc)
 {
     if (!(mons_class_holiness(mc) & MH_NATURAL)

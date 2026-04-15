@@ -5382,13 +5382,21 @@ void monster::self_destruct()
  */
 bool monster::move_to(const coord_def& newpos, movement_type mvflags, bool defer_finalisation)
 {
-    const actor* a = actor_at(newpos);
+    actor* a = actor_at(newpos);
     if (a
         // When doing manual mgrid updating, assume ovelaps with other monsters are expected.
         && !(mvflags & MV_NO_MGRID_UPDATE)
         && !(a->is_player() && (fedhas_passthrough(this) || testbits(mvflags, MV_ALLOW_OVERLAP))))
     {
-        return false;
+        // Thorn hunters can step 'onto' their own briars as part of their movement
+        // (which removes them), but other overlaps should not happen
+        if (type == MONS_THORN_HUNTER && a->type == MONS_BRIAR_PATCH && a->was_created_by(*this)
+            && (mvflags & MV_DELIBERATE))
+        {
+            monster_die(*a->as_monster(), KILL_RESET, NON_MONSTER);
+        }
+        else
+            return false;
     }
 
     // Store current position for later finalisation (but if we have been moved
@@ -6140,6 +6148,8 @@ void monster::react_to_damage(const actor *oppressor, int damage,
             props[EMERGENCY_CLONE_KEY].get_bool() = true;
         }
     }
+    else if (type == MONS_THORN_HUNTER)
+        thorn_hunter_raise_barrier(*this, true);
 
     else if (type == MONS_BAI_SUZHEN && hit_points < max_hit_points * 2 / 3
                                      && hit_points - damage > 0)

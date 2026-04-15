@@ -604,7 +604,7 @@ static bool _trace_player_ranged_attacks(vector<ranged_attack_beam>& atks, bool 
     if (no_harm_allies && tracer.has_any_warnings())
         return true;
 
-    if (cancel_beam_prompt(atks[0].beam, tracer, atks.size()))
+    if (cancel_beam_prompt(atks[0].beam, tracer))
         return true;
 
     // Warn about Mule potentially knocking the player back into a trap.

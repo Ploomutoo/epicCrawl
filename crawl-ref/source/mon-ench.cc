@@ -24,6 +24,7 @@
 #include "fight.h"
 #include "hints.h"
 #include "god-abil.h"
+#include "god-companions.h"
 #include "item-status-flag-type.h"
 #include "items.h"
 #include "libutil.h"
@@ -1236,16 +1237,13 @@ static void _merfolk_avatar_song(monster* mons)
     // First, attempt to pull the player, if mesmerised
     if (you.beheld_by(*mons) && coinflip())
     {
-        // Don't pull the player if they walked forward voluntarily this
-        // turn (to avoid making you jump two spaces at once)
-        if (!mons->props[FOE_APPROACHING_KEY].get_bool())
-        {
-            _merfolk_avatar_movement_effect(mons);
+        const int dist_change = grid_distance(you.pos(), mons->pos())
+                                - grid_distance(you.pos_at_turn_start, mons->pos());
 
-            // Reset foe tracking position so that we won't automatically
-            // veto pulling on a subsequent turn because you 'approached'
-            mons->props[FAUX_PAS_KEY].get_coord() = you.pos();
-        }
+        // Don't pull the player if they already moved closer to use this turn
+        // (to avoid making you jump two spaces at once)
+        if (dist_change >= 0)
+            _merfolk_avatar_movement_effect(mons);
     }
 
     // Only call up drowned souls if we're largely alone; otherwise our
@@ -1357,7 +1355,7 @@ void monster::apply_enchantment(const mon_enchant &me)
     case ENCH_DUMB:
     case ENCH_MAD:
     case ENCH_WRETCHED:
-    case ENCH_SCREAMED:
+    case ENCH_ABILITY_COOLDOWN:
     case ENCH_WEAK:
     case ENCH_FIRE_VULN:
     case ENCH_BARBS:
@@ -1403,6 +1401,7 @@ void monster::apply_enchantment(const mon_enchant &me)
     case ENCH_DRAINED:
     case ENCH_SUNDER_CHARGE:
     case ENCH_EXPOSED:
+    case ENCH_BRAMBLE_COOLDOWN:
         decay_enchantment(en);
         break;
 
@@ -1977,6 +1976,20 @@ void monster::apply_enchantments()
             apply_enchantment(enchantments.find(static_cast<enchant_type>(i))->second);
 }
 
+bool monster::is_vengeance_target() const
+{
+    if (!has_ench(ENCH_VENGEANCE_TARGET))
+        return false;
+    // When entering a level, old vengeance will be removed from monsters by a
+    // daction. However, it is possible for a monster to die before that runs
+    // (e.g. from an earlier daction to clean up Pikel minions) and killing a
+    // monster that is a vengeance target while not under penance results in a
+    // crash, so don't count a monster as a vengeance target if it was set by
+    // an old vengeance.
+    return get_ench(ENCH_VENGEANCE_TARGET).degree
+           == you.props[BEOGH_VENGEANCE_NUM_KEY].get_int();
+}
+
 // Used to adjust time durations in calc_duration() for monster speed.
 static inline int _mod_speed(int val, int speed)
 {
@@ -2055,7 +2068,7 @@ static const char *enchant_names[] =
 #if TAG_MAJOR_VERSION == 34
     "ozocubus_armour",
 #endif
-    "wretched", "screamed", "rune_of_recall",
+    "wretched", "ability_cooldown", "rune_of_recall",
     "injury bond",
 #if TAG_MAJOR_VERSION == 34
     "drowning",
@@ -2141,6 +2154,7 @@ static const char *enchant_names[] =
     "phalanx_barrier", "figment", "paradox-touched", "warding",
     "diminished_spells", "orb_cooldown", "sunder_charge",
     "exposed",
+    "briar_cooldown",
     "buggy", // NUM_ENCHANTMENTS
 };
 

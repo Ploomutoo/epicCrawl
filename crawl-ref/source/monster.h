@@ -581,6 +581,8 @@ public:
     monster* get_band_leader() const;
     void set_band_leader(const monster& leader);
 
+    bool is_vengeance_target() const;
+
 private:
     int hit_dice;
 

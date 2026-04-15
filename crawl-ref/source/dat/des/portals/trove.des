@@ -219,8 +219,6 @@ end
 -- to specifically choosing forms or skill levels for one isolated
 -- skill before entering a given trove.
 function wants_barding(e)
-  crawl.mpr("Wants barding was called!")
-  crawl.mpr(you.race())
   return you.race() == "Gale Centaur" or you.race() == "Naga"
 end
 
@@ -313,7 +311,7 @@ function trove_standard_magic(e, school, use_staff)
   local inames = {
     ["conjuration"] = {"conjuration", "Conj", "conjurations"},
     ["summoning"] = {"ERROR: set use_staff to false", "Summ", "summonings"},
-    ["necromancy"] = {"necromancy", "Necro", "Necromancy"},
+    ["necromancy"] = {"necromancy", "Necro", "necromancy"},
     ["translocations"] = {"ERROR: set use_staff to false", "Tloc", "translocations"},
     ["hexes"] = {"ERROR: set use_staff to false", "Hexes", "hexes"},
     ["fire"] = {"fire", "Fire", "fire magic"},
@@ -330,7 +328,7 @@ function trove_standard_magic(e, school, use_staff)
     table.insert(orbs, "stardust w:2")
   end
   for sc, iname in pairs(inames) do
-    if school == sc then
+    if school:lower() == sc:lower() then
       staff = "staff of " .. iname[1]
       orb = "orb randart artprops:" .. iname[2] .. " ego:" ..
             table.concat(orbs, " / orb randart artprops:" .. iname[2] .. " ego:")
@@ -338,7 +336,7 @@ function trove_standard_magic(e, school, use_staff)
       schname = iname[3]
     elseif crawl.game_started() and you.base_skill(iname[3]) > max_other then
       max_other = you.base_skill(iname[3])
-      secondary = sc
+      secondary = iname[2]
     end
   end
   if crawl.game_started() and you.base_skill(schname) < 27 then
@@ -771,7 +769,6 @@ end
 if you.mutation("no conjurations magic") ~= 1 then
   magic = magic .. " / manual of conjurations w:4"
 end
-crawl.mpr(aux)
 trove_offense(_G, trove_weap_brand(_G, "flaming", true),
                   trove_standard_magic(_G, "fire", true),
                   trove_good_talisman(_G, "rF", nil), "fire magic")
@@ -953,8 +950,8 @@ trove_defense(_G, arm, "pair of gloves randart artprops:rElec w:2",
 local sh = you.race() == "Spriggan" or you.race() == "Kobold" or
            you.race() == "Felid" or you.mutation("missing a hand") == 1
 trove_unrand_chances(_G, "dgh", {"storm_queen's_shield", "storm_bow",
-                         "lightning scales"}, {sh, sh and you.race("Formicid") == false},
-                         wants_barding(e), {"?", "!", "Z"})
+                         "lightning scales"}, {sh, sh and you.race("Formicid") == false,
+                         wants_barding(e)}, {"?", "!", "Z"})
 }}
 MARKER:  V = lua:fog_machine { cloud_type = "thunder",  walk_dist=2, \
              pow_min=18, pow_max=26, delay=180, size=4, spread_rate=1 }
@@ -1226,7 +1223,7 @@ end
 trove_offense(_G, trove_weap_brand(_G, "venom", false) .. " / quick blade randart / " ..
                   "athame randart w:8 / quick blade ego:devious w:4 / " ..
                   "manual of Stealth w:8",
-                  trove_standard_magic(_G, "Hexes", false) .. " / " ..
+                  trove_standard_magic(_G, "hexes", false) .. " / " ..
                   "orb ego:guile randart artprops:Hexes w:1",
                   trove_good_talisman(_G, "Stlth:2", talis),
                   "hexes magic")
@@ -1546,8 +1543,8 @@ kitem("f = storm " .. dg .. " w:6 / storm " .. dr .. " w:4 / \
            golden " .. dg .. " w:4 / golden " .. dr .. " w:2")
 kitem("g = serpent tailsman randart w:2 / dragon-coil talisman w:6 / \
            dragon-coil talisman randart w:12")
-local book = trove_book(_G, "fire disc2:ice") .. " / " ..
-             trove_book(_G, "air disc2:earth")
+local book = trove_book(_G, "fire", "ice") .. " / " ..
+             trove_book(_G, "air", "earth")
 if no_friendlies == false then
   book = book .. trove_book(_G, "summoning spells:dragon's_call") .. " w:25"
 end

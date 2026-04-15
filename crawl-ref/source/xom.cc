@@ -435,12 +435,13 @@ void xom_tick()
 
         // ...but They get bored...
         _calculate_exploration_estimate(true);
-        if (you.gift_timeout > 0 && you.explore_estimate > 5 && coinflip())
+        if (you.gift_timeout > 0 && you.explore_estimate > 5 && coinflip() &&
+            !player_on_orb_run())
         {
             you.gift_timeout--;
             // Especially if the floor's mostly done.
             if (you.explore_estimate >= 85)
-                you.gift_timeout = max(you.gift_timeout - 5, 0);
+                you.gift_timeout = max(you.gift_timeout - 2, 0);
         }
 
         if (you.explore_estimate >= 85 && you.gift_timeout <= 15 ||
@@ -4857,7 +4858,7 @@ static const vector<xom_event_data> _list_xom_good_actions = {
            }
 
            // Check if you have enough gold, increased by each trip.
-           if (you.gold < (900 + sv * (4 +
+           if (you.gold < (1000 + sv * (2 +
                           (you.props[XOM_BAZAAR_TRIP_COUNT].get_int() * 2))))
            {
               return false;
@@ -4873,7 +4874,7 @@ static const vector<xom_event_data> _list_xom_good_actions = {
            // Each bazaar trip reduces the chance of the next, unless things
            // are going badly enough it'd be funny to save the player.
            return tn > 28
-                 || (one_chance_in(you.props[XOM_BAZAAR_TRIP_COUNT].get_int() * 7));
+                 || (one_chance_in(you.props[XOM_BAZAAR_TRIP_COUNT].get_int() * 6));
         }
     },
     {
@@ -4881,15 +4882,15 @@ static const vector<xom_event_data> _list_xom_good_actions = {
         {return (random2(tn) < 5 // should really revise strategic benefits....
                  && x_chance_in_y(you.how_mutated(), 54)
                  && you.can_safely_mutate())
-                 && you.explore_estimate < 90;}
+                 && you.explore_estimate < 95;}
     },
     {
         XOM_GOOD_RANDOM_ITEM, 33, 775, [](int /*sv*/, int tn)
-        {return tn < 20 && you.explore_estimate < 90;}
+        {return tn < 20 && you.explore_estimate < 95;}
     },
     {
         XOM_GOOD_ACQUIREMENT, 21, 295, [](int /*sv*/, int tn)
-        {return tn < 20 && you.explore_estimate < 90;}
+        {return tn < 20 && you.explore_estimate < 95;}
     },
 };
 

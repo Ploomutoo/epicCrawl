@@ -127,7 +127,9 @@ enum monster_info_flags
     MB_MAGIC_ARMOUR,
 #endif
     MB_WRETCHED,
+#if TAG_MAJOR_VERSION == 34
     MB_SCREAMED,
+#endif
     MB_WORD_OF_RECALL,
     MB_INJURY_BOND,
 #if TAG_MAJOR_VERSION == 34

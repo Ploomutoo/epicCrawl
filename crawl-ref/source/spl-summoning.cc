@@ -2436,7 +2436,7 @@ static const map<spell_type, summon_cap> summonsdata =
     // Monster-only spells
     { SPELL_SHADOW_CREATURES,         { 0, 4 } },
     { SPELL_SUMMON_SPIDERS,           { 0, 5 } },
-    { SPELL_SUMMON_UFETUBUS,          { 0, 8 } },
+    { SPELL_UFETUBI_SWARM,            { 0, 8 } },
     { SPELL_SUMMON_SIN_BEAST,         { 0, 5 } },
     { SPELL_SUMMON_UNDEAD,            { 0, 8 } },
     { SPELL_SUMMON_DRAKES,            { 0, 4 } },
@@ -2615,8 +2615,8 @@ static bool _create_briar_patch(coord_def& target)
 {
     mgen_data mgen = mgen_data(MONS_BRIAR_PATCH, BEH_FRIENDLY, target,
             MHITNOT, MG_FORCE_PLACE, GOD_FEDHAS);
-    mgen.hd = mons_class_hit_dice(MONS_BRIAR_PATCH) +
-        you.skill_rdiv(SK_INVOCATIONS);
+    mgen.hd = mons_class_hit_dice(MONS_BRIAR_PATCH) / 2 +
+                you.skill_rdiv(SK_INVOCATIONS, 1, 2);
     mgen.set_summoned(&you, SPELL_NO_SPELL,
                         summ_dur(min(2 + you.skill_rdiv(SK_INVOCATIONS, 1, 5), 6)));
 
@@ -3919,6 +3919,29 @@ bool surprising_crocodile_can_drag(const actor& agent, const coord_def& target,
 
 spret cast_surprising_crocodile(actor& agent, const coord_def& targ, int pow, bool fail)
 {
+    const coord_def start_pos = agent.pos();
+    const coord_def drag_shift = -(targ - agent.pos()).sgn();
+
+    // Check for traps where the player expects to move.
+    if (agent.is_player())
+    {
+        coord_def one_square_move = agent.pos() + drag_shift;
+        const string verb = "ride";
+        if (surprising_crocodile_can_drag(agent, targ, false))
+        {
+            // The player will end up in one_square_move + drag_shift, and the
+            // crocodile in one_square_move. Check the crocodile position only
+            // for traps, which it will trigger.
+            if (!check_moveto_trap(one_square_move, verb)
+                || !check_moveto(one_square_move + drag_shift, verb))
+            {
+                return spret::abort;
+            }
+        }
+        else if (!check_moveto(one_square_move, verb))
+            return spret::abort;
+    }
+
     fail_check();
 
     // The targeter will prevent casting this at times where the player *knows*
@@ -3936,8 +3959,6 @@ spret cast_surprising_crocodile(actor& agent, const coord_def& targ, int pow, bo
     // move one tile back or two.
     bool can_drag = surprising_crocodile_can_drag(agent, targ, true);
 
-    const coord_def start_pos = agent.pos();
-    const coord_def drag_shift = -(targ - agent.pos()).sgn();
     coord_def agent_pos = agent.pos() + drag_shift;
     if (can_drag)
         agent_pos += drag_shift;
@@ -4564,7 +4585,16 @@ spret cast_splinterfrost_shell(const actor& agent, const coord_def& aim,
     }
 
     if (num_created > 0)
-        mprf("You construct a shell of ice in front of yourself.");
+    {
+        if (agent.is_player())
+            mprf("You construct a shell of ice in front of yourself.");
+        else if (you.can_see(agent))
+        {
+            mprf("%s constructs a shell of ice in front of %s.",
+                    agent.name(DESC_THE).c_str(),
+                    agent.pronoun(PRONOUN_REFLEXIVE).c_str());
+        }
+    }
     else
         canned_msg(MSG_NOTHING_HAPPENS);
 
@@ -4577,12 +4607,13 @@ bool splinterfrost_block_fragment(monster& block, const coord_def& aim)
     actor* agent = actor_by_mid(block.summoner);
 
     bolt beam;
-    zappy(ZAP_SPLINTERFROST_FRAGMENT, pow, false, beam);
+    zappy(ZAP_SPLINTERFROST_FRAGMENT, pow, !agent->is_player(), beam);
     beam.source = block.pos();
     beam.attitude = block.attitude;
     beam.set_agent(agent);
     beam.target = aim;
     beam.range = LOS_RADIUS;
+    beam.seen = true;
     beam.stop_at_allies = true;
 
     string msg;
