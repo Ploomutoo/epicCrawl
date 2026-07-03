@@ -90,6 +90,13 @@ static void _end_toxic_bog()
     end_terrain_changes(you, TERRAIN_CHANGE_BOG);
 }
 
+static void _end_exegesis()
+{
+    mprf(MSGCH_DURATION, "Your divinely inspired understanding of %s fades.",
+                         spell_title(static_cast<spell_type>(you.props[EXEGESIS_SPELL].get_int())));
+    you.props.erase(EXEGESIS_SPELL);
+}
+
 // properties of the duration.
 enum duration_flags : uint32_t
 {
@@ -346,6 +353,10 @@ static const duration_def duration_data[] =
       BLUE, "Swift",
       "swift", "swiftness",
       "You can move swiftly.", D_DISPELLABLE | D_EXPIRES, {}, 6},
+    { DUR_ANTISWIFT,
+      RED, "-Swift",
+      "unswift", "antiswiftness",
+      "You are covering ground slowly.", D_NEGATIVE, {}, 6},
     { DUR_TELEPORT,
       LIGHTBLUE, "Tele",
       "about to teleport", "teleport",
@@ -873,6 +884,7 @@ static const duration_def duration_data[] =
     { DUR_OOZE_REGEN, LIGHTBLUE, "OozeRegen", "ooze regen", "ooze regen", "coated in regenerative ooze", D_NO_FLAGS,
        {{"The regenerative ooze finishes dripping off of you."}}},
     { DUR_INDOMITABLE, LIGHTBLUE, "Indom", "", "", "", D_NO_FLAGS},
+    { DUR_EXEGESIS, WHITE, "Exegesis", "", "", "", D_NO_FLAGS, {{"", _end_exegesis}}},
 
 #if TAG_MAJOR_VERSION == 34
     // And removed ones

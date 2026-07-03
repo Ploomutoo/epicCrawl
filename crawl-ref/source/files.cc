@@ -1193,6 +1193,7 @@ static void _clear_env_map()
 {
     env.map_knowledge.init(map_cell());
     env.map_forgotten.reset();
+    tile_env.remembered_flavour.reset();
 }
 
 static void _grab_follower(monster* fol)
@@ -1622,6 +1623,7 @@ static const vector<branch_type> portal_generation_order =
 #endif
     // do not pregenerate bazaar (TODO: this is non-ideal)
     // do not pregenerate trove
+    BRANCH_GULCH,
     BRANCH_WIZLAB,
     BRANCH_DESOLATION,
 };

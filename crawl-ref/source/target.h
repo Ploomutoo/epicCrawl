@@ -55,7 +55,6 @@ public:
     virtual bool set_aim(coord_def a);
     virtual bool valid_aim(coord_def a) = 0;
     virtual bool preferred_aim(coord_def a);
-    virtual bool can_affect_outside_range();
     virtual bool can_affect_walls();
 
     virtual aff_type is_affected(coord_def loc) = 0;
@@ -76,7 +75,6 @@ public:
     bolt beam;
     virtual bool set_aim(coord_def a) override;
     bool valid_aim(coord_def a) override;
-    bool can_affect_outside_range() override;
     virtual aff_type is_affected(coord_def loc) override;
     virtual bool affects_monster(const monster_info& mon) override;
     bool harmful_to_player() override;
@@ -109,7 +107,6 @@ public:
                     bool (*affects_pos_func)(const coord_def &) = 0);
     virtual bool set_aim(coord_def a) override;
     virtual bool valid_aim(coord_def a) override;
-    virtual bool can_affect_outside_range() override;
     bool can_affect_walls() override;
     aff_type is_affected(coord_def loc) override;
     bool harmful_to_player() override;
@@ -147,7 +144,7 @@ public:
 class targeter_transference : public targeter_smite
 {
 public:
-    targeter_transference(const actor *act, int aoe);
+    targeter_transference(int aoe);
     bool valid_aim(coord_def a) override;
     bool affects_monster(const monster_info& mon) override;
 };
@@ -190,7 +187,6 @@ public:
     targeter_airstrike();
     aff_type is_affected(coord_def loc) override;
     bool valid_aim(coord_def a) override;
-    bool can_affect_outside_range() override { return false; };
     bool can_affect_walls() override { return false; };
     bool can_affect_unseen() override { return true; }; // show empty space outside LOS
 };
@@ -230,7 +226,6 @@ public:
                    int count_min = 8, int count_max = 10);
     bool set_aim(coord_def a) override;
     bool valid_aim(coord_def a) override;
-    bool can_affect_outside_range() override;
     aff_type is_affected(coord_def loc) override;
     bool harmful_to_player() override;
     cloud_type ctype;
@@ -344,12 +339,18 @@ public:
     bool set_aim(coord_def a) override;
     bool valid_aim(coord_def a) override;
     aff_type is_affected(coord_def loc) override;
-    bool can_affect_outside_range() override;
     bool can_affect_unseen() override;
     bool affects_monster(const monster_info& mon) override;
 
 private:
     unique_ptr<passwall_path> cur_path;
+};
+
+class targeter_phantom_mirror : public targeter_smite
+{
+public:
+    targeter_phantom_mirror(const actor *act);
+    bool valid_aim(coord_def a) override;
 };
 
 class targeter_dig : public targeter_beam
@@ -426,7 +427,7 @@ protected:
 class targeter_scorch : public targeter_multiposition
 {
 public:
-    targeter_scorch(const actor &a, int _range, bool affect_invis);
+    targeter_scorch(const actor &a, int _range);
     bool valid_aim(coord_def c) override;
 
 protected:
@@ -452,13 +453,22 @@ public:
     targeter_maxwells_coupling();
 };
 
-class targeter_multifireball : public targeter_multiposition
+// Ignition: each seed detonates a radius-1 explosion.
+class targeter_ignition : public targeter_multiposition
 {
 public:
-    targeter_multifireball(const actor *a, vector<coord_def> seeds);
+    targeter_ignition(const actor *a, vector<coord_def> seeds);
+    aff_type is_affected(coord_def loc) override;
 };
 
-// this is implemented a bit like multifireball, but with some tweaks
+// Dragon's Call: a radius of 1 around each seed, checking the player's LoS
+class targeter_dragon_call : public targeter_multiposition
+{
+public:
+    targeter_dragon_call(const actor *a, vector<coord_def> seeds);
+};
+
+// this is implemented a bit like dragon's call, but with some tweaks
 class targeter_walls : public targeter_multiposition
 {
 public:
@@ -633,7 +643,6 @@ class targeter_magnavolt : public targeter_smite
 {
 public:
     targeter_magnavolt(const actor *act, int range);
-    bool valid_aim(coord_def a) override;
     bool preferred_aim(coord_def a) override;
     bool set_aim(coord_def a) override;
     aff_type is_affected(coord_def loc) override;
@@ -764,4 +773,16 @@ class targeter_paragon_deploy : public targeter_smite
 public:
     targeter_paragon_deploy(int range);
     bool valid_aim(coord_def a) override;
+};
+
+class targeter_single_monster : public targeter_smite
+{
+public:
+    targeter_single_monster(bool hostile_only = true,
+                            string no_hostile_message = "You can only target hostiles.");
+    bool valid_aim(coord_def a) override;
+
+private:
+    bool hostile_only;
+    string no_hostile_msg;
 };

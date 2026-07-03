@@ -3,6 +3,8 @@
  * @brief Contains monster death functionality, including unique code.
 **/
 
+#include <functional>
+
 #include "AppHdr.h"
 
 #include "mon-death.h"
@@ -72,6 +74,7 @@
 #include "tag-version.h"
 #include "target.h"
 #include "terrain.h"
+#include "tile-env.h"
 #ifdef USE_TILE
 #include "rltiles/tiledef-player.h"
 #endif
@@ -802,6 +805,12 @@ static bool _vampire_make_thrall(monster* mons, killer_type killer)
         mons->props[CUSTOM_SPELLS_KEY] = true;
     }
 
+    // Remove level annotation. Do this before we add the enchantment to avoid
+    // the monster's name changing to "Vampire <name>" and breaking the
+    // annotation removal logic.
+    mons->props[NO_ANNOTATE_KEY] = true;
+    remove_unique_annotation(mons);
+
     mons->attitude = ATT_FRIENDLY;
     mons->add_ench(mon_enchant(ENCH_VAMPIRE_THRALL, &you, INFINITE_DURATION));
 
@@ -815,10 +824,6 @@ static bool _vampire_make_thrall(monster* mons, killer_type killer)
 
     // Cancel fleeing and such.
     mons->behaviour = BEH_SEEK;
-
-    // Remove level annotation.
-    mons->props[NO_ANNOTATE_KEY] = true;
-    remove_unique_annotation(mons);
 
     behaviour_event(mons, ME_EVAL);
 
@@ -1146,7 +1151,7 @@ static bool _monster_avoided_death(monster* mons, killer_type killer,
         return true;
 
     // Beogh special.
-    if (mons->type == MONS_ORC_APOSTLE && you_worship(GOD_BEOGH))
+    if (mons->type == MONS_ORC_APOSTLE && you_worship(GOD_BEOGH) && !RESET_KILL(killer))
     {
         if (mons->has_ench(ENCH_TOUCH_OF_BEOGH))
         {
@@ -1247,6 +1252,17 @@ void fire_monster_death_event(monster* mons,
             {
                 tile_clear_flavour(*ri);
                 tile_init_flavour(*ri);
+            }
+            if (!env.map_knowledge(*ri).feat_known()
+                && env.map_forgotten
+                && feat_is_stone_stair((*env.map_forgotten)(*ri).feat()))
+            {
+                tile_env.remembered_flavour.set_feat_flavour(*ri, 0, 0);
+            }
+            else if (feat_is_stone_stair(env.map_knowledge(*ri).feat()))
+            {
+                tile_env.remembered_flavour.set_feat_flavour(*ri, 0, 0);
+                redraw_view_at(*ri);
             }
         }
     }
@@ -1380,6 +1396,7 @@ static void _monster_die_cloud(const monster& mons, bool real_death)
                 return;
 
             case MONS_PILE_OF_DEBRIS:
+            case MONS_STACK_OF_SCRAP:
                 place_cloud(CLOUD_DUST, mons.pos(), 2 + random2(4), &mons);
                 return;
 
@@ -1509,17 +1526,22 @@ static string _derived_undead_message(const monster &mons, monster_type which_z,
 /**
  * Make derived undead out of a dying/dead monster.
  *
- * @param mons       the monster that died
- * @param quiet      whether to print flavour messages
- * @param which_z    the kind of zombie
- * @param beh        the zombie's behavior
- * @param spell      the spell or summon type used (if any)
- * @param god        the god involved (if any)
+ * @param mons           the monster that died
+ * @param quiet          whether to print flavour messages
+ * @param which_z        the kind of zombie
+ * @param beh            the zombie's behavior
+ * @param spell          the spell or summon type used (if any)
+ * @param god            the god involved (if any)
+ * @param should_trigger condition to check just before triggering the effect
  */
 static void _make_derived_undead(monster* mons, bool quiet,
                                  monster_type which_z, beh_type beh,
                                  int spell, god_type god,
-                                 string msg = "", string fail_msg = "")
+                                 string msg = "", string fail_msg = "",
+                                 function<bool ()> should_trigger = []() {
+                                    return true;
+                                }
+                                )
 {
     bool requires_corpse = which_z == MONS_ZOMBIE || which_z == MONS_DRAUGR;
     // This function is used by several different sorts of things, each with
@@ -1608,7 +1630,7 @@ static void _make_derived_undead(monster* mons, bool quiet,
                            god == GOD_KIKUBAAQUDGHA ? "Kikubaaqudgha cackles." :
                            _derived_undead_message(*mons, which_z, msg);
     schedule_make_derived_undead_fineff(mons->pos(), mg,
-            mons->get_experience_level(), agent_name, message);
+            mons->get_experience_level(), agent_name, message, should_trigger);
 }
 
 static void _druid_final_boon(const monster* mons)
@@ -1656,15 +1678,12 @@ static void _druid_final_boon(const monster* mons)
 static void _orb_of_mayhem(actor& maniac, const monster& victim)
 {
     vector<monster *> witnesses;
-    for (monster_near_iterator mi(&victim, LOS_NO_TRANS); mi; ++mi)
+    for (monster_near_iterator mi(victim.pos(), LOS_NO_TRANS); mi; ++mi)
         if (*mi != &victim && mi->can_see(maniac) && mi->can_go_frenzy() && could_harm(&maniac, *mi))
             witnesses.push_back(*mi);
 
     if (coinflip() && !witnesses.empty())
-    {
         (*random_iterator(witnesses))->go_frenzy(&maniac);
-        did_god_conduct(DID_HASTY, 8, true);
-    }
 }
 
 static void _protean_explosion(monster* mons)
@@ -2671,7 +2690,7 @@ item_def* monster_die(monster& mons, killer_type killer,
              && timeout)
     {
         mgen_data simu = mgen_data(MONS_SIMULACRUM, BEH_COPY, mons.pos(),
-                            BEH_FRIENDLY, MG_AUTOFOE | MG_FORCE_PLACE)
+                            MHITYOU, MG_AUTOFOE | MG_FORCE_PLACE)
                          .set_summoned(&you, SPELL_SIMULACRUM, summ_dur(3), false);
         simu.base_type = (monster_type)mons.props[SIMULACRUM_TYPE_KEY].get_int();
 
@@ -2688,7 +2707,7 @@ item_def* monster_die(monster& mons, killer_type killer,
         schedule_make_derived_undead_fineff(simu.pos, simu,
                                             get_monster_data(simu.base_type)->HD,
                                             "the player",
-                                            msg.c_str(), true);
+                                            msg.c_str(), []() { return true; }, true);
 
         silent = true;
     }
@@ -3179,7 +3198,8 @@ item_def* monster_die(monster& mons, killer_type killer,
                 msg = " collapses into dust.";
             else if (mons.type == MONS_PILLAR_OF_SALT
                     || mons.type == MONS_WITHERED_PLANT
-                    || mons.type == MONS_BRIAR_PATCH)
+                    || mons.type == MONS_BRIAR_PATCH
+                    || mons.type == MONS_STACK_OF_SCRAP)
             {
                 msg = " crumbles away.";
             }
@@ -3474,10 +3494,17 @@ item_def* monster_die(monster& mons, killer_type killer,
             && you.duration[DUR_DEATH_CHANNEL]
             && !have_passive(passive_t::reaping))
         {
+            // Need to recheck death channel is still up, as it may expire between
+            // scheduling and execution.
+            function<bool ()> should_trigger = []() {
+                return you.duration[DUR_DEATH_CHANNEL] > 0;
+            };
             _make_derived_undead(&mons, !death_message, MONS_SPECTRAL_THING,
                                  BEH_FRIENDLY,
                                  SPELL_DEATH_CHANNEL,
-                                 static_cast<god_type>(you.attribute[ATTR_DIVINE_DEATH_CHANNEL]));
+                                 static_cast<god_type>(you.attribute[ATTR_DIVINE_DEATH_CHANNEL]),
+                                 "", "",
+                                 should_trigger);
         }
         else if (!you_worship(GOD_YREDELEMNUL))
             (_reaping_brand(mons));
@@ -3518,6 +3545,11 @@ item_def* monster_die(monster& mons, killer_type killer,
         {
             daddy_corpse = mounted_kill(&mons, MONS_HORNET, killer, killer_index);
             mons.type = MONS_SPRIGGAN;
+        }
+        else if (mons.type == MONS_GOJI)
+        {
+            daddy_corpse = mounted_kill(&mons, MONS_GHOST_MOTH, killer, killer_index);
+            mons.type = MONS_GOJI_UNMOUNTED;
         }
         corpse = place_monster_corpse(mons);
         if (!corpse)
@@ -3627,17 +3659,6 @@ item_def* monster_die(monster& mons, killer_type killer,
         beogh_follower_banished(mons);
     }
 
-    // If we kill an invisible monster reactivate autopickup.
-    // We need to check for actual invisibility rather than whether we
-    // can see the monster. There are several edge cases where a monster
-    // is visible to the player but we still need to turn autopickup
-    // back on, such as TSO's halo or sticky flame. (jpeg)
-    if (you.see_cell(mons.pos()) && mons.has_ench(ENCH_INVIS)
-        && !mons.friendly())
-    {
-        autotoggle_autopickup(false);
-    }
-
     crawl_state.dec_mon_acting(&mons);
     monster_cleanup(&mons);
 
@@ -3735,6 +3756,9 @@ void monster_cleanup(monster* mons)
 
     if (mons_is_tentacle_head(mons_base_type(*mons)))
         destroy_tentacles(mons);
+
+    // Erase any indicators of this monster's previous positions.
+    env.invis_knowledge.update(*mons);
 
     const mid_t mid = mons->mid;
     env.mid_cache.erase(mid);
@@ -3874,7 +3898,7 @@ int dismiss_monsters(string pattern)
     const bool los     = pattern == "los";
 
     // Dismiss by regex.
-    text_pattern tpat(pattern);
+    text_pattern tpat(pattern, true);
     int ndismissed = 0;
     for (monster_iterator mi; mi; ++mi)
     {
@@ -3890,6 +3914,20 @@ int dismiss_monsters(string pattern)
             ++ndismissed;
         }
     }
+
+    bool removed_lurker = false;
+    for (int i = env.lurkers.size() - 1; i >= 0; --i)
+    {
+        if (tpat.empty() || tpat.matches(env.lurkers[i].mon.mons.name(DESC_PLAIN, true)))
+        {
+            ++ndismissed;
+            env.lurkers.erase(env.lurkers.begin() + i);
+            removed_lurker = true;
+        }
+    }
+    if (removed_lurker)
+        init_lurker_map();
+
 
     return ndismissed;
 }
@@ -3970,7 +4008,7 @@ string summoned_poof_msg(const monster& mons)
         msg = "dissolves into a puddle of slime";
     }
 
-    if (mons.type == MONS_DROWNED_SOUL)
+    if (mons.type == MONS_DROWNED_SOUL || mons.type == MONS_GLOWMURK_GHAST)
         msg = "returns to the deep";
 
     if (mons.has_ench(ENCH_PHANTOM_MIRROR))
@@ -4209,28 +4247,8 @@ void elven_twin_died(monster* twin, bool in_transit, killer_type killer, int kil
             mpr(death_message);
     }
 
-    // Upgrade the spellbook here, as elven_twin_energize
-    // may not be called due to lack of visibility.
-    if (mons_is_mons_class(mons, MONS_DOWAN)
-                                        && !(mons->flags & MF_POLYMORPHED))
-    {
-        // Don't mess with Dowan's spells if he's been polymorphed: most
-        // possible forms have no spells, and the few that do (e.g. boggart)
-        // have way more fun spells than this. If this ever changes, the
-        // following code would need to be rewritten, as it'll crash.
-        // TODO: this is a fairly brittle way of upgrading Dowan...
-        ASSERT(mons->spells.size() >= 5);
-        mons->spells[0].spell = SPELL_STONE_ARROW;
-        mons->spells[1].spell = SPELL_THROW_ICICLE;
-        mons->spells[3].spell = SPELL_BLINK;
-        // Nothing with 6.
-
-        // Indicate that he has an updated spellbook.
-        mons->props[CUSTOM_SPELLS_KEY] = true;
-    }
-
     // Finally give them new energy
-    if (mons->can_see(you) && !mons->has_ench(ENCH_FRENZIED))
+    if (!mons->has_ench(ENCH_FRENZIED))
         elven_twin_energize(mons);
     else
         mons->props[ELVEN_ENERGIZE_KEY] = true;
@@ -4256,6 +4274,23 @@ void elven_twin_energize(monster* mons)
         ASSERT(mons_is_mons_class(mons, MONS_DOWAN));
         if (mons->observable())
             simple_monster_message(*mons, " seems to find hidden reserves of power!");
+
+        // Upgrade the spellbook.
+        if (!(mons->flags & MF_POLYMORPHED))
+        {
+            // Don't mess with Dowan's spells if he's been polymorphed, as
+            // giving his new form spells very likely makes no sense.
+            //
+            // TODO: this is a fairly brittle way of upgrading Dowan, as it is
+            // coupled to the order of his spellbook.
+            ASSERT(mons->spells.size() >= 5);
+            mons->spells[0].spell = SPELL_STONE_ARROW;
+            mons->spells[1].spell = SPELL_THROW_ICICLE;
+            mons->spells[3].spell = SPELL_BLINK;
+
+            // Indicate that he has an updated spellbook.
+            mons->props[CUSTOM_SPELLS_KEY] = true;
+        }
 
         mons->add_ench(mon_enchant(ENCH_HASTE, mons, INFINITE_DURATION));
         mons->props[ELVEN_IS_ENERGIZED_KEY] = true;

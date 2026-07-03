@@ -629,17 +629,17 @@ static const weapon_def Weapon_prop[] =
     { WPN_RAPIER,           "rapier",               7,  4, 12,
         SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_PIERCING, 8, 20, 55, SBL_BRANDS },
-    { WPN_ATHAME,       "athame",         6, 5, 13,
+    { WPN_ATHAME,       "athame",         7, 5, 13,
         SK_SHORT_BLADES, SIZE_LITTLE, SIZE_LITTLE,
         DAMV_PIERCING, 2, 15, 100, {
-            { SPWPN_NORMAL,          38 },
-            { SPWPN_FLAMING,         9 },
-            { SPWPN_FREEZING,        9 },
-            { SPWPN_PROTECTION,      8 },
+            { SPWPN_NORMAL,          28 },
+            { SPWPN_FLAMING,         10 },
+            { SPWPN_FREEZING,        10 },
+            { SPWPN_PROTECTION,      10 },
             { SPWPN_ELECTROCUTION,   8 },
-            { SPWPN_DEVIOUS,         6 },
-            { SPWPN_VAMPIRISM,       6 },
-            { SPWPN_DRAINING,        4 },
+            { SPWPN_DEVIOUS,         8 },
+            { SPWPN_VAMPIRISM,       8 },
+            { SPWPN_DRAINING,        6 },
             { SPWPN_SPEED,           4 },
             { SPWPN_PAIN,            4 },
             { SPWPN_HOLY_WRATH,      2 },
@@ -1086,6 +1086,7 @@ const set<pair<object_class_type, int> > removed_items =
     { OBJ_BOOKS,     BOOK_TRANSFIGURATIONS },
     { OBJ_BOOKS,     BOOK_OZOCUBU },
     { OBJ_BOOKS,     BOOK_NEARBY },
+    { OBJ_BOOKS,     BOOK_RANDART_LEVEL },
     { OBJ_RODS,      ROD_VENOM },
     { OBJ_RODS,      ROD_WARDING },
     { OBJ_RODS,      ROD_DESTRUCTION },
@@ -1807,16 +1808,6 @@ hands_reqd_type basic_hands_reqd(const item_def &item, size_type size)
                                                                    : HANDS_TWO;
 }
 
-hands_reqd_type hands_reqd(const actor* ac, object_class_type base_type, int sub_type)
-{
-    item_def item;
-    item.base_type = base_type;
-    item.sub_type  = sub_type;
-    // This function is used for item generation only, so use the actor's
-    // (player's) base size, not its current form.
-    return ac->hands_reqd(item, true);
-}
-
 /**
  * Is the provided type a kind of giant club?
  *
@@ -2092,11 +2083,7 @@ bool item_skills(const item_def &item, set<skill_type> &skills)
         return false;
 
     if (item.is_type(OBJ_BOOKS, BOOK_MANUAL))
-    {
-        const skill_type skill = static_cast<skill_type>(item.plus);
-        if (!skill_default_shown(skill))
-            skills.insert(skill);
-    }
+        skills.insert(static_cast<skill_type>(item.plus));
 
     if (item.base_type == OBJ_STAVES)
     {

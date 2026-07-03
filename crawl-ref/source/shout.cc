@@ -177,7 +177,7 @@ void monster_shout(monster &mons, int shout)
         message = getShoutString(default_msg_key, suffix);
     else if (message.empty())
     {
-        char mchar = mons_base_char(mons.type);
+        char32_t mchar = mons_base_char(mons.type);
 
         // See if there's a shout for all monsters using the
         // same glyph/symbol
@@ -187,7 +187,7 @@ void monster_shout(monster &mons, int shout)
         if (isaupper(mchar))
             glyph_key += "cap-";
 
-        glyph_key += mchar;
+        glyph_key += stringize_glyph(mchar);
         glyph_key += "'";
         message = getShoutString(glyph_key, suffix);
 
@@ -565,7 +565,7 @@ static bool _issue_order(int keyn, int &mons_targd)
             }
 
             const monster* m = monster_at(targ.target);
-            if (!m || !you.can_see(*m))
+            if (!m || !you.aware_of(*m))
             {
                 canned_msg(MSG_NOTHING_THERE);
                 return false;
@@ -1077,6 +1077,8 @@ void noise_grid::apply_noise_effects(const coord_def &pos,
             ++affected_actor_count;
         }
     }
+
+    alert_lurker_at(pos, true);
 }
 
 // Given an actor at affected_pos and a given noise, calculates where

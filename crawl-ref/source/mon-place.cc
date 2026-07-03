@@ -27,6 +27,7 @@
 #include "gender-type.h"
 #include "ghost.h"
 #include "god-abil.h"
+#include "god-conduct.h"
 #include "god-passive.h" // passive_t::slow_abyss, slow_orb_run
 #include "libutil.h"
 #include "losglobal.h"
@@ -322,6 +323,8 @@ void spawn_random_monsters()
             mg.foe = MHITYOU;
         }
     }
+
+    mg.flags |= MG_AUTOLURK;
 
     mons_place(mg);
     viewwindow();
@@ -1653,8 +1656,9 @@ static bool _mc_too_slow_for_normal_undead(monster_type mon)
 
 static bool _mc_bad_wretch(monster_type mon)
 {
-    // goofy on-death effect - probably other things could go here too
-    return mon == MONS_SPRIGGAN_DRUID;
+    // goofy on-death / near-death effects
+    return mon == MONS_SPRIGGAN_DRUID ||
+           mon == MONS_STAR_JELLY;
 }
 
 /**
@@ -1689,7 +1693,7 @@ monster_type pick_local_zombifiable_monster(level_id place,
         // Vaults draugr are later enough they can get a little push-up.
         place.depth += random_range(1, 3);
     }
-    else
+    else if (cs != MONS_DRAUGR || place.branch == BRANCH_CRYPT)
     {
         // Zombies tend to be weaker than their normal counterparts;
         // thus, make them OOD proportional to the current dungeon depth.
@@ -2080,6 +2084,7 @@ static const map<monster_type, band_set> bands_by_leader = {
 
     // special-cased band-sizes
     { MONS_SPRIGGAN_DRUID,  { {3}, {{ BAND_SPRIGGAN_DRUID, {0, 1}, true }}}},
+    { MONS_SEWAGE_SOVEREIGN, { {}, {{ BAND_SEWAGE_SOVEREIGNS, {0, 1} }}}},
     { MONS_THRASHING_HORROR, { {}, {{ BAND_THRASHING_HORRORS, {0, 1} }}}},
     { MONS_BRAIN_WORM, { {}, {{ BAND_BRAIN_WORMS, {0, 1} }}}},
     { MONS_LAUGHING_SKULL, { {}, {{ BAND_LAUGHING_SKULLS, {0, 1} }}}},
@@ -2246,6 +2251,10 @@ static band_type _choose_band(monster_type mon_type, int *band_size_p,
             band_size = 1;
         break;
 
+    case MONS_SEWAGE_SOVEREIGN:
+        band_size = one_chance_in(3) ? 2 : 1;
+        break;
+
     case MONS_BRAIN_WORM:
         if (player_in_branch(BRANCH_ABYSS))
             band_size = random2(you.depth) / 2;
@@ -2401,6 +2410,7 @@ static const map<band_type, vector<member_possibilities>> band_membership = {
     { BAND_EXECUTIONER,         {{{MONS_ABOMINATION_LARGE, 1}}}},
     { BAND_VASHNIA,             {{{MONS_NAGA_SHARPSHOOTER, 1}}}},
     { BAND_PHANTASMAL_WARRIORS, {{{MONS_PHANTASMAL_WARRIOR, 1}}}},
+    { BAND_SEWAGE_SOVEREIGNS,   {{{MONS_SEWAGE_SOVEREIGN, 1}}}},
     { BAND_PRESERVER,           {{{MONS_DEEP_TROLL, 10},
                                   {MONS_POLTERGUARDIAN, 2}},
                                 {{MONS_DEEP_TROLL, 1}}}},
@@ -2942,6 +2952,9 @@ monster* mons_place(mgen_data mg)
     if (!creation)
         return 0;
 
+    if ((mg.flags & MG_AUTOLURK) && mons_class_flag(creation->type, M_LURKER))
+        start_lurking_at(*creation, creation->pos());
+
     dprf(DIAG_MONPLACE, "Created %s.", creation->base_name(DESC_A, true).c_str());
 
     return creation;
@@ -3083,7 +3096,7 @@ coord_def find_newmons_square(monster_type mons_class, const coord_def &p,
     return pos;
 }
 
-conduct_type god_hates_monster(monster_type type)
+bool god_hates_monster(monster_type type)
 {
     monster dummy;
     dummy.type = type;
@@ -3121,40 +3134,35 @@ void check_lovelessness(monster &mons)
 }
 
 /**
- * Does the player's current religion conflict with the given monster? If so,
- * why?
- *
- * XXX: this should ideally return a list of conducts that can be filtered by
- *      callers by god; we're duplicating god-conduct.cc right now.
+ * Does the player's current religion conflict with the given monster?
  *
  * @param mon   The monster in question.
- * @return      The reason the player's religion conflicts with the monster
- *              (e.g. DID_EVIL for evil monsters), or DID_NOTHING.
+ * @return      Whether the player's religion conflicts with the monster
  */
-conduct_type god_hates_monster(const monster &mon)
+bool god_hates_monster(const monster &mon)
 {
     // Player angers all real monsters
     if (mons_can_hate(mon.type))
-        return DID_SACRIFICE_LOVE;
+        return true;
 
     if (is_good_god(you.religion) && mon.evil())
-        return DID_EVIL;
+        return true;
 
     if (is_evil_god(you.religion) && mon.is_holy())
-        return DID_HOLY;
+        return true;
 
     if (you_worship(GOD_ZIN))
     {
         if (mon.how_unclean())
-            return DID_UNCLEAN;
+            return true;
         if (mon.how_chaotic())
-            return DID_CHAOS;
+            return true;
     }
 
     if (god_hates_spellcasting(you.religion) && mon.is_actual_spellcaster())
-        return DID_SPELL_CASTING;
+        return true;
 
-    return DID_NOTHING;
+    return false;
 }
 
 monster* create_monster(mgen_data mg, bool fail_msg)
