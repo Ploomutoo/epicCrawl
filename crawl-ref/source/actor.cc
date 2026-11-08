@@ -145,7 +145,7 @@ void actor::set_position(const coord_def &c)
     const coord_def oldpos = position;
     position = c;
     los_actor_moved(this, oldpos);
-    areas_actor_moved(this, oldpos);
+    areas_actor_moved(this);
 }
 
 bool actor::can_hibernate(bool holi_only, bool intrinsic_only) const
@@ -291,6 +291,15 @@ bool actor::no_cast(bool items) const
 
 bool actor::reflection(bool items) const
 {
+    if (divinely_shielded())
+        return true;
+
+    if (items && is_player() && you.unrand_equipped(UNRAND_FIVE_VIRTUES) &&
+        five_virtues_sh_score() > 3)
+    {
+        return true;
+    }
+
     return items &&
            (wearing_jewellery(AMU_REFLECTION)
             || wearing_ego(OBJ_ARMOUR, SPARM_REFLECTION));
@@ -458,11 +467,11 @@ void actor::end_constriction(mid_t whom, bool intentional, bool quiet,
         bool force_plural = true;
 
         if (ctype == CONSTRICT_BVC)
-            attacker_desc = "The zombie hands";
+            attacker_desc = "the zombie hands";
         else if (ctype == CONSTRICT_ROOTS)
-            attacker_desc = "The grasping roots";
+            attacker_desc = "the grasping roots";
         else if (ctype == CONSTRICT_ENTANGLE)
-            attacker_desc = "The vines";
+            attacker_desc = "the vines";
         else
         {
             force_plural = false;
@@ -476,7 +485,7 @@ void actor::end_constriction(mid_t whom, bool intentional, bool quiet,
             mprf("%s %s free of %s!",
                  constrictee->name(DESC_THE).c_str(),
                  constrictee->conj_verb(escape_verb).c_str(),
-                 lowercase(attacker_desc).c_str());
+                 attacker_desc.c_str());
         }
         else
         {
@@ -827,7 +836,7 @@ void actor::constriction_damage_defender(actor &defender)
          basedam, acdam, timescale_dam, infdam);
 
     if (defender.is_monster()
-        && defender.type != MONS_NO_MONSTER // already dead and reset
+        && !invalid_monster(defender.as_monster()) // already dead
         && defender.as_monster()->hit_points < 1)
     {
         monster_die(*defender.as_monster(), this);
@@ -1159,6 +1168,12 @@ bool actor::stumble_away_from(coord_def targ, string src)
 bool actor::evil() const
 {
     return bool(holiness() & (MH_UNDEAD | MH_DEMONIC));
+}
+
+bool actor::has_soul() const
+{
+    return bool(holiness() & (MH_NATURAL | MH_PLANT | MH_HOLY | MH_DEMONIC))
+           && !is_firewood();
 }
 
 // Triggers post-movement effects for this actor as if they had just moved into

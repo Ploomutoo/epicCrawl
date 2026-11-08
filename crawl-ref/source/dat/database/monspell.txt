@@ -124,6 +124,10 @@ Creeping Frost cast
 
 @The_monster@ calls freezing cold from the walls.
 %%%%
+Cleansing Flame cast
+
+@The_monster@ channels a blast of cleansing flame!
+%%%%
 Divine Armament cast
 
 @The_monster@ beseeches @My_God@ to grant them a weapon.
@@ -661,6 +665,22 @@ Paralyse Xtahua cast
 # Individual monsters
 ########################################################################
 %%%%
+Touch of Paradox abyssal acolyte cast
+
+@The_monster@ calls down @possessive_God@'s blessing.
+
+@The_monster@ invokes a beneficient rending in the name of @possessive_God@.
+%%%%
+unseen Touch of Paradox abyssal acolyte cast
+
+You hear some strange prayers to @possessive_God@.
+%%%%
+Phase Shift abyssal acolyte cast
+
+@The_monster@ fiercely shimmers while chanting indecipherable hymns.
+
+@The_monster@ mumbles a few prayers and slips further between dimensions.
+%%%%
 basilisk cast targeted
 
 @floating eye cast targeted@
@@ -844,6 +864,18 @@ guardian serpent cast
 Fireball hell hog cast
 
 @The_monster@ breathes @beam@ @at@ @target@.
+%%%%
+Warp Space herald of the abyss cast
+
+@The_monster@ solemnly invokes the wrath of @possessive_God@ @at@ @target@!
+
+@The_monster@ gurgles dread orisons to @possessive_God@ against @target@!
+%%%%
+Malign Gateway herald of the abyss cast
+
+@The_monster@ beckons forth otherworldly terror in the name of @possessive_God@.
+
+@The_monster@ dispassionately intertwines distant dimensions.
 %%%%
 Beckoning Gale hippogriff cast
 

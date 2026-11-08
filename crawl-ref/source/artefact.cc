@@ -562,17 +562,17 @@ static void _add_randart_weapon_brand(const item_def &item,
         if (is_crossbow(item) && one_chance_in(6))
             item_props[ARTP_BRAND] = SPWPN_PENETRATION;
     }
-    else if (is_demonic(item) && x_chance_in_y(7, 9))
+    else if (is_demonic(item) && one_chance_in(3))
     {
-        item_props[ARTP_BRAND] = random_choose(
-            SPWPN_DRAINING,
-            SPWPN_FLAMING,
-            SPWPN_FREEZING,
-            SPWPN_ELECTROCUTION,
-            SPWPN_VAMPIRISM,
-            SPWPN_PAIN,
-            SPWPN_VENOM);
-        // fall back to regular melee brands 2/9 of the time
+        item_props[ARTP_BRAND] = random_choose_weighted(
+            8, SPWPN_CHAOS,
+            8, SPWPN_DRAINING,
+            8, SPWPN_REAPING,
+            8, SPWPN_VAMPIRISM,
+            4, SPWPN_ANTIMAGIC,
+            3, SPWPN_DISTORTION,
+            2, SPWPN_PAIN);
+        // fall back to regular melee brands 2/3 of the time
     }
     else
     {
@@ -1031,6 +1031,7 @@ static const artefact_prop_data artp_data[] =
         nullptr, []() { return 1; }, 0, 0 },
     { "Bane", ARTP_VAL_BOOL, 20,     // ARTP_BANE,
         nullptr, []() {return 1;}, 0, 0},
+    { "BEnc", ARTP_VAL_ANY, 0, nullptr, nullptr, 0, 0 },  // ARTP_BASE_ENCUMBRANCE,
 };
 COMPILE_CHECK(ARRAYSZ(artp_data) == ARTP_NUM_PROPERTIES);
 // weights sum to 1000
@@ -1774,9 +1775,11 @@ static int _unrand_weight(int unrand_index, int item_level)
 }
 
 static bool _unrand_is_compatible(const unrandart_entry& unrand,
+                                  int unrand_index,
                                   object_class_type aclass,
                                   uint8_t atype,
-                                  bool acquirement)
+                                  bool acquirement,
+                                  monster *mons)
 {
     if (unrand.base_type != aclass)
         return false;
@@ -1789,23 +1792,44 @@ static bool _unrand_is_compatible(const unrandart_entry& unrand,
     required_item.base_type = aclass;
     required_item.sub_type = atype;
 
+    // We do item skill and hands required checks against a stub item with only
+    // the correct type and no unrand properties. This is because:
+    // - Item skills for the Lochaber axe depend on player skills, affecting
+    //   seed stability.
+    // - Handedness using the real item would stop Gyre and Gimble spawning.
     item_def unrand_item;
     unrand_item.base_type = unrand.base_type;
     unrand_item.sub_type = unrand.sub_type;
+    unrand_item.quantity = 1;
 
     if (item_attack_skill(required_item) != item_attack_skill(unrand_item))
         return false;
+
     if (acquirement)
     {
-        return you.hands_reqd(required_item, true)
-               == you.hands_reqd(unrand_item, true);
+        if (you.hands_reqd(required_item, true)
+            != you.hands_reqd(unrand_item, true))
+        {
+            return false;
+        }
     }
-    return basic_hands_reqd(required_item, SIZE_MEDIUM)
-           == basic_hands_reqd(unrand_item, SIZE_MEDIUM);
+    else if (basic_hands_reqd(required_item, SIZE_MEDIUM)
+             != basic_hands_reqd(unrand_item, SIZE_MEDIUM))
+    {
+        return false;
+    }
+
+    // could_wield wants the real unrand to filter non-monster weapons
+    unrand_item.flags |= ISFLAG_UNRANDART;
+    unrand_item.unrand_idx = unrand_index;
+    if (mons && !mons->could_wield(unrand_item))
+        return false;
+
+    return true;
 }
 
 int find_okay_unrandart(uint8_t aclass, uint8_t atype, int item_level,
-                        bool in_abyss, bool acquirement)
+                        bool in_abyss, bool acquirement, monster *mons)
 {
     int chosen_unrand_idx = -1;
 
@@ -1855,8 +1879,8 @@ int find_okay_unrandart(uint8_t aclass, uint8_t atype, int item_level,
             continue;
         }
 
-        if (!_unrand_is_compatible(*entry, (object_class_type)aclass, atype,
-                                   acquirement))
+        if (!_unrand_is_compatible(*entry, index, (object_class_type)aclass,
+                                   atype, acquirement, mons))
         {
             continue;
         }

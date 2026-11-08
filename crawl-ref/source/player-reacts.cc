@@ -68,6 +68,7 @@
 #include "mutation.h"
 #include "nearby-danger.h"
 #include "ouch.h"
+#include "output.h"
 #include "player.h"
 #include "player-stats.h"
 #include "random.h"
@@ -597,13 +598,42 @@ void player_reacts_to_monsters()
     you.update_fearmongers();
 }
 
+void check_trapped()
+{
+    if (you.trapped)
+    {
+        do_trap_effects();
+        you.trapped = false;
+    }
+}
+
+// Register taking an action which takes no time.
+void player_takes_instant_action()
+{
+    you.turn_is_over = false;
+    you.elapsed_time_at_last_input = you.elapsed_time;
+    update_turn_count();
+    you.took_instant_action = true;
+}
+
+// Those reactions which should happen even when no time has passed, as long
+// as the player has done something.
+void player_reacts_to_instant_action()
+{
+    you.took_instant_action = false;
+    mons_reset_just_seen();
+    you.update_beholders();
+    you.update_fearmongers();
+    check_trapped();
+    trigger_exploration_conducts();
+}
+
 static bool _check_recite()
 {
     if (you.is_silenced()
-        || you.paralysed()
+        || you.cannot_act()
         || you.confused()
         || you.asleep()
-        || you.petrified()
         || you.berserk())
     {
         mprf(MSGCH_DURATION, "Your recitation is interrupted.");
@@ -756,10 +786,7 @@ static void _decrement_durations()
     }
 
     // Possible reduction of silence radius.
-    if (you.duration[DUR_SILENCE])
-        invalidate_agrid();
-    // and liquefying radius.
-    if (you.duration[DUR_LIQUEFYING])
+    if (you.duration[DUR_SILENCE] || you.duration[DUR_LIQUEFYING])
         invalidate_agrid();
 
     _decrement_transform_duration(delay);
@@ -1275,6 +1302,17 @@ static void _do_eel_flavour_msg()
     mprf(MSGCH_TALK, "%s", msg.c_str());
 }
 
+static void _update_sunder_status()
+{
+    if (you.attribute[ATTR_SUNDERING_CHARGE] > 0
+        && you.unrand_equipped(UNRAND_TROG) && you.berserk())
+    {
+        you.attribute[ATTR_SUNDERING_CHARGE]--;
+    }
+    else
+        you.attribute[ATTR_SUNDERING_CHARGE] = 0;
+}
+
 void player_reacts()
 {
     // don't allow reactions while stair peeking in descent mode
@@ -1348,7 +1386,7 @@ void player_reacts()
     if (you.attempted_attack)
         update_parrying_status();
     else
-        you.attribute[ATTR_SUNDERING_CHARGE] = 0;
+        _update_sunder_status();
 
     // Translocations and possibly other duration decrements can
     // escape a player from beholders and fearmongers. These should
@@ -1387,6 +1425,8 @@ void player_reacts()
 
     if (you.duration[DUR_PRIMORDIAL_NIGHTFALL])
         update_vision_range();
+
+    player_update_auras();
 
     incr_gem_clock();
     incr_zot_clock();

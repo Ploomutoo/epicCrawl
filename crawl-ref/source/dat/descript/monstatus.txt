@@ -171,11 +171,6 @@ cursed with the promise of agony monstatus
 This creature is cursed, and will lose half its current health after the next time
 the source of the curse hits it with a melee attack.
 %%%%
-damage-immune at range monstatus
-
-This creature suffers no damage from any source which is not currently adjacent to
-them (including clouds, if their creator is non-adjacent).
-%%%%
 dazed monstatus
 
 This creature is temporarily unable to act, but any hostile action will cause it to
@@ -185,6 +180,14 @@ diminished spells monstatus
 
 This creature's spells are less powerful - dealing less damage, being less able to
 overcome their target's willpower, and occasionally being weaker in other ways.
+%%%%
+divinely shielded monstatus
+
+This creature is protected by a divine shield which will unerringly block the
+next several blockable assaults before dissipating.
+
+All blocked projectiles will be reflected and melee attackers may be blinded by
+light.
 %%%%
 dormant monstatus
 

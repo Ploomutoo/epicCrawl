@@ -988,8 +988,17 @@ bool player_in_connected_branch()
 
 bool player_likes_water(bool permanently)
 {
-    return cur_form(!permanently)->player_can_swim()
-           || !permanently && you.can_water_walk();
+    if (permanently)
+    {
+        // When checking whether the player can 'always' swim, we need to both
+        // check whether they usually can *and* currently can (since temporary
+        // forms might have fewer capabilities than their default form, eg: a
+        // dragon polymorphed into a pig.)
+        return cur_form(true)->player_can_swim()
+                && cur_form(false)->player_can_swim();
+    }
+
+    return cur_form(true)->player_can_swim() || you.can_water_walk();
 }
 
 /**
@@ -1342,7 +1351,16 @@ static int _player_bonus_regen()
         if (item->is_type(OBJ_JEWELLERY, AMU_REGENERATION))
             rr += REGEN_PIP;
         if (is_artefact(*item))
-            rr += REGEN_PIP * artefact_property(*item, ARTP_REGENERATION);
+        {
+            const int pips = artefact_property(*item, ARTP_REGENERATION);
+            rr += REGEN_PIP * pips;
+            if (you.form == transformation::fortress_crab
+                && item->base_type == OBJ_ARMOUR
+                && get_armour_slot(static_cast<armour_type>(item->sub_type)) == SLOT_BODY_ARMOUR)
+            {
+                rr += REGEN_PIP * pips;
+            }
+        }
     }
 
     // Fast heal mutation.
@@ -1956,10 +1974,6 @@ int player_prot_life(bool allow_random, bool include_temp, bool items)
 
     pl += cur_form(include_temp)->res_neg();
 
-    // completely stoned, unlike statue which has some life force
-    if (include_temp && you.petrified())
-        pl += 3;
-
     if (items)
     {
         // rings
@@ -2506,6 +2520,9 @@ int player_shield_class(int scale, bool random, bool include_temp)
 
     if (include_temp && you.duration[DUR_PARRYING])
         shield += player_parrying() * 200;
+
+    if (you.unrand_equipped(UNRAND_FIVE_VIRTUES))
+        shield += five_virtues_sh_score() * 1000;
 
     if (you.has_mutation(MUT_RECKLESS))
         shield /= 2;
@@ -3814,14 +3831,6 @@ bool player::faith(bool items) const
     return you.has_mutation(MUT_FAITH) || actor::faith(items);
 }
 
-bool player::reflection(bool items) const
-{
-    if (you.duration[DUR_DIVINE_SHIELD])
-        return true;
-
-    return actor::reflection(items);
-}
-
 /// Does the player have permastasis?
 bool player::stasis() const
 {
@@ -3842,13 +3851,19 @@ bool player::cloud_immune(bool items) const
 
 bool player::sunder_is_ready() const
 {
+    int sunder_threshold = SUNDERING_THRESHOLD;
+
+    if (unrand_equipped(UNRAND_TROG) && you.berserk())
+        sunder_threshold -= 2;
+
     if (you.attribute[ATTR_SUNDERING_CHARGE] >= 0
-        && you.attribute[ATTR_SUNDERING_CHARGE] < SUNDERING_THRESHOLD)
+        && you.attribute[ATTR_SUNDERING_CHARGE] < sunder_threshold)
     {
         return false;
     }
 
-    return wearing_ego(OBJ_WEAPONS, SPWPN_SUNDERING);
+    return wearing_ego(OBJ_WEAPONS, SPWPN_SUNDERING)
+            || unrand_equipped(UNRAND_TROG);
 }
 
 /**
@@ -4976,7 +4991,7 @@ bool miasma_player(actor *who, string source_aux)
 {
     ASSERT(!crawl_state.game_is_arena());
 
-    if (you.res_miasma() || you.duration[DUR_DEATHS_DOOR])
+    if (you.res_miasma())
         return false;
 
     if (you.duration[DUR_DIVINE_STAMINA] > 0)
@@ -5120,7 +5135,7 @@ void silence_player(int turns)
 
     you.increase_duration(DUR_SILENCE, turns, 30);
 
-    invalidate_agrid(true);
+    invalidate_agrid();
 
     if (you.beheld())
         you.update_beholders();
@@ -5736,6 +5751,8 @@ player::player()
 
     trapped            = false;
     triggered_spectral = false;
+    newly_revealed_cells = 0;
+    took_instant_action = false;
 
     last_view_update = 0;
 
@@ -5769,7 +5786,6 @@ player::player()
 
     // Non-saved UI state:
     prev_targ        = MID_NOBODY;
-    prev_grd_targ.reset();
     divine_exegesis  = false;
 
     travel_x         = 0;
@@ -5874,6 +5890,7 @@ void player::init_skills()
     skill_order.init(MAX_SKILL_ORDER);
     skill_manual_points.init(0);
     training_targets.init(0);
+    base_training_targets.init(0);
     exercises.clear();
     exercises_all.clear();
 }
@@ -6007,6 +6024,23 @@ int player::rampaging() const
         rampage = get_los_radius();
 
     return rampage;
+}
+
+int player::shield_block_limit() const
+{
+    int bonus_blocks = 0;
+
+    if (you.unrand_equipped(UNRAND_FIVE_VIRTUES)
+        && five_virtues_sh_score() >= 3)
+    {
+        bonus_blocks++;
+    }
+
+    const item_def *sh = you.shield();
+
+    if (!sh)
+        return 1 + bonus_blocks;
+    return ::shield_block_limit(*sh) + bonus_blocks;
 }
 
 bool player::is_banished() const
@@ -6275,25 +6309,6 @@ bool player::liquefied_ground() const
            && !airborne() && !is_insubstantial();
 }
 
-/**
- * Returns whether the player currently has any kind of shield.
- *
- * XXX: why does this function exist?
- */
-bool player::shielded() const
-{
-    return shield()
-           || duration[DUR_DIVINE_SHIELD]
-           || duration[DUR_EPHEMERAL_SHIELD]
-           || duration[DUR_PARRYING]
-           || get_mutation_level(MUT_LARGE_BONE_PLATES) > 0
-           || qazlal_sh_boost() > 0
-           || you.wearing_jewellery(AMU_REFLECTION)
-           || you.scan_artefacts(ARTP_SHIELDING)
-           || (get_mutation_level(MUT_CONDENSATION_SHIELD)
-                && !you.duration[DUR_ICEMAIL_DEPLETED]);
-}
-
 int player::shield_bonus() const
 {
     const int shield_class = player_shield_class();
@@ -6308,11 +6323,24 @@ int player::shield_bypass_ability(int tohit) const
     return 15 + tohit / 2;
 }
 
+bool player::divinely_shielded() const
+{
+    return duration[DUR_DIVINE_SHIELD];
+}
+
 void player::shield_block_succeeded(actor *attacker)
 {
     actor::shield_block_succeeded(attacker);
 
-    if (!you.duration[DUR_DIVINE_SHIELD])
+    if (divinely_shielded())
+    {
+        if (--duration[DUR_DIVINE_SHIELD] <= 0)
+        {
+            mprf(MSGCH_DURATION, "Your divine shield fades away.");
+            duration[DUR_DIVINE_SHIELD] = 0;
+        }
+    }
+    else
         shield_blocks++;
 
     practise_shield_block();
@@ -6352,7 +6380,9 @@ int player::unadjusted_body_armour_penalty(bool archery) const
     if (!body_armour)
         return 0;
 
-    int rfactor = archery && you.wearing_ego(OBJ_ARMOUR, SPARM_ARCHERY) ? 3 : 1;
+    // Crab form can "double" the ego.
+    int rfactor = archery ? pow(3, you.wearing_ego(OBJ_ARMOUR, SPARM_ARCHERY))
+                : 1;
 
     // PARM_EVASION is always less than or equal to 0
     return max(0, -property(*body_armour, PARM_EVASION) / 10 / rfactor
@@ -7050,6 +7080,8 @@ mon_holy_type player::holiness(bool include_temp, bool incl_form) const
         holi = MH_UNDEAD;
     else if (species::is_nonliving(you.species))
         holi = MH_NONLIVING;
+    else if (species::is_plant(you.species))
+        holi = MH_PLANT;
     else
         holi = MH_NATURAL;
 
@@ -7067,10 +7099,6 @@ mon_holy_type player::holiness(bool include_temp, bool incl_form) const
         else if (get_form(f)->holiness != MH_NONE)
             holi = get_form(f)->holiness;
     }
-
-    // Petrification takes precedence over base holiness and lich form
-    if (include_temp && petrified())
-        holi = MH_NONLIVING;
 
     return holi;
 }
@@ -7097,6 +7125,11 @@ bool player::is_holy() const
 bool player::is_nonliving(bool include_temp, bool incl_form) const
 {
     return bool(holiness(include_temp, incl_form) & MH_NONLIVING);
+}
+
+bool player::has_soul() const
+{
+    return undead_state() != US_UNDEAD;
 }
 
 // This is a stub. Check is used only for silver damage. Worship of chaotic
@@ -7224,8 +7257,6 @@ bool player::res_torment() const
         return true;
 
     return get_form()->res_neg() == 3
-           || you.petrified()
-           || bool(you.holiness() & MH_PLANT)
 #if TAG_MAJOR_VERSION == 34
            || you.unrand_equipped(UNRAND_ETERNAL_TORMENT)
 #endif
@@ -7483,6 +7514,11 @@ int player::reach_range(bool include_weapon) const
     return max(wpn_reach, off_reach) + bonus;
 }
 
+int player::reach_range_bonus() const
+{
+    return you.form == transformation::aqua ? 2 : 0;
+}
+
 monster_type player::mons_species(bool /*zombie_base*/) const
 {
     return species::to_mons_species(species);
@@ -7509,7 +7545,7 @@ void player::teleport(bool now, bool wizard_tele)
 {
     ASSERT(!crawl_state.game_is_arena());
     if (now)
-        you_teleport_now(wizard_tele);
+        you_teleport_now("", false, wizard_tele);
     else
         you_teleport();
 }
@@ -8258,8 +8294,8 @@ bool player::asleep() const
 
 bool player::can_feel_fear(bool include_unknown) const
 {
-    return (you.holiness() & (MH_NATURAL | MH_DEMONIC | MH_HOLY))
-           && (!include_unknown || (!you.clarity() && !you.berserk()));
+    return undead_state() != US_UNDEAD
+           && (!include_unknown || (!clarity() && !berserk()));
 }
 
 bool player::can_throw_large_rocks() const
@@ -8691,6 +8727,9 @@ bool player::drain_magic(actor */*attacker*/, int pow)
 
 void player::daze(int dur)
 {
+    if (you.duration[DUR_DAZED] || you.duration[DUR_STUN_IMMUNITY])
+        return;
+
     stop_delay(true, true);
     stop_directly_constricting_all();
     stop_channelling_spells();
@@ -9134,7 +9173,6 @@ void player_open_door(coord_def doorpos)
         if (cell_is_runed(dc))
             explored_tracked_feature(env.grid(dc));
         dgn_open_door(dc);
-        set_terrain_changed(dc);
         dungeon_events.fire_position_event(DET_DOOR_OPENED, dc);
 
         if (is_excluded(dc))
@@ -9306,7 +9344,6 @@ void player_close_door(coord_def doorpos)
     {
         // Once opened, formerly runed doors become normal doors.
         dgn_close_door(dc);
-        set_terrain_changed(dc);
         dungeon_events.fire_position_event(DET_DOOR_CLOSED, dc);
 
         if (is_excluded(dc))
@@ -9712,4 +9749,28 @@ bool player::did_reprisal(reprisal_type rtype, mid_t target_mid)
 void player::did_trigger(player_trigger_type trigger)
 {
     triggers_done[trigger]++;
+}
+
+int five_virtues_sh_score()
+{
+    int count = 0;
+
+    // staves either highest skill or maxed
+    if (is_highest_skill(SK_STAVES) || you.skill(SK_STAVES) >= MAX_SKILL_LEVEL)
+        count++;
+
+    // five pips
+    if (you.stealth() > 200)
+        count++;
+
+    if (you.skill(SK_INVOCATIONS, 1, true, false) >= 15)
+        count++;
+
+    if (you.intel() >= 20)
+        count++;
+
+    if (_player_evasion(1, false) >= 25)
+        count++;
+
+    return count;
 }

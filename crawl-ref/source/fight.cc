@@ -795,7 +795,7 @@ static bool _is_boolean_resist(beam_type flavour)
 
 // Gets the percentage of the total damage of this damage flavour that can
 // be resisted.
-static inline int _get_resistible_fraction(beam_type flavour)
+int beam_resistible_fraction(beam_type flavour)
 {
     switch (flavour)
     {
@@ -916,7 +916,7 @@ int resist_adjust_damage(const actor* defender, beam_type flavour, int rawdamage
 
     const bool is_mon = defender->is_monster();
 
-    const int resistible_fraction = _get_resistible_fraction(flavour);
+    const int resistible_fraction = beam_resistible_fraction(flavour);
 
     int resistible = rawdamage * resistible_fraction / 100;
     const int irresistible = rawdamage - resistible;
@@ -1049,7 +1049,7 @@ bool wielded_weapon_check(string attack_verb)
     if (!result)
         canned_msg(MSG_OK);
 
-    learned_something_new(HINT_WIELD_WEAPON); // for hints mode Rangers
+    learned_something_new(HINT_WIELD_MELEE_WEAPON);
 
     // Don't warn again if you decide to continue your attack.
     if (result)
@@ -1161,17 +1161,6 @@ bool should_cleave_into(const actor &attacker, const actor &defender)
     return false;
 }
 
-bool _monster_has_reachcleave(const actor &attacker)
-{
-    if (attacker.is_monster()
-        && attacker.as_monster()->has_attack_flavour(AF_REACH_CLEAVE_UGLY))
-    {
-        return true;
-    }
-
-    return false;
-}
-
 /**
  * Force cleave attacks. Used for melee actions that don't have targets, e.g.
  * attacking empty space (otherwise, cleaving is handled in melee_attack).
@@ -1181,16 +1170,12 @@ bool _monster_has_reachcleave(const actor &attacker)
  */
 bool force_player_cleave(coord_def target)
 {
-    list<actor*> cleave_targets;
-    get_cleave_targets(you, target, cleave_targets);
-    if (item_def* offhand_weapon = you.offhand_weapon())
-        get_cleave_targets(you, target, cleave_targets, -1, false, offhand_weapon);
+    vector<actor*> cleave_targets = get_player_cleave_targets(target);
 
     if (!cleave_targets.empty())
     {
-        // Rift is too funky and hence gets no special treatment.
-        const int range = you.reach_range();
-        targeter_cleave hitfunc(&you, target, range);
+
+        targeter_cleave hitfunc(target);
         if (stop_attack_prompt(hitfunc, "attack"))
             return true;
 
@@ -1203,18 +1188,24 @@ bool force_player_cleave(coord_def target)
     return false;
 }
 
-bool attack_cleaves(const actor &attacker, const item_def *weap)
+bool attack_cleaves(const actor &attacker, const item_def *weap, int attack_num)
 {
     if (attacker.is_player()
         && (you.form == transformation::storm || you.duration[DUR_CLEAVE]))
     {
         return true;
     }
-    else if (attacker.is_monster()
-             && (attacker.as_monster()->has_ench(ENCH_INSTANT_CLEAVE)
-             || _monster_has_reachcleave(attacker)))
+    else if (const monster* mon = attacker.as_monster())
     {
-        return true;
+        if (mon->has_ench(ENCH_INSTANT_CLEAVE))
+            return true;
+
+        if (attack_num >= 0)
+        {
+            mon_attack_def mon_attk = mons_attack_spec(*mon, attack_num, true);
+            if (mon_attk.cleaves)
+                return true;
+        }
     }
 
     return weap && weapon_cleaves(*weap);
@@ -1240,51 +1231,62 @@ bool weapon_multihits(const item_def *weap)
     return weap && weapon_hits_per_swing(*weap) > 1;
 }
 
+// Get a list of all targets that are within attack range of they player at the
+// moment (using the maximum range of either weapon they may have equipped).
+vector<actor*> get_player_attack_targets()
+{
+    vector<actor*> targs;
+    get_cleave_targets(you, coord_def(), targs, you.reach_range());
+    return targs;
+}
+
+// Get a list of all creatures the player could cleave into if they attacked right now
+vector<actor*> get_player_cleave_targets(const coord_def& aim)
+{
+    vector<actor*> cleave_targets;
+    vector<item_def*> wpns = you.equipment.get_slot_items(SLOT_WEAPON);
+    if (wpns.empty())
+    {
+        if (attack_cleaves(you))
+            get_cleave_targets(you, aim, cleave_targets);
+    }
+    else
+    {
+        for (const item_def* wpn : wpns)
+            if (attack_cleaves(you, wpn))
+                get_cleave_targets(you, aim, cleave_targets, weapon_reach(*wpn));
+    }
+    return cleave_targets;
+}
+
+
 /**
- * List potential cleave targets (adjacent hostile creatures), including the
- * defender itself.
+ * List potential cleave targets at a given range, excluding the primary target
+ * itself, if specified.
  *
  * @param attacker[in]   The attacking creature.
  * @param def[in]        The location of the targeted defender, or (0,0) if
  *                       there isn't one.
  * @param targets[out]   A list to be populated with targets.
- * @param which_attack   The attack_number (default -1, which uses the default weapon).
- * @param force_cleaving Force the current attack to count as if it cleaves,
- *                       even if it otherwise would not (ie: for Inugami instant
- *                       cleave).
- * @param weapon         The weapon being used to make this attack.
- * @param reach_bonus    Bonus radius to be added to this calculation.
+ * @param range          Reaching range of this attack (default 1).
  */
 void get_cleave_targets(const actor &attacker, const coord_def& def,
-                        list<actor*> &targets, int which_attack,
-                        bool force_cleaving, const item_def *weapon,
-                        int reach_bonus)
+                        vector<actor*> &targets, int range)
 {
     // Prevent scanning invalid coordinates if the attacker dies partway through
     // a cleave (due to hitting explosive creatures, or perhaps other things)
     if (!attacker.alive())
         return;
 
-    if (!def.origin() && actor_at(def))
-        targets.push_back(actor_at(def));
-
-    const item_def* weap = weapon ? weapon : attacker.weapon(which_attack);
-    if (!force_cleaving && !attack_cleaves(attacker, weap))
-        return;
-
     const coord_def atk = attacker.pos();
-    // Players in aqua form specifically do not get enormous cleaving, but
-    // monsters with natural reach cleave for their while reach.
-    const int cleave_radius = (attacker.is_monster() ? attacker.reach_range()
-                                : weap ? weapon_reach(*weap) : 1) + reach_bonus;
-
-    for (distance_iterator di(atk, true, true, cleave_radius); di; ++di)
+    for (distance_iterator di(atk, true, true, range); di; ++di)
     {
-        if (*di == def) continue; // no double jeopardy
+        if (*di == def)
+            continue;
         actor *target = actor_at(*di);
         if (!target || !should_cleave_into(attacker, *target))
             continue;
-        if (di.radius() > 1 && !can_reach_attack_between(atk, *di, cleave_radius))
+        if (di.radius() > 1 && !can_reach_attack_between(atk, *di, range))
             continue;
         targets.push_back(target);
     }
@@ -1807,11 +1809,11 @@ int brand_adjust_weapon_damage(int base_dam, int brand, bool random)
 
 int resonance_damage_mod(int dam, bool random)
 {
-    if (you.wearing_ego(OBJ_ARMOUR, SPARM_RESONANCE))
-    {
-        dam = random ? div_rand_round(dam * (100 + you.skill_rdiv(SK_FORGECRAFT, 3, 2)), 100)
-                     : dam * (100 + you.skill(SK_FORGECRAFT, 3) / 2) / 100;
-    }
+    int bonus = you.wearing_ego(OBJ_ARMOUR, SPARM_RESONANCE)
+                    * you.skill(SK_FORGECRAFT, 2);
+
+    dam = random ? div_rand_round(dam * 100 + bonus, 100)
+                 : dam * (100 + bonus) / 100;
 
     return dam;
 }

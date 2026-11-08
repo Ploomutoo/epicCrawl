@@ -36,7 +36,7 @@
 #include "stat-type.h"
 #include "timed-effect-type.h"
 #include "transformation.h"
-#include "uncancellable-type.h"
+#include "uncancel.h"
 #include "unique-creature-list-type.h"
 #include "unique-item-status-type.h"
 
@@ -270,7 +270,9 @@ public:
     FixedVector<training_status, NUM_SKILLS> train_alt; ///< config of other mode
     FixedVector<unsigned int, NUM_SKILLS>  training; ///< percentage of XP used
     FixedVector<unsigned int, NUM_SKILLS> skill_points;
-    FixedVector<unsigned int, NUM_SKILLS> training_targets; ///< Training targets, scaled by 10 (so [0,270]).  0 means no target.
+    /// Training targets, scaled by 10 (so [0,270]).  0 means no target.
+    FixedVector<unsigned int, NUM_SKILLS> training_targets;
+    FixedVector<unsigned int, NUM_SKILLS> base_training_targets;
     int experience_pool; ///< XP waiting to be applied.
     FixedVector<uint8_t, NUM_SKILLS>  skill_order;
     /// manuals
@@ -420,7 +422,7 @@ public:
 
     // Prompts or actions the player must answer before continuing.
     // A stack -- back() is the first to go.
-    vector<pair<uncancellable_type, int> > uncancel;
+    vector<uncancellable> uncancel;
 
     // Hash seed for deterministic stuff.
     uint64_t game_seed;
@@ -432,7 +434,6 @@ public:
     // Non-saved UI state:
     // -------------------
     mid_t          prev_targ;
-    coord_def      prev_grd_targ;
     // Examining spell library spells for Sif Muna's ability
     bool           divine_exegesis;
 
@@ -502,6 +503,12 @@ public:
 
     // If true, player has triggered a trap effect by exploring.
     bool trapped;
+
+    // Number of cells newly revealed by exploring.
+    int newly_revealed_cells;
+
+    // If true, the player took a zero-time action.
+    bool took_instant_action;
 
     // TODO burn this API with fire
     bool wield_change;          // redraw weapon
@@ -614,6 +621,7 @@ public:
     bool can_water_walk() const;
     int visible_igrd(const coord_def&) const;
     int rampaging() const override;
+    int shield_block_limit() const override;
     bool is_banished() const override;
     bool is_sufficiently_rested(bool starting=false) const; // Up to rest_wait_percent HP and MP.
     bool is_web_immune() const override;
@@ -629,6 +637,7 @@ public:
     bool nightvision() const override;
     bool may_pruneify() const;
     int reach_range(bool include_weapon = true) const override;
+    int reach_range_bonus() const override;
     bool see_cell(const coord_def& p) const override;
 
     // Is c in view but behind a transparent wall?
@@ -752,10 +761,11 @@ public:
     int       get_innate_mutation_level(mutation_type mut) const;
     int       get_temp_mutation_level(mutation_type mut) const;
 
-    int       get_training_target(const skill_type sk) const;
-    bool      set_training_target(const skill_type sk, const double target, bool announce=false);
-    bool      set_training_target(const skill_type sk, const int target, bool announce=false);
-    void      clear_training_targets();
+    int       get_training_target(const skill_type sk, bool base=false) const;
+    bool      set_training_target(const skill_type sk, const double target, bool announce=false, bool base=false);
+    bool      set_training_target(const skill_type sk, const int target, bool announce=false, bool base=false);
+    void      clear_training_targets(bool base);
+    void      clear_all_training_targets();
 
     bool      has_temporary_mutation(mutation_type mut) const;
     bool      has_innate_mutation(mutation_type mut) const;
@@ -879,6 +889,7 @@ public:
     bool evil() const override;
     bool is_holy() const override;
     bool is_nonliving(bool include_temp = true, bool incl_form = true) const override;
+    bool has_soul() const override;
     int how_chaotic(bool check_spells_god) const override;
     bool is_unbreathing() const override;
     bool is_insubstantial() const override;
@@ -909,7 +920,6 @@ public:
 
     bool clarity(bool items = true) const override;
     bool faith(bool items = true) const override;
-    bool reflection(bool items = true) const override;
     bool stasis() const override;
     bool cloud_immune(bool items = true) const override;
     bool sunder_is_ready() const override;
@@ -938,9 +948,10 @@ public:
     bool umbra() const override;
     int halo_radius() const override;
     int silence_radius() const override;
-    int demon_silence_radius() const override;
     int liquefying_radius() const override;
     int umbra_radius() const override;
+    int awoken_forest_radius() const override;
+    bool affects_agrid() const override;
     bool petrifying() const override;
     bool petrified() const override;
     bool liquefied_ground() const override;
@@ -975,10 +986,10 @@ public:
     int stat_maxhp() const override  { return hp_max; }
     int stealth() const override     { return player_stealth(); }
 
-    bool shielded() const override;
     int shield_bonus() const override;
     int shield_bypass_ability(int tohit) const override;
     void shield_block_succeeded(actor *attacker) override;
+    bool divinely_shielded() const override;
     int missile_repulsion() const override;
 
     // Combat-related adjusted penalty calculation methods
@@ -1365,3 +1376,4 @@ bool need_expiration_warning(coord_def p = you.pos());
 
 bool player_has_orb();
 bool player_on_orb_run();
+int five_virtues_sh_score();

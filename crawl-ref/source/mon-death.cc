@@ -4,6 +4,7 @@
 **/
 
 #include <functional>
+#include <unordered_map>
 
 #include "AppHdr.h"
 
@@ -32,10 +33,9 @@
 #include "evoke.h"
 #include "fineff.h"
 #include "god-abil.h"
-#include "god-blessing.h"
 #include "god-companions.h"
 #include "god-conduct.h"
-#include "god-passive.h" // passive_t::bless_followers, convert_orcs
+#include "god-passive.h" // convert_orcs
 #include "hints.h"
 #include "hiscores.h"
 #include "item-name.h"
@@ -459,16 +459,19 @@ void maybe_drop_monster_organ(monster_type mon, monster_type orig,
 /**
  * Create this monster's corpse in env.item at its position.
  *
- * @param mons the monster to corpsify
- * @param silent whether to suppress all messages
- * @param force whether to always make a corpse (no 50% chance not to make a
-                corpse, no goldification, no organs -- being summoned etc. still
-  *             matters, though)
- * @returns a pointer to an item; it may be null, if the monster can't leave a
- *          corpse or if the 50% chance is rolled; it may be gold, if the player
- *          worships Gozag, or it may be the corpse.
+ * @param mons      the monster to corpsify
+ * @param silent    whether to suppress all messages
+ * @param force     whether to always make a corpse (no 50% chance not to make
+                    a corpse, no goldification, no organs -- being summoned
+                    etc. still matters, though)
+ * @param no_corpse whether to suppress corpse creation (but still allow gold
+ *                  to drop under Gozag).
+ * @returns         a pointer to an item; it may be null, if the monster can't
+ *                  leave a corpse or if the 50% chance is rolled; it may be
+ *                  gold, if the player worships Gozag, or it may be the
+ *                  corpse.
  */
-item_def* place_monster_corpse(const monster& mons, bool force)
+item_def* place_corpse_or_gold(const monster& mons, bool force, bool no_corpse)
 {
     if (mons.is_abjurable()
         || mons.flags & MF_BANISHED
@@ -547,7 +550,7 @@ item_def* place_monster_corpse(const monster& mons, bool force)
             return nullptr;
         }
     }
-    else if (!_fill_out_corpse(mons, corpse))
+    else if (no_corpse || !_fill_out_corpse(mons, corpse))
         return nullptr;
 
     origin_set_monster(corpse, &mons);
@@ -914,7 +917,7 @@ static bool _beogh_maybe_convert_orc(monster &mons, killer_type killer,
     if (MON_KILL(killer) && !invalid_monster_index(killer_index))
     {
         const monster* responsible_monster = &env.mons[killer_index];
-        if (is_follower(*responsible_monster) && !one_chance_in(3))
+        if (is_apostle_follower(*responsible_monster) && !one_chance_in(3))
             return _beogh_forcibly_convert_orc(mons, killer);
     }
 
@@ -1040,11 +1043,22 @@ static monster* _retrieve_saved_blorkula(monster& bat)
 
 static void _blorkula_bat_death(monster& bat, killer_type killer, int killer_index)
 {
-    // Check if any other bats are still alive. If they are not, formally kill Blorkula.
-    for (monster_iterator mi; mi; ++mi)
+    // Check if any other bats are still around. If they are not, formally kill
+    // Blorkula.
+    //
+    // In cases like pain bond, we need to be careful to check monsters on zero
+    // HP, so that we don't call this multiple times. We do this by checking
+    // for not-yet-cleaned-up (but possibly dead) bats, so that the last bat we
+    // call monster_die on will trigger Blorkula's death.
+    for (int i = 0; i < MAX_MONSTERS; ++i)
     {
-        if (mi->type == MONS_VAMPIRE_BAT && *mi != &bat && mi->props.exists(BLORKULA_REVIVAL_TIMER_KEY))
+        monster& other = env.mons[i];
+        if (!invalid_monster(&other)
+            && other.type == MONS_VAMPIRE_BAT && &other != &bat
+            && other.props.exists(BLORKULA_REVIVAL_TIMER_KEY))
+        {
             return;
+        }
     }
 
     // No other bats left, so pass this death onto Blorkula as 'real'
@@ -1537,7 +1551,7 @@ static string _derived_undead_message(const monster &mons, monster_type which_z,
 static void _make_derived_undead(monster* mons, bool quiet,
                                  monster_type which_z, beh_type beh,
                                  int spell, god_type god,
-                                 string msg = "", string fail_msg = "",
+                                 string msg = "",
                                  function<bool ()> should_trigger = []() {
                                     return true;
                                 }
@@ -1563,6 +1577,11 @@ static void _make_derived_undead(monster* mons, bool quiet,
     if (requires_corpse && !mons_can_be_zombified(*mons))
         return;
 
+    // If zombifying a rider+mount, treat it as zombifying the rider. The mount
+    // will get its chance later, via mounted_kill().
+    const monster_type mtype = mons_is_rider(mons->type) ? mons_rider_type(mons->type)
+                                                         : mons->type;
+
     // Use the original monster type as the zombified type here, to
     // get the proper stats from it.
     mgen_data mg(which_z,
@@ -1575,7 +1594,7 @@ static void _make_derived_undead(monster* mons, bool quiet,
     // Don't link monster-created derived undead to the summoner, they
     // shouldn't poof
     mg.set_summoned(beh == BEH_FRIENDLY ? &you : nullptr, spell, 0, false);
-    mg.set_base(mons->type);
+    mg.set_base(mtype);
     // Prefer to be created wherever the dead monster was, but allow placing up
     // to 2 spaces away, if need be.
     mg.set_range(0, 2);
@@ -1602,21 +1621,8 @@ static void _make_derived_undead(monster* mons, bool quiet,
     if (msg.empty())
         msg = "A " + mist + " mist starts to gather...";
 
-    if (fail_msg.empty())
-        fail_msg = "A " + mist + " mist gathers momentarily, then fades.";
-
     if (mons->mons_species() == MONS_HYDRA || mons->type == MONS_SLYMDRA)
-    {
-        // No undead 0-headed hydras, sorry.
-        if (mons->heads() == 0)
-        {
-            if (!quiet)
-                mpr(fail_msg);
-            return;
-        }
-        else
-            mg.props[MGEN_NUM_HEADS] = mons->heads();
-    }
+        mg.props[MGEN_NUM_HEADS] = mons->props[ORIGINAL_HEADS_KEY].get_int();
 
     string agent_name = "";
     if (mons->has_ench(ENCH_BOUND_SOUL))
@@ -1949,10 +1955,8 @@ static bool _mons_reaped(actor &killer, monster& victim)
     beh_type beh = SAME_ATTITUDE(&killer);
     string msg = victim.name(DESC_ITS) + " spirit is torn from " +
                      victim.pronoun(PRONOUN_POSSESSIVE) + " body!";
-    string fail_msg = victim.name(DESC_ITS) + " spirit is momentarily torn from " +
-                          victim.pronoun(PRONOUN_POSSESSIVE) + " body, then fades!";
     _make_derived_undead(&victim, !you.can_see(victim), MONS_SPECTRAL_THING, beh,
-                         MON_SUMM_WPN_REAP, GOD_NO_GOD, msg, fail_msg);
+                         MON_SUMM_WPN_REAP, GOD_NO_GOD, msg);
 
     return true;
 }
@@ -2052,13 +2056,6 @@ static bool _apply_necromancy(monster &mons, bool quiet, bool corpse_gone,
         return true;
 
     return false;
-}
-
-static bool _god_will_bless_follower(monster* victim)
-{
-    return have_passive(passive_t::bless_followers_vs_evil)
-           && victim->evil()
-           && random2(you.piety()) >= piety_breakpoint(0);
 }
 
 static bool should_blame_you_for_kill(int killer_index, bool pet_kill) noexcept
@@ -2356,10 +2353,6 @@ static void _player_on_kill_effects(monster& mons, killer_type killer,
 
     if (YOU_KILL(killer) && gives_player_xp)
     {
-        // TSO follower blessing.
-        if (_god_will_bless_follower(&mons))
-            bless_follower();
-
         if (you.wearing_ego(OBJ_ARMOUR, SPARM_MAYHEM))
             _orb_of_mayhem(you, mons);
     }
@@ -2418,6 +2411,12 @@ static void _player_on_kill_effects(monster& mons, killer_type killer,
         && !one_chance_in(3))
     {
         makhleb_tyrant_buff();
+    }
+
+    if ((killer == KILL_YOU || killer == KILL_YOU_MISSILE)
+        && gives_player_xp && have_passive(passive_t::inspire_followers))
+    {
+        tso_maybe_bless_follower();
     }
 
     // Apply unrand effects.
@@ -2507,16 +2506,41 @@ static void _player_on_kill_effects(monster& mons, killer_type killer,
  * @param killer_index The mindex of the killer (TODO: always use an actor*)
  * @param silent whether to print any messages about the death
  * @param mount_death The death of the mount of a mounted monster (riders).
+ * @param reset  Whether to reset the monster immediately. If false (default),
+ *               the monster will be reset at the end of the turn.
  * @returns a pointer to the created corpse, possibly null
  */
 item_def* monster_die(monster& mons, killer_type killer,
-                      int killer_index, bool silent, bool mount_death)
+                      int killer_index, bool silent, bool mount_death,
+                      bool reset)
 {
     ASSERT(!invalid_monster(&mons));
 
     // trying to die again after scheduling an avoided_death fineff
     if (testbits(mons.flags, MF_PENDING_REVIVAL))
         return nullptr;
+
+    // If this is a tentacle segment, kill the parent instead.
+    if (mons_is_tentacle_segment(mons.type) && killer != KILL_TENTACLE_CLEANUP)
+    {
+        monster* parent = monster_by_mid(mons.tentacle_connect);
+        if (parent && parent->alive())
+        {
+            // Plumb through some information about the death that gets stamped
+            // on the monster.
+            if (testbits(mons.flags, MF_EXPLODE_KILL))
+                parent->flags |= MF_EXPLODE_KILL;
+            if (mons.props.exists(ATTACK_KILL_KEY))
+                parent->props[ATTACK_KILL_KEY] = true;
+
+            // Set this monster's HP to 1 so that the parent cleans it up.
+            mons.hit_points = 1;
+
+            monster_die(*parent, killer, killer_index, silent, mount_death, reset);
+
+            return nullptr;
+        }
+    }
 
     const bool was_visible = you.can_see(mons);
 
@@ -2533,7 +2557,7 @@ item_def* monster_die(monster& mons, killer_type killer,
 
         // revived by a lost soul?
         if (!spectralised && testbits(mons.flags, MF_SPECTRALISED))
-            return place_monster_corpse(mons);
+            return place_corpse_or_gold(mons);
         return nullptr;
     }
 
@@ -2583,7 +2607,8 @@ item_def* monster_die(monster& mons, killer_type killer,
     bool in_transit          = false;
     const bool was_banished  = (killer == KILL_BANISHED);
     const bool mons_reset    = RESET_KILL(killer);
-    bool leaves_corpse = !summoned && !timeout
+    // Whether to record the kill and consider leaving a corpse/gold.
+    bool count_kill = !summoned && !timeout
                             && !mons_reset
                             && !mons_is_tentacle_segment(mons.type);
     const bool real_death    = !(timeout && mons.is_abjurable())
@@ -2855,13 +2880,16 @@ item_def* monster_die(monster& mons, killer_type killer,
                         mons.get_ench(ENCH_MAGNETISED).agent());
     }
 
-    if (leaves_corpse && mons.has_ench(ENCH_RIMEBLIGHT)
+    bool suppress_corpse = false;
+    if (count_kill && mons.has_ench(ENCH_RIMEBLIGHT)
         && !silent && !was_banished && !mons_reset
         && mons.props.exists(RIMEBLIGHT_DEATH_KEY))
     {
         // If we died due to the rimeblight instakill threshold, leave a pillar
-        // of rime behind.
-        leaves_corpse = false;
+        // of rime behind. This suppresses the corpse visually, since it is not
+        // really "under" the pillar, but the corpse is not consumed for the
+        // purposes of necromancy or Gozag.
+        suppress_corpse = true;
         did_death_message = true;
         if (you.see_cell(mons.pos()))
         {
@@ -2930,7 +2958,6 @@ item_def* monster_die(monster& mons, killer_type killer,
                     visual.source = mons.pos();
                     visual.target = armoury->pos();
                     visual.flavour = BEAM_VISUAL;
-                    visual.range = LOS_RADIUS;
                     visual.aimed_at_spot = true;
                     visual.fire();
                 }
@@ -2994,10 +3021,18 @@ item_def* monster_die(monster& mons, killer_type killer,
                     "The tentacle is hauled back through the portal!" :
                     "With a roar, the tentacle is hauled back through the portal!");
             }
-            silent = true;
-            for (map_marker* mark : env.markers.get_markers_at(mons.pos(), MAT_MALIGN_GATEWAY))
+            for (map_marker* mark : env.markers.get_all(MAT_MALIGN_GATEWAY))
+            {
                 if (dynamic_cast<map_malign_gateway_marker*>(mark)->tentacle == mons.mid)
+                {
+                    // Defer the terrain change because beams don't like walls
+                    // to disappear while they process them.
+                    schedule_revert_terrain_fineff(mark->pos,
+                                                   TERRAIN_CHANGE_MALIGN_GATEWAY);
                     env.markers.remove(mark);
+                }
+            }
+            silent = true;
         }
     }
     else if (mons.type == MONS_DROWNED_SOUL)
@@ -3112,9 +3147,6 @@ item_def* monster_die(monster& mons, killer_type killer,
 
             if (killer_mon->wearing_ego(OBJ_ARMOUR, SPARM_MAYHEM))
                 _orb_of_mayhem(*killer_mon, mons);
-
-            if (pet_kill && _god_will_bless_follower(&mons))
-                bless_follower(killer_mon);
 
             break;
         }
@@ -3416,22 +3448,9 @@ item_def* monster_die(monster& mons, killer_type killer,
                 mpr("The starspawn's tentacles wither and die.");
         }
     }
-    else if (mons_is_tentacle_or_tentacle_segment(mons.type)
-             && killer != KILL_TENTACLE_CLEANUP
-                 || mons.type == MONS_ELDRITCH_TENTACLE
-                 || mons.type == MONS_SNAPLASHER_VINE)
-    {
-        // XXX: Make sure this segment looks dead, or destroy_tentacle may
-        //      reset it before this function completes
-        mons.hit_points = -1;
+    // Clean up the tentacle's segments.
+    else if (mons_is_tentacle(mons.type) && killer != KILL_TENTACLE_CLEANUP)
         destroy_tentacle(&mons);
-    }
-    else if (mons.type == MONS_ELDRITCH_TENTACLE_SEGMENT
-             && killer != KILL_TENTACLE_CLEANUP)
-    {
-       monster_die(*monster_by_mid(mons.tentacle_connect), killer,
-                   killer_index, silent, mount_death);
-    }
     // Give the treant a last chance to release its hornets if it is killed in a
     // single blow from above half health
     else if (mons.type == MONS_SHAMBLING_MANGROVE && real_death)
@@ -3503,8 +3522,7 @@ item_def* monster_die(monster& mons, killer_type killer,
                                  BEH_FRIENDLY,
                                  SPELL_DEATH_CHANNEL,
                                  static_cast<god_type>(you.attribute[ATTR_DIVINE_DEATH_CHANNEL]),
-                                 "", "",
-                                 should_trigger);
+                                 "", should_trigger);
         }
         else if (!you_worship(GOD_YREDELEMNUL))
             (_reaping_brand(mons));
@@ -3531,35 +3549,20 @@ item_def* monster_die(monster& mons, killer_type killer,
         _monster_die_cloud(mons, real_death);
 
     item_def* corpse = nullptr;
-    if (leaves_corpse && !was_banished && !spectralised && !corpse_consumed)
-    {
-        // Have to add case for disintegration effect here? {dlb}
-        item_def* daddy_corpse = nullptr;
+    if (count_kill && !was_banished && !spectralised && !corpse_consumed)
+        corpse = place_corpse_or_gold(mons, false, suppress_corpse);
 
-        if (mons.type == MONS_GOBLIN_RIDER)
-        {
-            daddy_corpse = mounted_kill(&mons, MONS_WYVERN, killer, killer_index);
-            mons.type = MONS_GOBLIN;
-        }
-        else if (mons.type == MONS_SPRIGGAN_RIDER)
-        {
-            daddy_corpse = mounted_kill(&mons, MONS_HORNET, killer, killer_index);
-            mons.type = MONS_SPRIGGAN;
-        }
-        else if (mons.type == MONS_GOJI)
-        {
-            daddy_corpse = mounted_kill(&mons, MONS_GHOST_MOTH, killer, killer_index);
-            mons.type = MONS_GOJI_UNMOUNTED;
-        }
-        corpse = place_monster_corpse(mons);
+    if (mons_is_rider(mons.type) && !was_banished)
+    {
+        item_def* mount_corpse = mounted_kill(&mons, mons_mount_type(mons.type), killer, killer_index);
         if (!corpse)
-            corpse = daddy_corpse;
+            corpse = mount_corpse;
     }
 
     const unsigned int player_xp = gives_player_xp
         ? _calc_player_experience(&mons) : 0;
 
-    if (!crawl_state.game_is_arena() && leaves_corpse && !in_transit)
+    if (!crawl_state.game_is_arena() && count_kill && !in_transit)
         you.kills.record_kill(&mons, killer, pet_kill);
 
     if (mount_death)
@@ -3614,7 +3617,7 @@ item_def* monster_die(monster& mons, killer_type killer,
         mons.destroy_inventory();
     }
 
-    if (leaves_corpse && corpse)
+    if (count_kill && corpse)
     {
         if (!silent)
             _special_corpse_messaging(mons);
@@ -3631,7 +3634,7 @@ item_def* monster_die(monster& mons, killer_type killer,
         }
     }
 
-    ASSERT(mons.type != MONS_NO_MONSTER);
+    ASSERT(!invalid_monster(&mons));
 
     if (mons.is_divine_companion() && real_death)
     {
@@ -3660,7 +3663,7 @@ item_def* monster_die(monster& mons, killer_type killer,
     }
 
     crawl_state.dec_mon_acting(&mons);
-    monster_cleanup(&mons);
+    monster_cleanup(&mons, reset);
 
     // Force redraw for monsters that die.
     if (in_bounds(mwhere) && you.see_cell(mwhere))
@@ -3715,13 +3718,51 @@ void end_flayed_effect(monster* ghost)
     }
 }
 
+// Monsters who need to be reset at the end of the turn, with their mid.
+// We only reset those whose mid still matches at flush time, so it is
+// safe to reset these early.
+static unordered_map<monster*, mid_t> _pending_reset;
+
+// Reset the slots of every monster detached by monster_cleanup().
+void flush_monster_reset()
+{
+    for (const auto &p : _pending_reset)
+    {
+        monster *mons = p.first;
+        // Check the monster we were planning to reset is still in the slot -
+        // if someone else has taken care of the reset, do nothing.
+        if (mons->mid == p.second)
+            mons->reset();
+    }
+    _pending_reset.clear();
+}
+
+void cancel_pending_monster_reset(monster* mons)
+{
+    _pending_reset.erase(mons);
+}
+
+// Drop pending resets without running them, for when the level (and its whole
+// env.mons) is being discarded anyway -- resetting slots we're about to throw
+// away would be wasted work, but we mustn't apply the resets on the new level.
+void drop_pending_monster_resets()
+{
+    _pending_reset.clear();
+}
+
+// Whether any monster is detached but still awaiting its deferred reset.
+bool any_pending_monster_reset()
+{
+    return !_pending_reset.empty();
+}
+
 // Clean up a monster that's stopped existing on the current floor (whether
 // because they died or because they're transiting to a new floor).
-void monster_cleanup(monster* mons)
+void monster_cleanup(monster* mons, bool reset)
 {
-    crawl_state.mon_gone(mons);
+    ASSERT(!invalid_monster(mons));
 
-    ASSERT(mons->type != MONS_NO_MONSTER);
+    crawl_state.mon_gone(mons);
 
     if (mons->has_ench(ENCH_AWAKEN_FOREST))
     {
@@ -3730,13 +3771,8 @@ void monster_cleanup(monster* mons)
     }
 
     // Monsters' haloes should be removed when they die.
-    if (mons->halo_radius() >= 0
-        || mons->umbra_radius() >= 0
-        || mons->silence_radius() >= 0
-        || mons->liquefying_radius() >= 0)
-    {
+    if (mons->affects_agrid())
         invalidate_agrid();
-    }
 
     if (mons->type == MONS_PLATINUM_PARAGON && mons->was_created_by(you, SPELL_PLATINUM_PARAGON))
         you.duration[DUR_PARAGON_ACTIVE] = 0;
@@ -3760,9 +3796,6 @@ void monster_cleanup(monster* mons)
     // Erase any indicators of this monster's previous positions.
     env.invis_knowledge.update(*mons);
 
-    const mid_t mid = mons->mid;
-    env.mid_cache.erase(mid);
-
     mons->remove_summons();
 
     unsigned int monster_killed = mons->mindex();
@@ -3775,33 +3808,47 @@ void monster_cleanup(monster* mons)
     if (you.pet_target == monster_killed)
         you.pet_target = MHITNOT;
 
-    mons->reset();
+    if (reset)
+    {
+        mons->reset();
+        return;
+    }
+
+    // Mark dead by setting hitpoints to 0, and remove from the grid.
+    mons->hit_points = 0;
+    mons_remove_from_grid(*mons);
+
+    // Mark the monster for reset next cycle.
+    mons->flags |= MF_PENDING_RESET;
+    _pending_reset[mons] = mons->mid;
 }
 
-item_def* mounted_kill(monster* daddy, monster_type mc, killer_type killer,
+// Simulates the death of one 'half' of a given rider monster, while leaving the
+// passed monster itself alive (or dead, if it's already dead).
+item_def* mounted_kill(monster* real_mon, monster_type mc, killer_type killer,
                        int killer_index)
 {
     monster mon;
     mon.type = mc;
-    mon.set_position(daddy->pos());
+    mon.set_position(real_mon->pos());
     define_monster(mon); // assumes mc is not a zombie
-    mon.flags = daddy->flags;
+    mon.flags = real_mon->flags;
 
     // Need to copy ENCH_SUMMON_TIMER etc. or we could get real XP/meat from a summon.
-    mon.enchantments = daddy->enchantments;
-    mon.ench_cache = daddy->ench_cache;
+    mon.enchantments = real_mon->enchantments;
+    mon.ench_cache = real_mon->ench_cache;
 
-    mon.attitude = daddy->attitude;
-    mon.damage_friendly = daddy->damage_friendly;
-    mon.damage_total = daddy->damage_total;
+    mon.attitude = real_mon->attitude;
+    mon.damage_friendly = real_mon->damage_friendly;
+    mon.damage_total = real_mon->damage_total;
     // Keep the rider's name, if it had one (Mercenary card).
-    if (!daddy->mname.empty() && mon.type == MONS_SPRIGGAN)
-        mon.mname = daddy->mname;
-    if (daddy->props.exists(REAPING_DAMAGE_KEY))
+    if (!real_mon->mname.empty() && mon.type == MONS_SPRIGGAN)
+        mon.mname = real_mon->mname;
+    if (real_mon->props.exists(REAPING_DAMAGE_KEY))
     {
         dprf("Mounted kill: marking the other monster as reaped as well.");
-        mon.props[REAPING_DAMAGE_KEY].get_int() = daddy->props[REAPING_DAMAGE_KEY].get_int();
-        mon.props[REAPER_KEY].get_int() = daddy->props[REAPER_KEY].get_int();
+        mon.props[REAPING_DAMAGE_KEY].get_int() = real_mon->props[REAPING_DAMAGE_KEY].get_int();
+        mon.props[REAPER_KEY].get_int() = real_mon->props[REAPER_KEY].get_int();
     }
 
     return monster_die(mon, killer, killer_index, false, true);
@@ -3910,7 +3957,10 @@ int dismiss_monsters(string pattern)
         {
             if (!keep_item)
                 _vanish_orig_eq(*mi);
-            monster_die(**mi, KILL_RESET_KEEP_ITEMS, NON_MONSTER, true);
+            // Reset the monsters immediately, because in tests we will
+            // otherwise use up all the slots.
+            monster_die(**mi, KILL_RESET_KEEP_ITEMS, NON_MONSTER, true, false,
+                        /*reset=*/true);
             ++ndismissed;
         }
     }

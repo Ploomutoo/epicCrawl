@@ -154,6 +154,7 @@ static map<enchant_type, monster_info_flags> trivial_ench_mb_mappings = {
     { ENCH_EXPOSED,         MB_EXPOSED },
     { ENCH_STAMPEDE,        MB_STAMPEDE },
     { ENCH_PHASE_SHIFT,     MB_PHASE_SHIFT },
+    { ENCH_DIVINE_SHIELD,   MB_DIVINE_SHIELD },
 };
 
 static monster_info_flags ench_to_mb(const monster& mons, enchant_type ench)
@@ -300,6 +301,7 @@ monster_info::monster_info(monster_type p_type, monster_type p_base_type)
     mb.reset();
     attitude = ATT_HOSTILE;
     pos = coord_def(0, 0);
+    mid = MID_NOBODY;
 
     type = p_type;
 
@@ -310,6 +312,17 @@ monster_info::monster_info(monster_type p_type, monster_type p_base_type)
                 : type;
 
     _populate_as_generic();
+
+    if (mons_is_unique(type) || mons_is_unique(base_type))
+    {
+        if (mons_is_the(type) || mons_is_the(base_type))
+            mb.set(MB_NAME_THE);
+        else
+        {
+            mb.set(MB_NAME_UNQUALIFIED);
+            mb.set(MB_NAME_THE);
+        }
+    }
 }
 
 // Fill out this monster_info as if the monster were any arbitrary example of
@@ -337,7 +350,7 @@ void monster_info::_populate_as_generic()
     if (mons_class_sees_invis(type, base_type))
         mb.set(MB_SEE_INVIS);
 
-    can_feel_fear = !!(holi & (MH_NATURAL | MH_DEMONIC | MH_HOLY));
+    can_feel_fear = !(holi & (MH_UNDEAD | MH_NONLIVING));
 
     if (mons_resists_drowning(type, base_type))
         mb.set(MB_RES_DROWN);
@@ -393,17 +406,6 @@ void monster_info::_populate_as_generic()
         ev += get_mons_class_ev(base_type);
     }
 
-    if (mons_is_unique(type) || mons_is_unique(base_type))
-    {
-        if (mons_is_the(type) || mons_is_the(base_type))
-            mb.set(MB_NAME_THE);
-        else
-        {
-            mb.set(MB_NAME_UNQUALIFIED);
-            mb.set(MB_NAME_THE);
-        }
-    }
-
     for (int i = 0; i < MAX_NUM_ATTACKS; ++i)
         attack[i] = get_monster_data(type)->attack[i];
 
@@ -450,100 +452,8 @@ void monster_info::_add_constriction_info(const monster* m)
         mb.set(MB_GRASPING_ROOTS);
 }
 
-monster_info::monster_info(const monster* m, int milev)
+void monster_info::_add_name_info(const monster* m, int milev)
 {
-    ASSERT(m); // TODO: change to const monster &mon
-    mb.reset();
-    attitude = ATT_HOSTILE;
-    pos = m->pos();
-
-    attitude = mons_attitude(*m);
-
-    type = m->type;
-    base_type = m->base_monster;
-    if (base_type == MONS_NO_MONSTER)
-        base_type = type;
-
-    // If this monster is currently hidden to the player, treat it as an
-    // arbitrary healthy example of its type.
-    if (m->flags & MF_KNOWN_INVISIBLE && !you.can_see(*m))
-    {
-        _populate_as_generic();
-        // The constriction status of even invisible monsters is considered known
-        // (they're usually being constricted by something visible!)
-        _add_constriction_info(m);
-        mb.set(MB_KNOWN_INVIS);
-        return;
-    }
-
-    threat = milev <= MILEV_NAME ? MTHRT_TRIVIAL : mons_threat_level(*m);
-
-    props.clear();
-    // CrawlHashTable::begin() const can fail if the hash is empty.
-    if (!m->props.empty())
-    {
-        for (const auto &entry : m->props)
-            if (_is_public_key(entry.first))
-                props[entry.first] = entry.second;
-    }
-
-    // Translate references to tentacles into just their locations
-    if (mons_is_tentacle_or_tentacle_segment(type))
-    {
-        _translate_tentacle_ref(*this, m, INWARDS_KEY);
-        _translate_tentacle_ref(*this, m, OUTWARDS_KEY);
-    }
-
-    if (type == MONS_SLIME_CREATURE)
-        slime_size = m->blob_size;
-    else if (type == MONS_BALLISTOMYCETE)
-        is_active = !!m->ballisto_activity;
-    else if (has_hydra_multi_attack())
-        num_heads = m->num_heads;
-    else if (type == MONS_SEISMOSAURUS_EGG)
-        number = m->number;
-    // others use number for internal information
-    else
-        number = 0;
-
-    if (type == MONS_BOULDER && m->props.exists(BOULDER_DIRECTION_KEY))
-        mb.set(MB_ROLLING);
-
-    _colour = m->colour;
-
-    summoner_id = MID_NOBODY;
-    if (m->is_summoned()
-        && !(m->flags & MF_PERSISTS)
-        && !m->is_child_monster() && !mons_is_tentacle_segment(m->type)
-        && (!m->has_ench(ENCH_PHANTOM_MIRROR) || m->friendly()))
-    {
-        mb.set(MB_SUMMONED);
-
-        if (m->is_abjurable())
-            mb.set(MB_ABJURABLE);
-        else
-            mb.set(MB_MINION);
-
-        if (m->type == MONS_SPELLSPARK_SERVITOR && m->summoner == MID_PLAYER)
-            mb.set(MB_PLAYER_SERVITOR);
-
-        summoner_id = m->summoner;
-    }
-    else if ((m->is_unrewarding()
-                 || testbits(m->flags, MF_NO_REWARD)
-                 && mons_class_gives_xp(m->type, true)))
-    {
-        // This shows a note in the extended description that the monster is
-        // worth no experience.
-        mb.set(MB_NO_REWARD);
-
-        // This displays an icon over the monster, and a status line when
-        // examining them, which looks a little weird and unnecessary for
-        // friendly monsters, as it's *always* the case with them.
-        if (m->real_attitude() != ATT_FRIENDLY)
-            mb.set(MB_UNREWARDING);
-    }
-
     if (mons_is_unique(type) || mons_is_unique(base_type))
     {
         if (mons_is_the(type) || mons_is_the(base_type))
@@ -585,12 +495,6 @@ monster_info::monster_info(const monster* m, int milev)
     if (m->flags & MF_NAME_SPECIES)
         mb.set(MB_NO_NAME_TAG);
 
-    // Ghostliness needed for name
-    if (testbits(m->flags, MF_SPECTRALISED))
-        mb.set(MB_SPECTRALISED);
-    if (m->has_ench(ENCH_VAMPIRE_THRALL))
-        mb.set(MB_VAMPIRE_THRALL);
-
     if (milev <= MILEV_NAME)
     {
         if (mons_class_is_animated_weapon(type))
@@ -609,8 +513,119 @@ monster_info::monster_info(const monster* m, int milev)
         {
             inv[MSLOT_ARMOUR].reset(new item_def(*m->get_defining_object()));
         }
+    }
+}
+
+monster_info::monster_info(const monster* m, int milev)
+{
+    ASSERT(m); // TODO: change to const monster &mon
+    mb.reset();
+    attitude = ATT_HOSTILE;
+    pos = m->pos();
+    mid = m->mid;
+
+    attitude = mons_attitude(*m);
+
+    type = m->type;
+    base_type = m->base_monster;
+    if (base_type == MONS_NO_MONSTER)
+        base_type = type;
+
+    // If this monster is currently hidden to the player, treat it as an
+    // arbitrary healthy example of its type.
+    if (m->flags & MF_KNOWN_INVISIBLE && !you.can_see(*m))
+    {
+        mb.set(MB_KNOWN_INVIS);
+        _add_name_info(m, milev);
+
+        if (milev <= MILEV_NAME)
+            return;
+
+        _populate_as_generic();
+        // The constriction status of even invisible monsters is considered known
+        // (they're usually being constricted by something visible!)
+        _add_constriction_info(m);
         return;
     }
+
+    threat = milev <= MILEV_NAME ? MTHRT_TRIVIAL : mons_threat_level(*m);
+
+    props.clear();
+    // CrawlHashTable::begin() const can fail if the hash is empty.
+    if (!m->props.empty())
+    {
+        for (const auto &entry : m->props)
+            if (_is_public_key(entry.first))
+                props[entry.first] = entry.second;
+    }
+
+    // Translate references to tentacles into just their locations
+    if (mons_is_tentacle_or_tentacle_segment(type))
+    {
+        _translate_tentacle_ref(*this, m, INWARDS_KEY);
+        _translate_tentacle_ref(*this, m, OUTWARDS_KEY);
+    }
+
+    if (type == MONS_SLIME_CREATURE)
+        slime_size = m->blob_size;
+    else if (type == MONS_BALLISTOMYCETE)
+        is_active = !!m->ballisto_activity;
+    else if (has_hydra_multi_attack())
+        num_heads = m->num_heads;
+    else if (type == MONS_SEISMOSAURUS_EGG)
+        number = m->number;
+    // others use number for internal information
+    else
+        number = 0;
+
+    if (type == MONS_BOULDER && m->props.exists(BOULDER_DIRECTION_KEY))
+        mb.set(MB_ROLLING);
+
+    _colour = m->colour;
+
+    // We set the summoner for all monsters, as it is needed for some damage
+    // displays, but the only mark them as summoned if we should display them
+    // as such in the UI.
+    summoner_id = m->summoner;
+    if (m->is_summoned()
+        && !(m->flags & MF_PERSISTS)
+        && !m->is_child_monster() && !mons_is_tentacle_segment(m->type)
+        && (!m->has_ench(ENCH_PHANTOM_MIRROR) || m->friendly()))
+    {
+        mb.set(MB_SUMMONED);
+
+        if (m->is_abjurable())
+            mb.set(MB_ABJURABLE);
+        else
+            mb.set(MB_MINION);
+
+        if (m->type == MONS_SPELLSPARK_SERVITOR && m->summoner == MID_PLAYER)
+            mb.set(MB_PLAYER_SERVITOR);
+    }
+    else if ((m->is_unrewarding()
+                 || testbits(m->flags, MF_NO_REWARD)
+                 && mons_class_gives_xp(m->type, true)))
+    {
+        // This shows a note in the extended description that the monster is
+        // worth no experience.
+        mb.set(MB_NO_REWARD);
+
+        // This displays an icon over the monster, and a status line when
+        // examining them, which looks a little weird and unnecessary for
+        // friendly monsters, as it's *always* the case with them.
+        if (m->real_attitude() != ATT_FRIENDLY)
+            mb.set(MB_UNREWARDING);
+    }
+
+    // Ghostliness needed for name
+    if (testbits(m->flags, MF_SPECTRALISED))
+        mb.set(MB_SPECTRALISED);
+    if (m->has_ench(ENCH_VAMPIRE_THRALL))
+        mb.set(MB_VAMPIRE_THRALL);
+
+    _add_name_info(m, milev);
+    if (milev <= MILEV_NAME)
+        return;
 
     holi = m->holiness();
 
@@ -653,8 +668,6 @@ monster_info::monster_info(const monster* m, int milev)
         mb.set(MB_UMBRAED);
     if (m->liquefied_ground())
         mb.set(MB_SLOW_MOVEMENT);
-    if (!actor_is_susceptible_to_vampirism(*m, true))
-        mb.set(MB_CANT_DRAIN);
     if (m->res_water_drowning())
         mb.set(MB_RES_DROWN);
     if (m->clarity())
@@ -1767,19 +1780,18 @@ int monster_info::reach_range(bool items) const
     int range = 1;
 
     for (int i = 0; i < MAX_NUM_ATTACKS; ++i)
-    {
-        const attack_flavour fl = e->attack[i].flavour;
-        if (fl == AF_RIFT)
-            range = 3;
-        else if (flavour_has_reach(fl))
-            range = max(2, range);
-    }
+        range = max(range, attack[i].reach);
 
     if (items)
     {
         const item_def *weapon = inv[MSLOT_WEAPON].get();
         if (weapon)
-            range = max(range, weapon_reach(*weapon));
+        {
+            const int wpn_reach = weapon_reach(*weapon);
+            for (int i = 0; i < MAX_NUM_ATTACKS; ++i)
+                if (attack[i].type == AT_HIT || attack[i].type == AT_WEAP_ONLY)
+                    range = max(range, attack[i].reach + wpn_reach - 1);
+        }
     }
 
     return range;
@@ -1787,20 +1799,7 @@ int monster_info::reach_range(bool items) const
 
 size_type monster_info::body_size() const
 {
-    const size_type class_size = mons_class_body_size(base_type);
-
-    // Slime creature size is increased by the number merged.
-    if (type == MONS_SLIME_CREATURE)
-    {
-        if (slime_size == 2)
-            return SIZE_MEDIUM;
-        else if (slime_size == 3)
-            return SIZE_LARGE;
-        else if (slime_size >= 4) // sizes 4 & 5
-            return SIZE_GIANT;
-    }
-
-    return class_size;
+    return mons_class_body_size(base_type, PSIZE_BODY, slime_size);
 }
 
 bool monster_info::net_immune() const
@@ -2147,7 +2146,7 @@ void mons_conditions_string(string& desc, const vector<monster_info>& mi,
                 missile_count++;
             if (mi[j].reach_range(false) > 1)
                 reach_count++;
-            if (_has_attack_flavour(mi[j], AF_CRUSH))
+            if (_has_attack_flavour(mi[j], AF_CONSTRICT))
                 constrict_count++;
             if (_has_attack_flavour(mi[j], AF_TRAMPLE))
                 trample_count++;
@@ -2275,6 +2274,10 @@ string description_for_ench(enchant_type type)
 
 monster* monster_info::get_known_summoner() const
 {
+    // The MB_SUMMONED flag gates whether the monster should show as summoned.
+    if (!is(MB_SUMMONED))
+        return nullptr;
+
     monster* summoner = monster_by_mid(summoner_id);
 
     // Don't leak information about invisible summoners.

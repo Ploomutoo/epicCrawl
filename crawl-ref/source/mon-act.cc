@@ -162,11 +162,24 @@ static void _monster_regenerate(monster* mons)
 
     if (mons->has_ench(ENCH_REGENERATION))
         mons->heal(3 + div_rand_round(mons->max_hit_points, 20));
+}
 
-    if (mons_is_hepliaklqana_ancestor(mons->type))
+// Fire an interrupt when the last seen state of our ancestor goes from injured
+// to healed during a delay.
+static void _hepliaklqana_ancestor_check_interrupt(monster* mons)
+{
+    if (!mons_is_hepliaklqana_ancestor(mons->type)
+        || !you.can_see(*mons) || !you_are_delayed())
     {
-        if (mons->hit_points == mons->max_hit_points && you.can_see(*mons))
-            interrupt_activity(activity_interrupt::ancestor_hp);
+        return;
+    }
+
+    if (mons->hit_points < mons->max_hit_points)
+        you.running.ancestor_was_injured = true;
+    else if (you.running.ancestor_was_injured)
+    {
+        you.running.ancestor_was_injured = false;
+        interrupt_activity(activity_interrupt::ancestor_hp);
     }
 }
 
@@ -801,7 +814,6 @@ static bool _handle_swoop_or_flank(monster& mons)
     tracer.target = target;
     tracer.set_is_tracer(true);
     tracer.pierce = true;
-    tracer.range = LOS_RADIUS;
     tracer.fire();
 
     for (unsigned int j = 0; j < tracer.path_taken.size() - 1; ++j)
@@ -1842,7 +1854,7 @@ static void _pre_monster_move(monster& mons)
     if (mons.speed == 0)
         actor_apply_cloud(&mons);
 
-    if (mons.type == MONS_NO_MONSTER)
+    if (!mons.alive())
         return;
 
     // Apply monster enchantments once for every normal-speed
@@ -1853,14 +1865,7 @@ static void _pre_monster_move(monster& mons)
         mons.ench_countdown += 10;
         mons.apply_enchantments();
 
-        // If the monster *merely* died just break from the loop
-        // rather than quit altogether, since we have to deal with
-        // ballistomycete spores and ball lightning exploding at the end of the
-        // function, but do return if the monster's data has been
-        // reset, since then the monster type is invalid.
-        if (mons.type == MONS_NO_MONSTER)
-            return;
-        else if (mons.hit_points < 1)
+        if (!mons.alive())
             break;
     }
 
@@ -2177,6 +2182,7 @@ void handle_monster_move(monster* mons)
         return;
 
     _monster_regenerate(mons);
+    _hepliaklqana_ancestor_check_interrupt(mons);
 
     if (skip_turn)
         return;
@@ -2275,10 +2281,16 @@ void handle_monster_move(monster* mons)
 
     if (mons->has_ench(ENCH_CHANNEL_SEARING_RAY))
     {
+        if (mons->cannot_keep_channelling())
+        {
+            mons->del_ench(ENCH_CHANNEL_SEARING_RAY, true, false);
+            if (you.can_see(*mons))
+                mprf("%s searing ray is interrupted.", mons->name(DESC_ITS).c_str());
+        }
         // If we are continuing to fire searing ray, remain in place.
         // XXX: Doesn't track how many turns this has been channelled, but that
         //      doesn't presently matter.
-        if (handle_searing_ray(*mons, 1))
+        else if (handle_searing_ray(*mons, 1))
         {
             mons->speed_increment -= non_move_energy;
             return;
@@ -2344,7 +2356,7 @@ void handle_monster_move(monster* mons)
         // Struggling against the net takes time.
         _swim_or_move_energy(*mons);
     }
-    else if (!mons->petrified())
+    else
     {
         // Calculates mmov based on monster target.
         mmov = _find_best_step(mons);
@@ -2715,13 +2727,6 @@ static void _post_monster_move(monster* mons)
 
     update_mons_cloud_ring(mons);
 
-    const item_def * weapon = mons->mslot_item(MSLOT_WEAPON);
-    if (weapon && get_weapon_brand(*weapon) == SPWPN_SPECTRAL
-        && !mons_is_avatar(mons->type))
-    {
-        // TODO: implement monster spectral ego
-    }
-
     if (mons->behaviour == BEH_BATTY)
     {
         int &bat_turns = mons->props[BATTY_TURNS_KEY].get_int();
@@ -2737,7 +2742,7 @@ static void _post_monster_move(monster* mons)
     // after the player's turn.
     crawl_state.potential_pursuers.erase(mons);
 
-    if (mons->type != MONS_NO_MONSTER && mons->hit_points < 1)
+    if (!invalid_monster(mons) && mons->hit_points < 1)
         monster_die(*mons, KILL_NON_ACTOR, NON_MONSTER);
 }
 
@@ -3121,7 +3126,6 @@ static void _mons_open_door(monster& mons, const coord_def &pos)
             dgn_break_door(dc);
         else
             dgn_open_door(dc);
-        set_terrain_changed(dc);
     }
 
     if (was_seen)
@@ -3828,6 +3832,10 @@ static bool _do_move_monster(monster& mons, const coord_def& delta)
     // of doing literally nothing.
     if (mons.cannot_move())
     {
+        // Don't consider making intelligent attacks while impaired.
+        if (mons_is_fleeing(mons) || mons_is_confused(mons))
+            return false;
+
         int count = 0;
         actor* targ = nullptr;
         for (radius_iterator ri(mons.pos(), mons.reach_range(), C_SQUARE, LOS_NO_TRANS, true); ri; ++ri)
@@ -3836,6 +3844,7 @@ static bool _do_move_monster(monster& mons, const coord_def& delta)
             {
                 if (could_harm_enemy(&mons, act)
                     && !act->is_firewood()
+                    && mons.can_see(*act)
                     && one_chance_in(++count))
                 {
                     targ = act;
@@ -4172,9 +4181,12 @@ static bool _monster_move(monster* mons, coord_def& delta)
                 dprf("BUG: %s was marked as follower when not following!",
                      mons->name(DESC_PLAIN).c_str());
             }
-            else
+            // If the monster is not adjacent, it can spend its energy
+            // approaching the player. It'll later be untagged for following if
+            // it fails to catch up.
+            else if (adjacent(mons->pos(), you.pos()))
             {
-                ret    = true;
+                ret = false;
                 delta.reset();
 
                 dprf("%s is skipping movement in order to follow.",
@@ -4182,8 +4194,10 @@ static bool _monster_move(monster* mons, coord_def& delta)
             }
         }
 
-        // Check for attacking another monster.
-        if (monster* targ = monster_at(mons->pos() + delta))
+        // Check for attacking *another* monster
+        // Confused self-hit handled below
+        monster* targ = monster_at(mons->pos() + delta);
+        if (targ && !delta.origin())
         {
             if ((mons_aligned(mons, targ) || mons_is_seeker(*targ))
                 && !(mons->has_ench(ENCH_FRENZIED)
@@ -4193,13 +4207,10 @@ static bool _monster_move(monster* mons, coord_def& delta)
                 delta.reset();  // Swapping can fail, but even if it does, we
                                 // shouldn't try hitting our ally later on.
             }
-            else if (!delta.origin()) // confused self-hit handled below
+            else if (mons_fight(mons, targ))
             {
-                if (mons_fight(mons, targ))
-                {
-                    ret = true;
-                    delta.reset();
-                }
+                ret = true;
+                delta.reset();
             }
         }
 

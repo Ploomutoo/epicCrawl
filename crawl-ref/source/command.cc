@@ -32,6 +32,7 @@
 #include "prompt.h"
 #include "scroller.h"
 #include "showsymb.h"
+#include "sound.h"
 #include "state.h"
 #include "stringutil.h"
 #include "syscalls.h"
@@ -404,7 +405,7 @@ static const char *targeting_help_wiz =
     "<w>\"</w>: get debugging information about a portal\n"
     "<w>~</w>: polymorph monster to specific type\n"
     "<w>,</w>: bring down the monster to 1 hp\n"
-    "<w>Ctrl-(</w>: place a mimic\n"
+    "<w>Ctrl-F</w>: place a mimic\n"
     "<w>Ctrl-B</w>: banish monster\n"
     "<w>Ctrl-K</w>: kill monster\n"
 ;

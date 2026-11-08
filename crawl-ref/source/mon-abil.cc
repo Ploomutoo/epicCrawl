@@ -1122,12 +1122,6 @@ static bool _slymdra_split_or_merge(monster* mons)
     return false;
 }
 
-static inline void _mons_cast_abil(monster* mons, bolt &pbolt,
-                                   spell_type spell_cast)
-{
-    mons_cast(mons, pbolt, spell_cast, MON_SPELL_NATURAL);
-}
-
 bool mon_special_ability(monster* mons)
 {
     bool used = false;
@@ -1620,7 +1614,7 @@ void activate_tesseracts()
         }
 
         behaviour_event(*mi, ME_ALERT);
-        env.map_knowledge(mi->pos()).set_monster(monster_info(*mi));
+        record_monster_seen_at(mi->pos(), **mi);
         set_terrain_seen(mi->pos());
         view_update_at(mi->pos());
 #ifdef USE_TILE

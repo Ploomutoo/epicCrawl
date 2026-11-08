@@ -726,7 +726,7 @@ bool summon_holy_warrior(int pow, bool punish)
                  punish ? BEH_HOSTILE : BEH_FRIENDLY,
                  you.pos(), MHITYOU, MG_FORCE_BEH | MG_AUTOFOE, GOD_SHINING_ONE);
     mg.set_summoned(punish ? 0 : &you, SPELL_NO_SPELL,
-                    summ_dur(punish ? 0 : min(2 + (random2(pow) / 4), 6)));
+                    punish ? 0 : random_range(800, 1100) + pow * 5);
 
     if (punish)
     {
@@ -890,7 +890,7 @@ static void _animate_weapon(int pow, actor* target)
     ASSERT(montarget->inv[wp_slot] != NON_ITEM);
     ASSERT(&env.item[montarget->inv[wp_slot]] == wpn);
 
-    montarget->unequip(wp_slot, false, true);
+    montarget->unequip(wp_slot);
 
     wpn->clear();
 }
@@ -1210,7 +1210,7 @@ bool is_gateway_target(const actor& caster, coord_def location, bool only_known)
         if (!only_known)
             return false;
 
-        if (creature->visible_to(&caster))
+        if (caster.aware_of(*creature))
             return false;
     }
 
@@ -1979,7 +1979,6 @@ bool trigger_battlesphere(actor* agent)
     bolt beam;
     beam.source_name = battlesphere->name(DESC_YOUR).c_str();
     beam.name        = "barrage of energy";
-    beam.range       = LOS_RADIUS;
     beam.hit         = AUTOMATIC_HIT;
     beam.damage      = _battlesphere_damage(battlesphere->get_hit_dice());
     beam.glyph       = dchar_glyph(DCHAR_FIRED_ZAP);
@@ -3947,7 +3946,6 @@ static void _paragon_tempest(const coord_def& target)
         visual.colour = WHITE;
         visual.source = old_pos;
         visual.target = target;
-        visual.range = LOS_RADIUS;
         visual.aimed_at_spot = true;
         visual.fire();
 
@@ -4504,7 +4502,6 @@ bool splinterfrost_block_fragment(monster& block, const coord_def& aim)
     beam.attitude = block.attitude;
     beam.set_agent(agent);
     beam.target = aim;
-    beam.range = LOS_RADIUS;
     beam.seen = true;
     beam.stop_at_allies = true;
 

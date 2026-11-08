@@ -45,7 +45,7 @@ enum class spflag
     escape             = 0x00002000,      // useful for running away
     recovery           = 0x00004000,      // healing or recovery spell
                                           // (Can be cast by friendly monsters, even when out of combat)
-                     //  0x00008000,
+    direct_damage_only = 0x00008000,      // does nothing except deal damage
     destructive        = 0x00010000,      // not a conjuration, but still
                                           // supported by Vehumet/Battlesphere
     selfench           = 0x00020000,      // monsters use as selfench
@@ -53,7 +53,7 @@ enum class spflag
     needs_tracer       = 0x00080000,      // monster casting needs tracer
     noisy              = 0x00100000,      // makes noise, even if innate
     testing            = 0x00200000,      // a testing/debugging spell
-                     //  0x00400000,      // was spflag::corpse_violating
+    needs_target       = 0x00400000,      // cannot be cast without a target
                      //  0x00800000,      // was SPFLAG_ALLOW_SELF
                      //  0x01000000,      // was spflag::utility
     no_ghost           = 0x02000000,      // ghosts can't get this spell
@@ -72,6 +72,7 @@ enum class spret
     abort = 0,            // should be left as 0
     fail,
     success,
+    seen_hups,
     none,                 // spell was not handled
 };
 
@@ -143,6 +144,10 @@ string spell_damage_string(spell_type spell, bool evoked = false, int pow = -1,
                            bool terse = false);
 string spell_max_damage_string(spell_type spell);
 int spell_acc(spell_type spell);
+string spell_defence_string(spell_type spell, bool is_monster = false,
+                            int pow = -1);
+string spell_resist_string(spell_type spell, bool is_monster = false,
+                           int pow = -1);
 string spell_range_string(spell_type spell);
 string range_string(int range, int maxrange = -1, int minrange = 0);
 string spell_schools_string(spell_type spell);
@@ -151,6 +156,7 @@ string spell_noise_string(spell_type spell, int chop_wiz_display_width = 0);
 
 void spell_skills(spell_type spell, set<skill_type> &skills);
 void do_demonic_magic(int pow, int rank);
+void death_ego_lifedrain(int splevel);
 
 bool channelled_spell_active(spell_type spell);
 void start_channelling_spell(spell_type spell, string reminder_msg = "", bool do_effect = true);

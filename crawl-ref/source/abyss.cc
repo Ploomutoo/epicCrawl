@@ -172,11 +172,15 @@ static void _write_abyssal_features()
 // Returns the roll to use to check if we want to create an abyssal rune.
 static int _abyssal_rune_roll()
 {
-    if (you.runes[RUNE_ABYSSAL] || you.depth < ABYSSAL_RUNE_MIN_LEVEL)
+    const int chance_mult = have_passive(passive_t::attract_abyssal_rune) ? 2 : 1;
+    if (you.runes[RUNE_ABYSSAL] || you.depth < ABYSSAL_RUNE_MIN_LEVEL
+        || (you.props[ABYSS_AREAS_SEEN_KEY].get_int() * chance_mult < ABYSS_RUNE_AREAS_MIN))
+    {
         return -1;
+    }
 
-    static const int chance[] = {0, 0, 10, 15, 22, 100, 100};
-    return chance[you.depth] * (have_passive(passive_t::attract_abyssal_rune) ? 2 : 1);
+    static const int chance[] = {0, 0, 15, 25, 40, 100, 100};
+    return chance[you.depth - 1] * chance_mult;
 }
 
 static void _abyss_fixup_vault(const vault_placement *vp)
@@ -257,7 +261,7 @@ static bool _sync_rune_knowledge(coord_def p)
             // found! make sure map memory is up-to-date
             if (!rune_memory)
             {
-                env.map_knowledge(p).set_item(*si, item != nullptr);
+                env.map_knowledge(p).set_item(*si);
                 if (!you.see_cell(p))
                     env.map_knowledge(p).flags |= MAP_DETECTED_ITEM;
                 redraw_view_at(p);
@@ -1038,11 +1042,8 @@ static void _abyss_generate_monsters(int nmonsters)
 void maybe_shift_abyss_around_player()
 {
     ASSERT(player_in_branch(BRANCH_ABYSS));
-    if (map_bounds_with_margin(you.pos(),
-                               MAPGEN_BORDER + ABYSS_AREA_SHIFT_RADIUS + 1))
-    {
+    if ((you.pos() - ABYSS_CENTRE).rdist() <= ABYSS_SHIFT_DISTANCE)
         return;
-    }
 
     dprf(DIAG_ABYSS, "Shifting abyss at (%d,%d)", you.pos().x, you.pos().y);
 
@@ -1455,6 +1456,8 @@ static void _generate_area(const map_bitmask &abyss_genlevel_mask, coord_def map
     // Any rune on the floor prevents the abyssal rune from being generated.
     const bool placed_abyssal_rune = find_floor_item(OBJ_RUNES);
 
+    you.props[ABYSS_AREAS_SEEN_KEY].get_int()++;
+
     dprf(DIAG_ABYSS, "_generate_area(). turns_on_level: %d, rune_on_floor: %s",
          env.turns_on_level, placed_abyssal_rune? "yes" : "no");
 
@@ -1547,9 +1550,6 @@ static void abyss_area_shift()
 
 
     check_map_validity();
-    // TODO: should dactions be rerun at this point instead? That would cover
-    // this particular case...
-    gozag_move_level_gold_to_top();
     _update_abyssal_map_knowledge();
 }
 
@@ -1772,7 +1772,6 @@ void abyss_teleport(bool wizard_tele)
     stop_delay(true);
     forget_map(false);
     clear_excludes();
-    gozag_move_level_gold_to_top();
     auto &vault_list =  you.vault_list[level_id::current()];
 #ifdef DEBUG
     vault_list.push_back("[tele]");

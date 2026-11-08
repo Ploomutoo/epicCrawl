@@ -4,9 +4,9 @@ flags: [stationary, no_exp_gain, no_poly_to, peripheral]
 resists: {poison: 1}
 genus: plant
 holiness: [plant]
-will: 40
+will: invuln
 attacks:
- - {type: constrict, flavour: crush, damage: 0}
+ - {type: constrict, flavour: constrict, damage: 0}
  - {type: hit, damage: 14}
 hd: 12
 hp_10x: 240

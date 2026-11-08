@@ -360,6 +360,12 @@ enum tag_minor_version
     TAG_MINOR_MAX_PIETY_LOGGING,   // Separately log stepdown events and max piety wastage
     TAG_MINOR_INVIS_REFORM,        // Improve player tracking of invisible monsters
     TAG_MINOR_LURKER_MONSTERS,     // Add support for lurker monsters
+    TAG_MINOR_FIX_UNCANCELS,       // Fix monsters sometimes getting their turn before the effect of the players action
+    TAG_MINOR_MIMIC_PROP,          // Move flag for mimics from env.level_map_mask to env.pgrid
+    TAG_MINOR_MON_ATTACK_DEF_RANGE,// Add 'range' and 'cleaving' members to mon_attack_def
+    TAG_MINOR_FORGET_MONSTERS,     // Forget stale monster memories.
+    TAG_MINOR_BASE_TRAINING_TARGETS, // Separate training targets for base skill levels
+    TAG_MINOR_SHOP_KEEPER_NAME,    // Seed shopkeeper names from all three keeper_name bytes
 #endif
     NUM_TAG_MINORS,
     TAG_MINOR_VERSION = NUM_TAG_MINORS - 1

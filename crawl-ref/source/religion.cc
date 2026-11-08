@@ -46,6 +46,7 @@
 #include "item-name.h"
 #include "item-prop.h"
 #include "item-status-flag-type.h"
+#include "item-use.h"
 #include "items.h"
 #include "level-state-type.h"
 #include "libutil.h"
@@ -112,9 +113,13 @@ const vector<vector<god_power>> & get_all_god_powers()
         },
 
         // TSO
-        {   { 1, "You and your allies can now gain power from killing the unholy and evil.",
-                 "You and your allies can no longer gain power from killing the unholy and evil.",
-                 "You and your allies can gain power from killing the unholy and evil." },
+        {   {-1, "", "", "Your summoned allies will not expire while fighting evil." },
+            { 1, "You can now gain power from killing the unholy and evil.",
+                 "You can no longer gain power from killing the unholy and evil.",
+                 "You can gain power from killing the unholy and evil." },
+            { 1, "The Shining One may bless your followers whenever you slay foes.",
+                 "The Shining One will no longer blesses your followers when you slay foes.",
+                 "The Shining One sometimes blesses your followers when you slay foes."},
             { 1, ABIL_TSO_DIVINE_SHIELD, "call upon the Shining One for a divine shield" },
             { 3, ABIL_TSO_CLEANSING_FLAME, "channel blasts of cleansing flame", },
             { 5, ABIL_TSO_SUMMON_DIVINE_WARRIOR, "summon a divine warrior" },
@@ -232,14 +237,19 @@ const vector<vector<god_power>> & get_all_god_powers()
             { 4, ABIL_NEMELEX_DEAL_FOUR, "deal four cards at a time" },
             { 5, ABIL_NEMELEX_STACK_FIVE, "stack five cards from your decks",
                                         "stack cards" },
+            { 0, ABIL_NEMELEX_DRAW_STACK, ""},
+            { 0, ABIL_NEMELEX_DRAW_ESCAPE, ""},
+            { 0, ABIL_NEMELEX_DRAW_DESTRUCTION, ""},
+            { 0, ABIL_NEMELEX_DRAW_SUMMONING, ""},
         },
 
         // Elyvilon
         {
             { 1, ABIL_ELYVILON_PURIFICATION, "purify yourself" },
-            { 2, ABIL_ELYVILON_HEAL_OTHER, "heal and attempt to pacify others" },
+            { 2, ABIL_ELYVILON_PACIFY, "attempt to pacify hostile creatures" },
             { 3, ABIL_ELYVILON_HEAL_SELF, "provide healing for yourself" },
-            { 5, ABIL_ELYVILON_DIVINE_VIGOUR, "call upon Elyvilon for divine vigour" },
+            { 3, ABIL_ELYVILON_DIVINE_ALMS, "comfort your suffering allies" },
+            { 5, ABIL_ELYVILON_AURA_OF_VIGOUR, "call upon Elyvilon for divine vigour" },
         },
 
         // Lugonu
@@ -309,7 +319,7 @@ const vector<vector<god_power>> & get_all_god_powers()
         {   { 0, "Ashenzari warns you of distant threats and treasures.\n"
                  "Ashenzari shows you where magical portals lie." },
             { 1, "Ashenzari will now identify your possessions.",
-                 "Ashenzari will no longer identify your possesions.",
+                 "Ashenzari will no longer identify your possessions.",
                  "Ashenzari identifies your possessions." },
             { 2, "Ashenzari will now reveal the unseen.",
                  "Ashenzari will no longer reveal the unseen.",
@@ -400,6 +410,9 @@ const vector<vector<god_power>> & get_all_god_powers()
         {   { 1, "", "", "Your ancestor manifests to aid you." },
             { 1, ABIL_HEPLIAKLQANA_RECALL, "recall your ancestor" },
             { 1, ABIL_HEPLIAKLQANA_IDENTITY, "remember your ancestor's identity" },
+            { 2, ABIL_HEPLIAKLQANA_TYPE_KNIGHT, ""},
+            { 2, ABIL_HEPLIAKLQANA_TYPE_ELEMENTALIST, ""},
+            { 2, ABIL_HEPLIAKLQANA_TYPE_HEXER, ""},
             { 3, ABIL_HEPLIAKLQANA_TRANSFERENCE, "swap creatures with your ancestor" },
             { 4, ABIL_HEPLIAKLQANA_IDEALISE, "heal and protect your ancestor" },
             { 5, "You now drain nearby creatures when transferring your ancestor.",
@@ -710,12 +723,12 @@ void dec_penance(god_type god, int val)
             if (!had_halo && have_passive(passive_t::halo))
             {
                 mprf(MSGCH_GOD, "Your divine halo returns!");
-                invalidate_agrid(true);
+                invalidate_agrid();
             }
             if (!had_umbra && have_passive(passive_t::umbra))
             {
                 mprf(MSGCH_GOD, "Your aura of darkness returns!");
-                invalidate_agrid(true);
+                invalidate_agrid();
             }
             if (have_passive(passive_t::see_unseen))
             {
@@ -1665,29 +1678,6 @@ bool is_fellow_slime(const monster& mon)
            && mons_is_god_gift(mon, GOD_JIYVA);
 }
 
-static bool _is_plant_follower(const monster* mon)
-{
-    return mon->alive() && mons_is_plant(*mon)
-           && mon->attitude == ATT_FRIENDLY;
-}
-
-bool is_follower(const monster& mon)
-{
-    if (you_worship(GOD_YREDELEMNUL))
-        return is_yred_undead_follower(mon);
-    else if (you_worship(GOD_BEOGH))
-        return is_apostle_follower(mon);
-    else if (you_worship(GOD_JIYVA))
-        return is_fellow_slime(mon);
-    else if (you_worship(GOD_FEDHAS))
-        return _is_plant_follower(&mon);
-    else
-    {
-        return mon.alive() && mon.attitude == ATT_FRIENDLY
-                           && !mon.is_summoned();
-    }
-}
-
 /**
  * What's the name of the ally Hepliaklqana granted the player?
  *
@@ -2256,21 +2246,16 @@ void god_speaks(god_type god, const char *mesg)
 {
     ASSERT(!crawl_state.game_is_arena());
 
-    int orig_mon = env.mgrid(you.pos());
-
     monster fake_mon;
     fake_mon.type       = MONS_PROGRAM_BUG;
     fake_mon.mid        = MID_NOBODY;
     fake_mon.hit_points = 1;
     fake_mon.god        = god;
-    fake_mon.set_position(you.pos());
+    fake_mon.set_position({-1, -1});
     fake_mon.foe        = MHITYOU;
     fake_mon.mname      = "FAKE GOD MONSTER";
 
     mprf(MSGCH_GOD, god, "%s", do_mon_str_replacements(mesg, fake_mon).c_str());
-
-    fake_mon.reset();
-    env.mgrid(you.pos()) = orig_mon;
 }
 
 void religion_turn_start()
@@ -2337,7 +2322,8 @@ void dock_piety(int piety_loss, int penance, bool no_lecture)
 // Scales a piety number, applying modifiers (faith).
 int piety_scale(int piety)
 {
-    return piety + (you.faith() * div_rand_round(piety, 4));
+    return piety + (you.faith() * div_rand_round(piety, 4))
+            - (you.unrand_equipped(UNRAND_FORGEWARDEN) * div_rand_round(piety, 4));
 }
 
 /** Gain or lose piety to reach a certain value.
@@ -2514,7 +2500,7 @@ static void _handle_piety_gain(int old_piety)
     if (have_passive(passive_t::halo) || have_passive(passive_t::umbra))
     {
         // Piety change affects halo / umbra radius.
-        invalidate_agrid(true);
+        invalidate_agrid();
     }
 }
 
@@ -2698,7 +2684,7 @@ static void _handle_piety_loss(int old_piety)
         || will_have_passive(passive_t::umbra))
     {
         // Piety change affects halo / umbra radius.
-        invalidate_agrid(true);
+        invalidate_agrid();
     }
 }
 
@@ -2816,19 +2802,33 @@ int initial_wrath_penance_for(god_type god)
 
 static void _ash_uncurse()
 {
-    bool uncursed = false;
-    // iterate backwards so we shatter a ring on the macabre finger
-    // necklace before the amulet
+    // Gather the cursed items up front as unequip_item() erases from
+    // you.equipment.items.
+    vector<item_def*> cursed;
     for (player_equip_entry& entry : you.equipment.items)
     {
-        if (!entry.get_item().cursed())
-            continue;
-        if (!uncursed)
+        item_def& item = entry.get_item();
+        // Deduplicate as some items appear multiple times in the list.
+        if (item.cursed()
+            && find(cursed.begin(), cursed.end(), &item) == cursed.end())
         {
-            mprf(MSGCH_GOD, GOD_ASHENZARI, "Your curses shatter.");
-            uncursed = true;
+            cursed.push_back(&item);
         }
-        unequip_item(entry.get_item());
+    }
+
+    // Shattering a slot-granting item (eg the macabre finger necklace) can
+    // leave other worn items without a slot; pull those in too.
+    const size_t num_cursed = cursed.size();
+    handle_chain_removal(cursed, false);
+
+    if (num_cursed > 0)
+        mprf(MSGCH_GOD, GOD_ASHENZARI, "Your curses shatter.");
+    for (size_t i = 0; i < cursed.size(); ++i)
+    {
+        // The appended items lost their slot rather than their curse.
+        if (i >= num_cursed)
+            mprf("%s falls away from you.", cursed[i]->name(DESC_YOUR).c_str());
+        unequip_item(*cursed[i]);
     }
 }
 
@@ -2937,12 +2937,12 @@ void excommunication(bool voluntary, god_type new_god)
     if (had_halo)
     {
         mprf(MSGCH_GOD, old_god, "Your divine halo fades away.");
-        invalidate_agrid(true);
+        invalidate_agrid();
     }
     if (had_umbra)
     {
         mprf(MSGCH_GOD, old_god, "Your aura of darkness fades away.");
-        invalidate_agrid(true);
+        invalidate_agrid();
     }
     // You might have lost water walking at a bad time...
     if (had_water_walk && _need_water_walking())
@@ -3489,8 +3489,13 @@ void set_god_ability_slots()
     for (const god_power& power : get_all_god_powers()[you.religion])
     {
         if (power.abil != ABIL_NON_ABILITY
-            // hep ident goes to G, so don't take b for it (hack alert)
+            // Skip abilities that get assigned letters elsewhere. We only
+            // need to do this for abilities that are not the last powers
+            // in their gods list.
             && power.abil != ABIL_HEPLIAKLQANA_IDENTITY
+            && power.abil != ABIL_HEPLIAKLQANA_TYPE_KNIGHT
+            && power.abil != ABIL_HEPLIAKLQANA_TYPE_ELEMENTALIST
+            && power.abil != ABIL_HEPLIAKLQANA_TYPE_HEXER
             && find(begin(you.ability_letter_table),
                     end(you.ability_letter_table), power.abil)
                == end(you.ability_letter_table)
@@ -3728,9 +3733,6 @@ static void _join_gozag()
         ;
 #endif
     }
-
-    // Move gold to top of piles.
-    add_daction(DACT_GOLD_ON_TOP);
 }
 
 static void _join_okawaru()
@@ -3918,12 +3920,13 @@ void join_religion(god_type which_god)
                                                               : "").c_str());
     update_whereis();
 
+    take_note(Note(NOTE_GET_GOD, you.religion));
+
     _set_initial_god_piety();
 
     // Only mark the milestone now that piety has been set due to invo titles.
     mark_milestone("god.worship", "became a worshipper of "
                    + god_name(you.religion) + ".");
-    take_note(Note(NOTE_GET_GOD, you.religion));
     you.piety_info.register_join();
 
     const function<void ()> *join_effect = map_find(on_join, you.religion);
@@ -4115,9 +4118,6 @@ bool god_hates_your_god(god_type god, god_type your_god)
 
 bool god_hates_killing(god_type god, const monster& mon)
 {
-    if (invalid_monster(&mon))
-        return false;
-
     // kill as many illusions as you want.
     if (mon.is_illusion())
         return false;

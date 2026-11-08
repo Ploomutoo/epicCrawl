@@ -102,7 +102,6 @@ struct crawl_environment
     unsigned int dactions_done;
 
     coord_def sanctuary_pos;
-    coord_def orb_pos;
     int sanctuary_time;
     int forest_awoken_until;
     bool forest_is_hostile;
@@ -118,11 +117,6 @@ struct crawl_environment
 
     // Mapping mid->mindex until the transition is finished.
     map<mid_t, unsigned short> mid_cache;
-
-    // Copies of monsters cached so they can be looked up during a final_effect
-    // that will be processed after their death. Used mainly to assign proper
-    // blame for dead exploders. (Cleared every time final_effects is)
-    vector<monster> final_effect_monster_cache;
 
     // A stack that accumulates subvaults being placed. A failure may pop a
     // part of the stack before retrying.

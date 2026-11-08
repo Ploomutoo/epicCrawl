@@ -58,9 +58,9 @@ antimagic weapon, with no direct line of fire required.
 %%%%
 Apportation spell
 
-Pulls the top item or group of similar items from a distant pile to the floor
-near the caster. With low power, items might not be moved all the way to the
-caster's position.
+Pulls all items at a given location on the floor towards the caster.
+
+With low power, items might not be moved all the way to the caster's position.
 
 Extremely powerful magical items, such as the Orb of Zot, may actively resist
 the pull of this spell.
@@ -617,7 +617,7 @@ duration of the call and the species of dragons called depend on spell power.
 %%%%
 Drain Life spell
 
-Drains the life force of any nearby enemies, healing the user depending on
+Drains the life force from all nearby enemies, healing the user proportional to
 the damage dealt.
 %%%%
 Drain Magic spell
@@ -1038,7 +1038,10 @@ Hurl Torchlight spell
 
 Hurls a gout of umbral torchlight which deals irresistible damage to living,
 demonic, and holy beings. The torchlight will also briefly empower any friendly
-undead caught in its blast and is harmless to those who worship Yredelemnul.
+undead caught in its blast, increasing their melee damage and granting them one
+free action.
+
+It is harmless to those who worship Yredelemnul.
 %%%%
 Iceblast spell
 
@@ -2336,6 +2339,13 @@ Thunderbolt spell
 
 Creates a penetrating arc of electricity.
 %%%%
+Touch of Paradox spell
+
+Unmoors a random nearby ally from space, granting it Manifold Assault as a
+natural ability (which permits it to strike many distant foes with a single
+melee attack that can't miss), and also giving it a chance to blink when it uses
+such.
+%%%%
 Trog's Hand spell
 
 <Trog's Hand ability>
@@ -2362,7 +2372,7 @@ or rubble.
 %%%%
 Vampiric Draining spell
 
-Steals the life of an adjacent living creature and grants it to the caster.
+Steals the life force from an adjacent creature and grants it to the caster.
 %%%%
 Vanquished Vanguard spell
 

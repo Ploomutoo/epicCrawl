@@ -323,7 +323,7 @@ static resists_t _apply_holiness_resists(resists_t resists, mon_holy_type mh)
     if (!(mh & (MH_NATURAL | MH_PLANT)))
         resists = (resists & ~(MR_RES_NEG * 7)) | (MR_RES_NEG * 3);
 
-    if (mh & (MH_UNDEAD | MH_DEMONIC | MH_PLANT | MH_NONLIVING))
+    if (mh & (MH_UNDEAD | MH_DEMONIC | MH_NONLIVING))
         resists |= MR_RES_TORMENT;
 
     return resists;
@@ -464,6 +464,11 @@ int monster::wearing(object_class_type obj_type, int sub_type,
         item = mslot_item(MSLOT_ARMOUR);
         if (item && item->is_type(OBJ_ARMOUR, sub_type))
             ret++;
+
+        item = mslot_item(MSLOT_AUX_ARMOUR);
+        if (item && item->is_type(OBJ_ARMOUR, sub_type))
+            ret++;
+
         break;
 
     case OBJ_JEWELLERY:
@@ -523,6 +528,13 @@ int monster::wearing_ego(object_class_type obj_type, int special) const
         {
             ret++;
         }
+
+        item = mslot_item(MSLOT_AUX_ARMOUR);
+        if (item && item->base_type == OBJ_ARMOUR
+            && get_armour_ego_type(*item) == special)
+        {
+            ret++;
+        }
         break;
 
     case OBJ_JEWELLERY:
@@ -551,6 +563,7 @@ int monster::scan_artefacts(artefact_prop_type ra_prop,
         const int weap      = inv[MSLOT_WEAPON];
         const int second    = inv[MSLOT_ALT_WEAPON]; // Two-headed ogres, etc.
         const int armour    = inv[MSLOT_ARMOUR];
+        const int aux       = inv[MSLOT_AUX_ARMOUR];
         const int shld      = inv[MSLOT_SHIELD];
         const int jewellery = inv[MSLOT_JEWELLERY];
 
@@ -566,6 +579,12 @@ int monster::scan_artefacts(artefact_prop_type ra_prop,
             ret += artefact_property(env.item[second], ra_prop);
         }
 
+        if (aux != NON_ITEM && env.item[aux].base_type == OBJ_ARMOUR
+            && is_artefact(env.item[aux]))
+        {
+            ret += artefact_property(env.item[aux], ra_prop);
+        }
+
         if (armour != NON_ITEM && env.item[armour].base_type == OBJ_ARMOUR
             && is_artefact(env.item[armour]))
         {
@@ -578,12 +597,11 @@ int monster::scan_artefacts(artefact_prop_type ra_prop,
             ret += artefact_property(env.item[shld], ra_prop);
         }
 
-        // XXX: Because monster armour slots are awkward, Wiglaf wears his hat
-        //      in the jewelry slot. Since it is always an artefact, this should
-        //      mostly work out fine, but I'd be happy for a better solution in
-        //      future.
-        if (jewellery != NON_ITEM && is_artefact(env.item[jewellery]))
+        if (jewellery != NON_ITEM && env.item[jewellery].base_type == OBJ_JEWELLERY
+            && is_artefact(env.item[jewellery]))
+        {
             ret += artefact_property(env.item[jewellery], ra_prop);
+        }
     }
 
     return ret;
@@ -932,38 +950,33 @@ bool mons_eats_items(const monster& mon)
     return mons_is_slime(mon) && have_passive(passive_t::jelly_eating);
 }
 
-/* Is the actor susceptible to vampirism?
+/* Can a given agent drain life from a given target?
  *
- * Undead actors and summoned, temporary, or ghostified monsters are all not
- * susceptible.
- * @param act The actor.
- * @param only_known Only include information known to the player.
- * @returns True if the actor is susceptible to vampirism, false otherwise.
+ * This does not include rN (which will usually reduce the amount drained and
+ * rN+++ naturally prevents)
+ *
+ * @param agent      The actor doing the draining
+ * @param victim     The actor being drained
+ * @returns True if the agent can drain health from the victim. False otherwise.
  */
-bool actor_is_susceptible_to_vampirism(const actor& act, bool only_known)
+bool actor_can_drain_life_from(const actor& agent, const actor& victim)
 {
-    if (!(act.holiness() & (MH_NATURAL | MH_PLANT)))
+    if (victim.is_firewood())
         return false;
 
-    if (act.is_player())
-        return true;
-
-    const monster *mon = act.as_monster();
-    // Don't leak phantom mirror info.
-    if (act.is_summoned() && (!only_known
-                              || !mon->has_ench(ENCH_PHANTOM_MIRROR)
-                              || mon->friendly()))
-    {
+    // Only the player is prevented from draining health from summons (for
+    // reasons of tedium). Monsters are allowed to feed off your summoned allies
+    // as much as they like!
+    if (victim.is_summoned() && agent.is_player())
         return false;
-    }
 
-    // Don't allow HP draining from firewood.
-    return !mon->is_firewood();
+    return true;
 }
 
 bool invalid_monster(const monster* mon)
 {
-    return !mon || invalid_monster_type(mon->type);
+    return !mon || invalid_monster_type(mon->type)
+        || testbits(mon->flags, MF_PENDING_RESET);
 }
 
 bool invalid_monster_type(monster_type mt)
@@ -1022,7 +1035,7 @@ static void _destroy_mimic_feature(const coord_def &pos)
 
     unnotice_feature(level_pos(level_id::current(), pos));
     env.grid(pos) = DNGN_FLOOR;
-    env.level_map_mask(pos) &= ~MMT_MIMIC;
+    env.pgrid(pos) &= ~FPROP_MIMIC;
     set_terrain_changed(pos);
     remove_markers_and_listeners_at(pos);
 
@@ -1045,7 +1058,7 @@ void discover_mimic(const coord_def& pos)
     // If the feature has been destroyed, don't create a floor mimic.
     if (feature_mimic && !feat_is_mimicable(feat, false))
     {
-        env.level_map_mask(pos) &= ~MMT_MIMIC;
+        env.pgrid(pos) &= ~FPROP_MIMIC;
         return;
     }
 
@@ -1132,6 +1145,43 @@ size_type mons_class_body_size(monster_type mc)
     // For normal monsters, base_type is set to type in the constructor.
     const monsterentry *e = get_monster_data(mc);
     return e ? e->size : SIZE_MEDIUM;
+}
+
+size_type mons_class_body_size(monster_type mc, size_part_type type, int slime_size)
+{
+    if (mons_is_rider(mc))
+        return mons_class_body_size(mons_rider_type(mc), type);
+    else if (mc == MONS_SLIME_CREATURE)
+    {
+        // Slime creature size is increased by the number merged.
+        if (mc == MONS_SLIME_CREATURE)
+        {
+            if (slime_size == 2)
+                return SIZE_MEDIUM;
+            else if (slime_size == 3)
+                return SIZE_LARGE;
+            else if (slime_size >= 4) // sizes 4 & 5
+                return SIZE_GIANT;
+        }
+    }
+
+    const size_type size = mons_class_body_size(mc);
+    if (type == PSIZE_TORSO)
+    {
+        switch (mc)
+        {
+            case MONS_NAGA:
+            case MONS_CENTAUR:
+            case MONS_YAKTAUR:
+            case MONS_ARACHNE:
+                return SIZE_MEDIUM;
+
+            default:
+                return size;
+        }
+    }
+    else
+        return size;
 }
 
 int max_corpse_chunks(monster_type mc)
@@ -1598,6 +1648,12 @@ bool mons_class_can_leave_corpse(monster_type mc)
     return smc->leaves_corpse;
 }
 
+bool mons_class_has_soul(monster_type mc)
+{
+    ASSERT_smc();
+    return (bool)(mons_class_holiness(mc) & (MH_NATURAL | MH_PLANT | MH_DEMONIC | MH_HOLY));
+}
+
 bool mons_class_can_be_zombified(monster_type mzc)
 {
     monster_type mc = mons_species(mzc);
@@ -1606,7 +1662,7 @@ bool mons_class_can_be_zombified(monster_type mzc)
             && !mons_class_flag(mzc, M_NO_ZOMBIE)
             && !mons_class_flag(mzc, M_INSUBSTANTIAL)
             && !mons_is_tentacle_or_tentacle_segment(mzc)
-            && (mons_class_holiness(mzc) & MH_NATURAL
+            && (mons_class_holiness(mzc) & (MH_NATURAL | MH_PLANT)
                 || mons_class_can_leave_corpse(mc))
             && smc->attack[0].damage; // i.e. has_attack
 }
@@ -1623,7 +1679,7 @@ bool mons_class_can_be_spectralised(monster_type mzc, bool divine)
 {
     monster_type mc = mons_species(mzc);
     ASSERT_smc();
-    return mons_class_holiness(mzc) & (MH_NATURAL | MH_DEMONIC | MH_HOLY)
+    return mons_class_has_soul(mzc)
         && mc != MONS_PANDEMONIUM_LORD
         && mzc != MONS_ORC_APOSTLE
         && (divine || smc->attack[0].type != AT_NONE); // i.e. has_attack
@@ -1655,7 +1711,8 @@ bool mons_class_can_use_stairs(monster_type mc)
            && mc != MONS_SILENT_SPECTRE
            && mc != MONS_GERYON
            && mc != MONS_ROYAL_JELLY
-           && mc != MONS_BALL_LIGHTNING;
+           && mc != MONS_BALL_LIGHTNING
+           && mc != MONS_SPECTRAL_WEAPON;
 }
 
 bool mons_class_can_use_transporter(monster_type mc)
@@ -1688,11 +1745,13 @@ bool mons_can_use_stairs(const monster& mon, dungeon_feature_type stair)
     if (mon.type == MONS_ORB_GUARDIAN && !player_on_orb_run())
         return false;
 
-    // If this is the entrance to a portal vault (or another region of Pandemonium)
-    // only friendly monsters can traverse this.
+    // If this is the entrance to a portal vault, a region of Pandemonium, or
+    // the Abyss, only friendly monsters can traverse this.
     if (!mon.friendly()
         && (feat_is_portal_entrance(stair) || stair == DNGN_TRANSIT_PANDEMONIUM
-                                           || stair == DNGN_ENTER_PANDEMONIUM))
+                                           || stair == DNGN_ENTER_PANDEMONIUM
+                                           || stair == DNGN_ABYSSAL_STAIR
+                                           || stair == DNGN_ENTER_ABYSS))
     {
         return false;
     }
@@ -1772,8 +1831,7 @@ static int _downscale_zombie_damage(int damage)
 // Do not include AF_PLAIN, we want that to be overwritten for spectrals
 // and simulacra
 static const set<attack_flavour> allowed_zombie_af = {
-    AF_REACH,
-    AF_CRUSH,
+    AF_CONSTRICT,
     AF_TRAMPLE,
     AF_DRAG,
     AF_DOOM,
@@ -1812,8 +1870,7 @@ static mon_attack_def _downscale_zombie_attack(const monster& mons,
  *
  * @param facet     The facet in question; e.g. BF_STING.
  * @param tier      The tier of the mutant beast; e.g.
- * @return          The attack corresponding to the given facet; e.g. BT_LARVAL
- *                  { AT_STING, AF_REACH_STING, 10 }. Scales with HD.
+ * @return          The attack corresponding to the given facet. Scales with HD.
  *                  For facets that don't provide an attack, is { }.
  */
 static mon_attack_def _mutant_beast_facet_attack(int facet, int tier)
@@ -1822,11 +1879,11 @@ static mon_attack_def _mutant_beast_facet_attack(int facet, int tier)
     switch (facet)
     {
         case BF_STING:
-            return { AT_STING, AF_REACH_STING, dam };
+            return { AT_STING, AF_POISON, dam, 2};
         case BF_OX:
             return { AT_TRAMPLE, AF_TRAMPLE, dam };
         case BF_WEIRD:
-            return { AT_CONSTRICT, AF_CRUSH, dam * 2 / 5};
+            return { AT_CONSTRICT, AF_CONSTRICT, dam * 2 / 5};
         default:
             return { };
     }
@@ -1889,7 +1946,7 @@ static mon_attack_def _hepliaklqana_ancestor_attack(const monster &mon,
     return { AT_HIT, AF_PLAIN, dam };
 }
 
-/** Get the attack type, attack flavour and damage for a monster attack.
+/** Get the attack type, attack flavour, range, and damage for a monster attack.
  *
  * @param mon The monster to look at.
  * @param attk_number Which attack number to get.
@@ -2062,6 +2119,12 @@ mon_attack_def mons_attack_spec(const monster& m, int attk_number,
 
         if (attk.type == AT_CHERUB)
             attk.type = random_choose(AT_HEADBUTT, AT_BITE, AT_PECK, AT_GORE);
+
+        if (attk.flavour == AF_UGLY_THING)
+        {
+            attk.flavour = random_choose(AF_FIRE, AF_COLD, AF_ELEC, AF_POISON,
+                                         AF_ACID, AF_ANTIMAGIC);
+        }
     }
 
     // Slime creature attacks are multiplied by the number merged.
@@ -2167,7 +2230,7 @@ string mon_attack_name(attack_type attack, bool with_object)
  */
 bool flavour_triggers_damageless(attack_flavour flavour)
 {
-    return flavour == AF_CRUSH
+    return flavour == AF_CONSTRICT
         || flavour == AF_FLOOD
         || flavour == AF_PAIN
         || flavour == AF_PURE_FIRE
@@ -2221,38 +2284,25 @@ int flavour_damage(attack_flavour flavour, int HD, bool random)
         //       and is a lie against non-player targets.
         //       Actual attacks call actor->splash_with_acid() directly.
         case AF_ACID:
-        case AF_REACH_TONGUE:
             if (random)
                 return roll_dice(4, 3);
             return 12;
-        // Just show max damage: this number's only used for display.
+
+        // Just show max damage: these numbers are only used for attack descriptions.
         case AF_AIRSTRIKE:
             return pow(HD + 1, 1.2) * 12 / 6;
-        case AF_REACH_CLEAVE_UGLY:
+        case AF_UGLY_THING:
             return HD * 3;
+        case AF_POISON:
+            return HD * 4;
+        case AF_MINIPARA:
+            return HD * 2;
+        case AF_POISON_STRONG:
+            return HD * 13 / 2;
+        case AF_POISON_PARALYSE:
+            return HD * 5 / 2;
         default:
             return 0;
-    }
-}
-
-/**
- * Does a monster attacking with this flavour reach as if using a polearm?
- *
- * @param flavour   The attack flavour in question; e.g. AF_COLD.
- * @return          Whether the flavour grants inherent reach.
- */
-bool flavour_has_reach(attack_flavour flavour)
-{
-    switch (flavour)
-    {
-        case AF_REACH:
-        case AF_REACH_STING:
-        case AF_REACH_TONGUE:
-        case AF_RIFT:
-        case AF_REACH_CLEAVE_UGLY:
-            return true;
-        default:
-            return false;
     }
 }
 
@@ -2756,6 +2806,12 @@ colour_t random_monster_colour()
     return col;
 }
 
+void mons_set_starting_heads(monster& mons, int heads)
+{
+    mons.num_heads = heads;
+    mons.props[ORIGINAL_HEADS_KEY] = heads;
+}
+
 // Generate a shiny, new and unscarred monster.
 void define_monster(monster& mons, bool friendly)
 {
@@ -2782,16 +2838,16 @@ void define_monster(monster& mons, bool friendly)
 
     case MONS_HYDRA:
         // Hydras start off with 4 to 8 heads.
-        mons.num_heads = random_range(4, 8);
+        mons_set_starting_heads(mons, random_range(4, 8));
         break;
 
     case MONS_LERNAEAN_HYDRA:
         // The Lernaean hydra starts off with 27 heads.
-        mons.num_heads = 27;
+        mons_set_starting_heads(mons, 27);
         break;
 
     case MONS_SLYMDRA:
-        mons.num_heads = random_range(3, 5);
+        mons_set_starting_heads(mons, random_range(3, 5));
         break;
 
     case MONS_TIAMAT:
@@ -3523,7 +3579,10 @@ void mons_pacify(monster& mon, mon_attitude_type att, bool no_xp)
     mon.behaviour = BEH_WANDER;
 
     // Remove haunting, which would otherwise cause monster to continue attacking
-    mon.del_ench(ENCH_HAUNTING, true, true);
+    mon.del_ench(ENCH_HAUNTING, true);
+
+    // Remove bullseye, since we shouldn't be shooting monster anymore
+    mon.del_ench(ENCH_BULLSEYE_TARGET, true);
 
     // Remove level annotation.
     mon.props[NO_ANNOTATE_KEY] = true;
@@ -3970,6 +4029,11 @@ mon_inv_type equip_slot_to_mslot(equipment_slot eq)
     case SLOT_OFFHAND:      return MSLOT_SHIELD;
     case SLOT_RING:
     case SLOT_AMULET:       return MSLOT_JEWELLERY;
+    case SLOT_CLOAK:
+    case SLOT_BOOTS:
+    case SLOT_BARDING:
+    case SLOT_GLOVES:
+    case SLOT_HELMET:       return MSLOT_AUX_ARMOUR;
     default: return NUM_MONSTER_SLOTS;
     }
 }
@@ -4840,7 +4904,7 @@ bool mon_shape_is_humanoid(mon_body_shape shape)
            && shape <= MON_SHAPE_LAST_HUMANOID;
 }
 
-int get_dist_to_nearest_monster()
+int get_dist_to_nearest_monster(bool skip_damage_immune)
 {
     int minRange = LOS_RADIUS + 1;
     for (radius_iterator ri(you.pos(), LOS_NO_TRANS, true); ri; ++ri)
@@ -4850,6 +4914,9 @@ int get_dist_to_nearest_monster()
             continue;
 
         if (!you.aware_of(*mon))
+            continue;
+
+        if (skip_damage_immune && mon->damage_immune(&you))
             continue;
 
         // Plants/fungi don't count.
@@ -4874,14 +4941,14 @@ bool monster_nearby()
     return false;
 }
 
-actor *actor_by_mid(mid_t m, bool require_valid)
+actor *actor_by_mid(mid_t m, bool require_valid, bool allow_dead)
 {
     if (m == MID_PLAYER)
         return &you;
-    return monster_by_mid(m, require_valid);
+    return monster_by_mid(m, require_valid, allow_dead);
 }
 
-monster *monster_by_mid(mid_t m, bool require_valid)
+monster *monster_by_mid(mid_t m, bool require_valid, bool allow_dead)
 {
     if (!require_valid)
     {
@@ -4892,20 +4959,15 @@ monster *monster_by_mid(mid_t m, bool require_valid)
     }
 
     if (unsigned short *mc = map_find(env.mid_cache, m))
-        return &env.mons[*mc];
+    {
+        monster* mon = &env.mons[*mc];
+        if (!allow_dead && invalid_monster(mon))
+            return nullptr;
+        return mon;
+    }
     return 0;
 }
 
-monster *cached_monster_copy_by_mid(mid_t m)
-{
-    for (size_t i = 0; i < env.final_effect_monster_cache.size(); ++i)
-    {
-        if (env.final_effect_monster_cache[i].mid == m)
-            return &env.final_effect_monster_cache[i];
-    }
-
-    return nullptr;
-}
 
 void init_anon()
 {
@@ -5772,7 +5834,11 @@ bool shoot_through_actor(const actor* agent, const actor* target, bool announce)
             && (mons_is_hepliaklqana_ancestor(agent->type)
                 || mons_is_player_shadow(*agent->as_monster())
                 || agent->real_attitude() == ATT_MARIONETTE
-                || agent->type == MONS_PLATINUM_PARAGON))
+                || agent->type == MONS_PLATINUM_PARAGON
+                || you_worship(GOD_FEDHAS)
+                   && agent->deity() == GOD_FEDHAS
+                   && mons_class_is_plant(agent->type)
+                   && (you.holiness() & MH_PLANT)))
         {
             return true;
         }
@@ -5925,5 +5991,34 @@ int mons_leash_range(monster_type mc)
         case MONS_PHALANX_BEETLE:   return 1;
         case MONS_HAUNTED_ARMOUR:   return 2;
         default:                    return 0; // No leashing
+    }
+}
+
+bool mons_is_rider(monster_type mc)
+{
+    return mc == MONS_SPRIGGAN_RIDER
+            || mc == MONS_GOBLIN_RIDER
+            || mc == MONS_GOJI;
+}
+
+monster_type mons_mount_type(monster_type mc)
+{
+    switch (mc)
+    {
+        case MONS_SPRIGGAN_RIDER:   return MONS_HORNET;
+        case MONS_GOBLIN_RIDER:     return MONS_WYVERN;
+        case MONS_GOJI:             return MONS_GHOST_MOTH;
+        default:                    return MONS_PROGRAM_BUG;
+    }
+}
+
+monster_type mons_rider_type(monster_type mc)
+{
+    switch (mc)
+    {
+        case MONS_SPRIGGAN_RIDER:   return MONS_SPRIGGAN;
+        case MONS_GOBLIN_RIDER:     return MONS_GOBLIN;
+        case MONS_GOJI:             return MONS_GOJI_UNMOUNTED;
+        default:                    return MONS_PROGRAM_BUG;
     }
 }

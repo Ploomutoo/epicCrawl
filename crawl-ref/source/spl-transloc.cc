@@ -90,7 +90,7 @@ spret cast_disjunction(int pow, bool fail)
 void disjunction_spell()
 {
     int steps = you.time_taken;
-    invalidate_agrid(true);
+    invalidate_agrid();
     for (int step = 0; step < steps; ++step)
     {
         vector<monster*> mvec;
@@ -221,10 +221,13 @@ spret spider_jump()
  * @param verb          What kind of movement is this, exactly?
  *                      (E.g. 'blink', 'hop'.)
  * @param hitfunc       A hitfunc passed to the direction_chooser.
- * @return              True if a target was found; false if the player aborted.
+ * @return              spret::success if a target was found; spret::abort if
+ *                      the player aborted; spret::seen_hups if finding a
+ *                      target had to be stopped early due to hups.
  */
-static bool _find_cblink_target(dist &target, bool safe_cancel,
-                                string verb, targeter *hitfunc = nullptr, bool physical = false)
+static spret _find_cblink_target(dist &target, bool safe_cancel,
+                                string verb, targeter *hitfunc = nullptr,
+                                bool physical = false)
 {
     while (true)
     {
@@ -240,7 +243,7 @@ static bool _find_cblink_target(dist &target, bool safe_cancel,
         if (crawl_state.seen_hups)
         {
             mprf("Cancelling %s due to HUP.", verb.c_str());
-            return false;
+            return spret::seen_hups;
         }
 
         if (!target.isValid || target.target == you.pos())
@@ -254,7 +257,7 @@ static bool _find_cblink_target(dist &target, bool safe_cancel,
             }
 
             canned_msg(MSG_OK);
-            return false;
+            return spret::abort;
         }
 
         const monster* beholder = you.get_beholder(target.target);
@@ -312,7 +315,7 @@ static bool _find_cblink_target(dist &target, bool safe_cancel,
             continue;
         }
 
-        return true;
+        return spret::success;
     }
 }
 
@@ -458,7 +461,8 @@ spret frog_hop(bool fail, dist *target)
 
     while (true)
     {
-        if (!_find_cblink_target(*target, true, "hop", &tgt, true))
+        spret result = _find_cblink_target(*target, true, "hop", &tgt, true);
+        if (result != spret::success)
             return spret::abort;
 
         if (grid_distance(you.pos(), target->target) > hop_range)
@@ -870,7 +874,8 @@ spret electric_charge(actor& agent, int powc, bool fail, const coord_def &target
  * @param safe_cancel   Whether it's OK to let the player cancel the control
  *                      of the blink (or whether there should be a prompt -
  *                      for e.g. read-identified ?blink)
- * @return              Whether the blink succeeded, aborted, or was miscast.
+ * @return              Whether the blink succeeded, aborted, or had to be
+ *                      cancelled due to hups.
  */
 spret controlled_blink(bool safe_cancel, dist *target)
 {
@@ -888,8 +893,10 @@ spret controlled_blink(bool safe_cancel, dist *target)
     if (orb_limits_translocation())
     {
         targeter_hop tgt(max(1, you.current_vision - 2), false);
-        if (!_find_cblink_target(*target, safe_cancel, "blink", &tgt))
-            return spret::abort;
+        spret result = _find_cblink_target(*target, safe_cancel, "blink",
+                                           &tgt);
+        if (result != spret::success)
+            return result;
         target->target = _fuzz_blink_destination(target->target);
         mprf(MSGCH_ORB, "You feel the Orb interfering with your translocation!");
     }
@@ -897,8 +904,10 @@ spret controlled_blink(bool safe_cancel, dist *target)
     {
         targeter_smite tgt(&you, LOS_RADIUS);
         tgt.obeys_mesmerise = true;
-        if (!_find_cblink_target(*target, safe_cancel, "blink", &tgt))
-            return spret::abort;
+        spret result = _find_cblink_target(*target, safe_cancel, "blink",
+                                           &tgt);
+        if (result != spret::success)
+            return result;
     }
 
     // invisible monster that the targeter didn't know to avoid
@@ -970,7 +979,8 @@ void you_teleport(bool is_hostile, mid_t teleportitis_source)
 
         if (player_in_branch(BRANCH_ABYSS))
         {
-            mpr("You feel the power of the Abyss delaying your translocation!");
+            mprf("You feel the power of the Abyss delaying your translocation%s!",
+                 !you.runes[RUNE_ABYSSAL] ? " and deflecting it away from its rune" : "");
             teleport_delay += 5 + random2(10);
         }
         else if (orb_limits_translocation())
@@ -1344,9 +1354,22 @@ bool you_teleport_to(const coord_def where_to, bool move_monsters)
     return true;
 }
 
-void you_teleport_now(bool wizard_tele, string reason)
+void you_teleport_now(string reason, bool manual_tele, bool wizard_tele)
 {
     bool randtele;
+    bool need_abyss_rune_warning = false;
+
+    // While in the Abyss, teleport scrolls will always take the player slightly
+    // further away from the rune. (But other effects moving you at random
+    // should not.)
+    if (manual_tele && player_in_branch(BRANCH_ABYSS)
+        && !you.props.exists(TELEPORTITIS_SOURCE))
+    {
+        int&areas = you.props[ABYSS_AREAS_SEEN_KEY].get_int();
+        if (areas > 0 && !you.runes[RUNE_ABYSSAL])
+            need_abyss_rune_warning = true;
+        areas = max(0, areas - 2);
+    }
 
     if (!wizard_tele && you.props.exists(TELEPORTITIS_SOURCE))
     {
@@ -1356,6 +1379,9 @@ void you_teleport_now(bool wizard_tele, string reason)
     }
     else
         randtele = _teleport_player(wizard_tele, reason);
+
+    if (need_abyss_rune_warning)
+        mprf(MSGCH_WARN, "You feel the abyssal rune grow more distant.");
 
     // Xom is amused by teleports that land you in a dangerous place, unless
     // the player is in the Abyss and teleported to escape from all the
@@ -1560,33 +1586,7 @@ spret cast_apportation(int pow, bolt& beam, bool fail)
         return spret::abort;
     }
 
-    fail_check();
-
-    // We need to modify the item *before* we move it, because
-    // move_top_item() might change the location, or merge
-    // with something at our position.
-    if (item_is_orb(item))
-    {
-        fake_noisy(30, where);
-
-        // There's also a 1-in-3 flat chance of apport failing.
-        if (one_chance_in(3))
-        {
-            orb_pickup_noise(where, 30,
-                "The Orb shrieks and becomes a dead weight against your magic!",
-                "The Orb lets out a furious burst of light and becomes "
-                    "a dead weight against your magic!");
-            return spret::success;
-        }
-        else // Otherwise it's just a noisy little shiny thing
-        {
-            orb_pickup_noise(where, 30,
-                "The Orb shrieks as your magic touches it!",
-                "The Orb lets out a furious burst of light as your magic touches it!");
-            start_orb_run(CHAPTER_ANGERED_PANDEMONIUM, "Now pick up the Orb and get out of here!");
-        }
-    }
-
+    // Determine spot to pull items onto.
     beam.set_is_tracer(true);
     beam.aimed_at_spot = true;
     beam.affects_nothing = true;
@@ -1624,20 +1624,51 @@ spret cast_apportation(int pow, bolt& beam, bool fail)
         {
             // we've checked every position in beam.path_taken within max_dist
             mpr("Not with that terrain in the way!");
-            return spret::success; // of a sort
+            return spret::abort;
         }
         new_spot = beam.path_taken[location_on_path];
     }
+
+    fail_check();
+
+    for (stack_iterator si(where); si; ++si)
+    {
+        if (item_is_orb(*si))
+        {
+            fake_noisy(30, where);
+
+            // There's also a 1-in-3 flat chance of apport failing.
+            if (one_chance_in(3))
+            {
+                orb_pickup_noise(where, 30,
+                    "The Orb shrieks and becomes a dead weight against your magic!",
+                    "The Orb lets out a furious burst of light and becomes "
+                        "a dead weight against your magic!");
+                return spret::success;
+            }
+            else // Otherwise it's just a noisy little shiny thing
+            {
+                orb_pickup_noise(where, 30,
+                    "The Orb shrieks as your magic touches it!",
+                    "The Orb lets out a furious burst of light as your magic touches it!");
+                start_orb_run(CHAPTER_ANGERED_PANDEMONIUM, "Now pick up the Orb and get out of here!");
+            }
+        }
+    }
+
     dprf("Apport: new spot is %d/%d", new_spot.x, new_spot.y);
 
-    // Actually move the item.
-    mprf("Yoink! You pull the item%s towards yourself.",
-         (item.quantity > 1) ? "s" : "");
+    // Actually move the items.
+    int num_moved = 0;
+    while (you.visible_igrd(where) != NON_ITEM)
+    {
+        if (move_top_item(where, new_spot))
+            ++num_moved;
+    }
 
-    move_top_item(where, new_spot);
-
-    // Mark the item as found now.
-    origin_set(new_spot);
+    mprf("Yoink! You pull the item%s %stowards yourself.",
+         num_moved > 1 ? "s" : "",
+         new_spot != you.pos() ? "partway " : "");
 
     return spret::success;
 }
@@ -1948,6 +1979,7 @@ void attract_monster(monster &mon, int max_move)
 
     _place_tloc_cloud(old_pos);
     _place_tloc_cloud(ray.pos());
+    mon.check_redraw(old_pos);
     mon.finalise_movement();
 }
 
@@ -2317,7 +2349,7 @@ static void _push_actor(actor& victim, coord_def dir, int dist, int pow,
             victim.collide(next_pos, &you, gavotte_impact_damage(pow, i, true).roll());
             break;
         }
-        else if (!victim.is_habitable(next_pos))
+        else if (!in_bounds(next_pos) || !victim.is_habitable(next_pos))
             break;
         else
             victim.move_to(next_pos, MV_TRANSLOCATION, true);

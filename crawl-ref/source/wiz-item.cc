@@ -137,7 +137,7 @@ void wizard_create_spec_object()
         item.sub_type  = 0;
         item.quantity  = amount;
     }
-    // in this case, place_monster_corpse will allocate an item for us, and we
+    // in this case, place_corpse_or_gold will allocate an item for us, and we
     // don't use item/thing_created.
     else if (class_wanted == OBJ_CORPSES)
     {
@@ -171,7 +171,7 @@ void wizard_create_spec_object()
                 =  max(1, min(27, prompt_for_int("How many heads? ", false)));
         }
 
-        if (!place_monster_corpse(dummy, true))
+        if (!place_corpse_or_gold(dummy, true))
         {
             mpr("Failed to create corpse.");
             return;
@@ -568,7 +568,9 @@ void wizard_make_object_randart()
     if (eq != SLOT_UNUSED)
     {
         invslot = item.link;
-        unequip_item(item);
+        // Ensure the item isn't destroyed on unequip, just in case it's
+        // cursed or ^Fragile.
+        unequip_item(item, true, false, false);
     }
 
     if (is_random_artefact(item))
@@ -609,7 +611,7 @@ void wizard_make_object_randart()
         return;
     }
 
-    // If it was equipped, requip the item.
+    // If it was equipped, reequip the item.
     if (eq != SLOT_UNUSED)
         equip_item(eq, invslot);
 
@@ -1410,7 +1412,7 @@ void wizard_unobtain_runes_and_orb()
     you.runes.reset();
 
     you.chapter = CHAPTER_ORB_HUNTING;
-    invalidate_agrid(true);
+    invalidate_agrid(false);
 
     mpr("Unobtained all runes and the Orb of Zot.");
 }

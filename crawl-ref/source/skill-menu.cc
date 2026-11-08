@@ -409,9 +409,24 @@ EditableTextItem *SkillMenuEntry::get_progress()
     return m_progress;
 }
 
+// Whether to display the base target or the modified one.
+static bool _shown_target_is_base(skill_type sk)
+{
+    const bool base = skm.get_state(SKM_LEVEL) == SKM_LEVEL_NORMAL;
+    // If the skill isn't actually modified, show whatever target exists.
+    if (!you.get_training_target(sk, base)
+        && you.get_training_target(sk, !base)
+        && you.skill(sk, 10, true, false) == you.skill(sk, 10, false, false))
+    {
+        return !base;
+    }
+    return base;
+}
+
 void SkillMenuEntry::set_targets()
 {
-    int target = you.get_training_target(m_sk);
+    const bool base = _shown_target_is_base(m_sk);
+    int target = you.get_training_target(m_sk, base);
     if (target == 0)
     {
         m_progress->set_text("--");
@@ -420,7 +435,7 @@ void SkillMenuEntry::set_targets()
     else
     {
         m_progress->set_text(_format_skill_target(target));
-        if (target_met(m_sk))
+        if (target_met(m_sk, base))
             m_progress->set_fg_colour(DARKGREY); // mainly comes up in wizmode
         else
             m_progress->set_fg_colour(get_colour());
@@ -772,7 +787,7 @@ void SkillMenu::init_experience()
             }
         you.auto_training = false;
         reset_training();
-        you.clear_training_targets();
+        you.clear_all_training_targets();
     }
 }
 
@@ -925,7 +940,8 @@ int SkillMenu::read_skill_target(skill_type sk)
     EditableTextItem *progress = entry->get_progress();
     ASSERT(progress);
 
-    const int old_target = you.get_training_target(sk);
+    const bool base = _shown_target_is_base(sk);
+    const int old_target = you.get_training_target(sk, base);
     const string prefill = old_target <= 0 ? "0"
                                            : _format_skill_target(old_target);
 
@@ -933,7 +949,8 @@ int SkillMenu::read_skill_target(skill_type sk)
     progress->set_highlight_colour(RED);
 
     // for webtiles dialog input
-    progress->set_prompt(make_stringf("Enter a skill target for %s: ",
+    progress->set_prompt(make_stringf("Enter a %sskill target for %s: ",
+                                            base ? "base " : "",
                                             skill_name(sk)));
     progress->set_tag("skill_target");
 
@@ -962,7 +979,7 @@ int SkillMenu::read_skill_target(skill_type sk)
         else
             set_help("");
     }
-    you.set_training_target(sk, input);
+    you.set_training_target(sk, input, false, base);
     cancel_set_target();
     refresh_display();
     return input;
@@ -1059,27 +1076,21 @@ bool SkillMenu::do_skill_enabled_check()
     return true;
 }
 
-bool SkillMenu::exit(bool just_reset)
+void SkillMenu::reset()
 {
-    if (just_reset)
-    {
-        finish_experience(false);
-        clear();
-        return true;
-    }
+    finish_experience(false);
+    clear();
+}
+
+bool SkillMenu::exit()
+{
     if (crawl_state.seen_hups)
-    {
-        clear();
         return true;
-    }
 
     // Before we exit, make sure there's at least one skill enabled.
     if (!do_skill_enabled_check())
         return false;
 
-    finish_experience(true);
-
-    clear();
     return true;
 }
 
@@ -1157,7 +1168,7 @@ void SkillMenu::clear_targets()
 {
     if (get_state(SKM_VIEW) != SKM_VIEW_TARGETS)
         return;
-    you.clear_training_targets();
+    you.clear_all_training_targets();
     refresh_display();
 }
 
@@ -1427,7 +1438,15 @@ void SkillMenu::init_switches()
 void SkillMenu::refresh_display()
 {
     if (is_set(SKMF_EXPERIENCE))
+    {
+        // train_skills mutates you.training (when 27 is reached), so save and
+        // restore it. We cannot use m_skill_backup.restore_training here,
+        // because that respects our skills, and when displaying the menu we
+        // need to have updated skill values and the old training values.
+        const FixedVector<unsigned int, NUM_SKILLS> saved_training = you.training;
         train_skills(true);
+        you.training = saved_training;
+    }
 
     for (int ln = 0; ln < SK_ARR_LN; ++ln)
         for (int col = 0; col < SK_ARR_COL; ++col)
@@ -1765,7 +1784,7 @@ SizeReq UISkillMenu::_get_preferred_size(Direction dim, int /*prosp_width*/)
 
 void UISkillMenu::_allocate_region()
 {
-    skm.exit(true);
+    skm.reset();
     skm.init(flag, m_region.height);
 }
 
@@ -1864,10 +1883,10 @@ void skill_menu(int flag, int exp)
                 }
             // Fallthrough
             default:
-                if (ui::key_exits_popup(keyn, true) && skm.exit(false))
+                if (ui::key_exits_popup(keyn, true) && skm.exit())
                     return done = true;
                 // Don't exit from !experience on random keys.
-                if (!skm.is_set(SKMF_EXPERIENCE) && skm.exit(false))
+                if (!skm.is_set(SKMF_EXPERIENCE) && skm.exit())
                     return done = true;
             }
         }
@@ -1905,7 +1924,9 @@ void skill_menu(int flag, int exp)
     });
 
 #ifdef USE_TILE_WEB
-    tiles_crt_popup show_as_popup("skills");
+    // Control this ourself rather than use tiles_crt_popup because we need to
+    // tear it down before apply a potion of experience.
+    tiles.push_crt_menu("skills");
 #endif
     // XXX: this is, in theory, an arbitrary initial height. In practice,
     // there's a bug where an item in the MenuFreeform stays at its original
@@ -1916,14 +1937,20 @@ void skill_menu(int flag, int exp)
 
     // Calling a user lua function here to let players automatically accept
     // the given skill distribution for a potion of experience.
-    if (skm.is_set(SKMF_EXPERIENCE)
+    const bool skip_menu = skm.is_set(SKMF_EXPERIENCE)
         && clua.callbooleanfn(false, "auto_experience", nullptr)
-        && skm.exit(false))
-    {
-        return;
-    }
+        && skm.exit();
 
-    ui::run_layout(std::move(popup), done);
+    if (!skip_menu)
+        ui::run_layout(std::move(popup), done);
 
+#ifdef USE_TILE_WEB
+    // Tear down the menu before applying experience, to stop force mores while
+    // applying experience causing weird issues.
+    tiles.pop_menu();
+#endif
+
+    if (!crawl_state.seen_hups)
+        skm.finish_experience(true);
     skm.clear();
 }

@@ -1144,11 +1144,8 @@ static void _print_stats_ev(int x, int y)
  *
  * @return     A colour enum for the given weapon.
  */
-static int _wpn_name_colour(const item_def &wpn)
+int wielded_weapon_colour(const item_def &wpn)
 {
-    if (you.corrosion_amount())
-        return RED;
-
     const string prefix = item_prefix(wpn);
     const int prefcol = menu_colour(wpn.name(DESC_INVENTORY),
                                     prefix, "stats", false);
@@ -1157,22 +1154,12 @@ static int _wpn_name_colour(const item_def &wpn)
     return LIGHTGREY;
 }
 
-static string _wpn_name_corroded(const item_def &weapon)
-{
-    if (!you.corrosion_amount() || weapon.base_type != OBJ_WEAPONS)
-        return weapon.name(DESC_PLAIN, true);
-
-    item_def wpn_copy = weapon;
-    wpn_copy.plus -= you.corrosion_amount();
-    return wpn_copy.name(DESC_PLAIN, true);
-}
-
 static void _print_unarmed_name()
 {
     textcolour(HUD_CAPTION_COLOUR);
     const string slot_name = "-) ";
     CPRINTF("%s", slot_name.c_str());
-    textcolour(you.corrosion_amount() ? RED : get_form()->uc_colour);
+    textcolour(get_form()->uc_colour);
     const int max_name_width = crawl_view.hudsz.x - slot_name.size();
     CPRINTF("%s", chop_string(you.unarmed_attack_name(),
                               max_name_width).c_str());
@@ -1185,9 +1172,9 @@ static void _print_weapon_name(const item_def &weapon, int width)
     const char slot_letter = weapon.slot;
     const string slot_name = make_stringf("%c) ", slot_letter);
     CPRINTF("%s", slot_name.c_str());
-    textcolour(_wpn_name_colour(weapon));
+    textcolour(wielded_weapon_colour(weapon));
     const int max_name_width = width - slot_name.size();
-    const string name = _wpn_name_corroded(weapon);
+    const string name = weapon.name(DESC_PLAIN, true);
     CPRINTF("%s", chop_string(name, max_name_width).c_str());
     textcolour(LIGHTGREY);
 }
@@ -1245,10 +1232,43 @@ static void _print_stats_qv(int y)
 
 struct status_light
 {
-    status_light(int c, string t) : colour(c), text(t) {}
+    status_light(int c, string t, int s = -1)
+        : colour(c), text(t), status(s) {}
     colour_t colour;
     string text;
+    int status;
 };
+
+#ifdef USE_TILE_LOCAL
+struct status_light_area
+{
+    int x;
+    int y;
+    int width;
+    int status;
+};
+
+// The areas of the screen with status lights, used to draw tooltips.
+static vector<status_light_area> _status_light_areas;
+
+// Record a status light starting at the current cursor position - call this
+// before printing the status.
+static void _record_status_light(const status_light& light, int width)
+{
+    _status_light_areas.push_back({wherex() - crawl_view.hudp.x,
+                                   wherey() - crawl_view.hudp.y,
+                                   width, light.status});
+}
+
+int status_light_at(int x, int y)
+{
+    for (const status_light_area& area : _status_light_areas)
+        if (area.y == y && x >= area.x && x < area.x + area.width)
+            return area.status;
+
+    return -1;
+}
+#endif
 
 static void _add_status_light_to_out(int i, vector<status_light>& out)
 {
@@ -1256,7 +1276,7 @@ static void _add_status_light_to_out(int i, vector<status_light>& out)
 
     if (fill_status_info(i, inf) && !inf.light_text.empty())
     {
-        status_light sl(inf.light_colour, inf.light_text);
+        status_light sl(inf.light_colour, inf.light_text, i);
         out.push_back(sl);
     }
 }
@@ -1353,6 +1373,7 @@ static void _print_status_lights(int y)
 #endif
 
 #ifdef USE_TILE_LOCAL
+    _status_light_areas.clear();
     if (!_is_using_small_layout())
     {
 #endif
@@ -1366,6 +1387,9 @@ static void _print_status_lights(int y)
         if (end_x <= crawl_view.hudsz.x)
         {
             textcolour(lights[i_light].colour);
+#ifdef USE_TILE_LOCAL
+            _record_status_light(lights[i_light], strwidth(lights[i_light].text));
+#endif
             NOWRAP_EOL_CPRINTF("%s", lights[i_light].text.c_str());
             if (end_x < crawl_view.hudsz.x)
                 NOWRAP_EOL_CPRINTF(" ");
@@ -1389,6 +1413,7 @@ static void _print_status_lights(int y)
         if (lights.size() == 1)
         {
             textcolour(lights[0].colour);
+            _record_status_light(lights[0], strwidth(lights[0].text));
             CPRINTF("%s", lights[0].text.c_str());
         }
         else
@@ -1396,11 +1421,13 @@ static void _print_status_lights(int y)
             while (i_light < lights.size() && (int)i_light < crawl_view.hudsz.x - 1)
             {
                 textcolour(lights[i_light].colour);
-                if (i_light == lights.size() - 1
-                    && strwidth(lights[i_light].text) < crawl_view.hudsz.x - wherex())
-                {
+                const bool full = i_light == lights.size() - 1
+                    && strwidth(lights[i_light].text) < crawl_view.hudsz.x - wherex();
+                // Must do this before the print, as it uses the cursor position.
+                _record_status_light(lights[i_light],
+                                     full ? strwidth(lights[i_light].text) : 1);
+                if (full)
                     CPRINTF("%s",lights[i_light].text.c_str());
-                }
                 else if ((int)lights.size() > crawl_view.hudsz.x / 2)
                     CPRINTF("%.1s",lights[i_light].text.c_str());
                 else
@@ -2550,7 +2577,7 @@ static string _resist_composer(const char * name, int spacing, int value,
     int res_percent = -1;
 
     const static int _basic_res[] = {150, 100, 50, 33, 20};
-    const static int _neg_res[]   = {-1, 100, 50, 20, 0};
+    const static int _neg_res[]   = {-1, 100, 50, 25, 0};
     const static int _pois_res[]  = {150, 100, 33, 33, 0};
     const static int _corr_res[]  = {-1, 100, 50, -1, -1};
 

@@ -580,7 +580,6 @@ monster* get_rampage_target(coord_def move)
     const coord_def tracer_target = you.pos() + (move * tracer_range);
 
     bolt beam;
-    beam.range           = LOS_RADIUS;
     beam.aimed_at_spot   = true;
     beam.target          = tracer_target;
     beam.source_name     = "you";
@@ -911,9 +910,9 @@ static bool _handle_player_step(const coord_def& targ, int& delay, const int del
     bool fedhas_move = false;
 
     // If we can't move, and don't have a non-move action, stop. We sometimes want
-    // to hit invisible monsters, but if we can't see them and can't move, it leaks
-    // information to allow the player to hit them.
-    if ((!mon || !mon->visible_to(&you))
+    // to hit invisible monsters, but if we aren't aware of their location and
+    // can't move, it leaks information to allow the player to hit them.
+    if ((!mon || !you.aware_of(*mon))
         && you.cannot_move()
         && !feat_is_closed_door(env.grid(targ)))
     {
@@ -927,7 +926,7 @@ static bool _handle_player_step(const coord_def& targ, int& delay, const int del
         if (mon->temp_attitude() == ATT_NEUTRAL
             && !mon->has_ench(ENCH_FRENZIED)
             && !you.confused()
-            && mon->visible_to(&you))
+            && you.aware_of(*mon))
         {
             simple_monster_message(*mon, " refuses to make way for you. "
                             "(Use ctrl+direction or * direction to attack.)");
@@ -957,7 +956,7 @@ static bool _handle_player_step(const coord_def& targ, int& delay, const int del
                 delay += stampede_delay;
 
                 // Check that the target we were trampling still there.
-                if (!mon || (mon->pos() - you.pos()) != (targ - initial_pos))
+                if (invalid_monster(mon) || (mon->pos() - you.pos()) != (targ - initial_pos))
                     return false;
             }
             if (!player_fight(mon, rampaging && !first_step))
@@ -1061,7 +1060,7 @@ static bool _handle_player_step(const coord_def& targ, int& delay, const int del
             const monster* current = monster_at(you.pos());
             if (!current || !fedhas_passthrough(current))
             {
-                mprf("You %s carefully through the %s.",
+                mprf("You %s slowly and carefully through the %s.",
                         _get_move_verb(rampaging).c_str(),
                     mons_genus(mon->type) == MONS_FUNGUS ? "fungus"
                                                          : "plants");
@@ -1173,7 +1172,7 @@ void move_player_action(coord_def move)
         {
             coord_def dummy;
             if (!stampede_steps
-                && you.can_see(*mon_at)
+                && you.aware_of(*mon_at)
                 && (!mon_at->wont_attack()
                     || !(fedhas_passthrough(mon_at)
                          || swap_check(mon_at, dummy, true))))
@@ -1263,9 +1262,6 @@ void move_player_action(coord_def move)
 
     if (you.running == RMODE_START)
         you.running = RMODE_CONTINUE;
-
-    if (player_in_branch(BRANCH_ABYSS))
-        maybe_shift_abyss_around_player();
 
     if (did_move)
     {

@@ -265,7 +265,9 @@ void wizard_heal(bool super_heal)
         you.duration[DUR_FIRE_VULN] = 0;
         you.duration[DUR_POISON_VULN] = 0;
         you.duration[DUR_SLIMIFYING] = 0;
+        you.duration[DUR_ANTISWIFT] = 0;
         you.attribute[ATTR_DOOM] = 0;
+        you.attribute[ATTR_OSTRACISM] = 0;
         delete_all_temp_mutations("Super heal");
         decr_zot_clock();
         you.redraw_stats = true;
@@ -379,6 +381,29 @@ void wizard_set_gold()
         you.set_gold(max(atoi(buf), 0));
 
     mprf("You now have %d gold piece%s.", you.gold, you.gold != 1 ? "s" : "");
+}
+
+void wizard_set_gift_timeout()
+{
+    mprf(MSGCH_PROMPT, "Enter new gift timeout (current = %d, Enter for 0): ",
+         you.gift_timeout);
+
+    char buf[30];
+    if (cancellable_get_line_autohist(buf, sizeof buf))
+    {
+        canned_msg(MSG_OK);
+        return;
+    }
+
+    const int newtimeout = atoi(buf);
+    if (newtimeout < 0 || newtimeout > 255)
+    {
+        mpr("Gift timeout must be between 0 and 255.");
+        return;
+    }
+
+    you.gift_timeout = newtimeout;
+    mprf("Set gift timeout to %d.", you.gift_timeout);
 }
 
 void wizard_set_piety()

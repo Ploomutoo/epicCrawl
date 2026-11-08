@@ -827,7 +827,7 @@ int sort_item_qty(const InvEntry *a)
 }
 int sort_item_slot(const InvEntry *a)
 {
-    return isalpha(a->item->slot) ? letter_to_index(a->item->slot) : 0;
+    return isaalpha(a->item->slot) ? letter_to_index(a->item->slot) : 0;
 }
 
 bool sort_item_identified(const InvEntry *a)
@@ -1707,7 +1707,8 @@ bool needs_handle_warning(const item_def &item, operation_types oper,
 
     if ((oper == OPER_EQUIP || oper == OPER_UNEQUIP))
     {
-        if (item.is_type(OBJ_JEWELLERY, AMU_FAITH)
+        if ((item.is_type(OBJ_JEWELLERY, AMU_FAITH)
+            || is_unrandom_artefact(item, UNRAND_FORGEWARDEN))
             && faith_has_penalty())
         {
             return true;

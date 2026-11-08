@@ -492,8 +492,6 @@ NORETURN static void _launch_game()
     tiles.redraw();
 #endif
 
-    run_uncancels();
-
     cursor_control ccon(!Options.use_fake_player_cursor);
     while (true)
         _input();
@@ -1131,6 +1129,18 @@ static void _input()
 
     hints_new_turn();
 
+    if (has_uncancel())
+    {
+        resume_uncancel();
+        if (you.turn_is_over)
+        {
+            if (you.berserk())
+                _do_berserk_no_combat_penalty();
+            world_reacts();
+            return;
+        }
+    }
+
     if (you.cannot_act())
     {
         if (crawl_state.repeat_cmd != CMD_WIZARD)
@@ -1337,6 +1347,11 @@ static void _input()
         // Chei's temporal distortion.
         viewwindow();
         update_screen();
+
+        // Do a cut-down version of reacting, if the player actually did
+        // something rather than just cancel the turn.
+        if (you.took_instant_action)
+            player_reacts_to_instant_action();
     }
 
     _update_replay_state();
@@ -2552,15 +2567,6 @@ static void _check_sanctuary()
     decrease_sanctuary_radius();
 }
 
-static void _check_trapped()
-{
-    if (you.trapped)
-    {
-        do_trap_effects();
-        you.trapped = false;
-    }
-}
-
 static void _update_still_winds()
 {
     for (monster_iterator mon_it; mon_it; ++mon_it)
@@ -2619,6 +2625,9 @@ void world_reacts()
 
     if (!crawl_state.game_is_arena())
         player_reacts();
+
+    if (player_in_branch(BRANCH_ABYSS))
+        maybe_shift_abyss_around_player();
 
     abyss_morph();
     apply_noises();
@@ -2680,7 +2689,8 @@ void world_reacts()
 
     update_screen();
 
-    _check_trapped();
+    check_trapped();
+    trigger_exploration_conducts();
 
     if (you.cannot_act()
         && any_messages()

@@ -330,7 +330,6 @@ bool wizard_create_feature(dist &target, dungeon_feature_type feat, bool mimic)
             tile_env.flv(pos).feat = 0;
             tile_env.flv(pos).special = 0;
             env.grid_colours(pos) = 0;
-            const dungeon_feature_type old_feat = env.grid(pos);
             dungeon_terrain_changed(pos, feat, false, false, true);
             tile_init_flavour(pos);
             if (pos == you.pos() && cell_is_solid(pos))
@@ -338,12 +337,13 @@ bool wizard_create_feature(dist &target, dungeon_feature_type feat, bool mimic)
         }
 
         if (mimic)
-            env.level_map_mask(pos) |= MMT_MIMIC;
+            env.pgrid(pos) |= FPROP_MIMIC;
 
         if (you.see_cell(pos))
         {
-            view_update_at(pos);
+            show_update_at(pos);
             StashTrack.update_stash(pos);
+            redraw_view_at(pos);
         }
         if (done)
             return success;
@@ -471,7 +471,8 @@ bool debug_make_shop(const coord_def& pos)
     if (!menu.run(true))
         return false;
 
-    place_spec_shop(pos, static_cast<shop_type>(menu.result()));
+    make_spec_shop(pos, static_cast<shop_type>(menu.result()));
+    dungeon_terrain_changed(you.pos(), DNGN_ENTER_SHOP);
     mpr("Done.");
     return true;
 }
@@ -591,15 +592,12 @@ static void debug_load_map_by_name(string name, bool primary)
         unwind_var<string_set> umt_a(you.uniq_map_tags_abyss, string_set());
         unwind_var<string_set> lum(env.level_uniq_maps, string_set());
         unwind_var<string_set> lumt(env.level_uniq_map_tags, string_set());
-        if (dgn_place_map(toplace, false, false, where))
+        if (dgn_add_vault_to_existing_level(toplace, where))
         {
             mprf("Successfully placed %s.", toplace->name.c_str());
             // Fix up doors from vaults and any changes to the default walls
             // and floors from the vault.
             tile_init_flavour();
-            // Transporters would normally be made from map markers by the
-            // builder.
-            dgn_make_transporters_from_markers();
         }
         else
         {
@@ -646,7 +644,7 @@ static int _debug_time_explore()
 {
     viewwindow();
     update_screen();
-    start_explore(false);
+    start_explore(false, true);
 
     unwind_var<int> es(Options.explore_stop, 0);
 

@@ -1015,11 +1015,9 @@ bool use_an_item(operation_types oper, item_def *target)
             target = jewellery[0];
     }
 
-    if (!target)
-        oper = use_an_item_menu(target, oper);
-
-    if (oper == OPER_NONE)
-        return false; // abort menu
+    spret result = use_an_item_menu(target, oper);
+    if (result != spret::success)
+        return false;
 
     if (oper == OPER_EQUIP)
         oper = item_to_oper(target);
@@ -1229,6 +1227,32 @@ static item_def* _item_swap_prompt(const vector<item_def*>& candidates)
         return nullptr;
 }
 
+// Choose which of a set of removable items to unequip to make room for another.
+static item_def* _choose_item_to_remove(vector<item_def*> candidates)
+{
+    int num_inscribed = 0;
+    for (int j = candidates.size() - 1; j >= 0; --j)
+    {
+        if (strstr(candidates[j]->inscription.c_str(), "=R"))
+            ++num_inscribed;
+    }
+    if (num_inscribed > 0 && num_inscribed < (int)candidates.size())
+    {
+        for (int j = candidates.size() - 1; j >= 0; --j)
+        {
+            if (strstr(candidates[j]->inscription.c_str(), "=R"))
+            {
+                candidates[j] = candidates.back();
+                candidates.pop_back();
+            }
+        }
+    }
+
+    if (candidates.size() == 1)
+        return candidates[0];
+    return _item_swap_prompt(candidates);
+}
+
 static bool _is_slow_equip(const item_def& item)
 {
     if (item.base_type == OBJ_JEWELLERY)
@@ -1354,9 +1378,41 @@ bool try_equip_item(item_def& item)
             return false;
     }
 
+    // For Coglins, work out whether we need a weapon swap.
+    // We do the actual swap later, so that we don't swap weapons on a
+    // cancelled equip.
+    bool need_weapon_swap = false;
+    if (is_offhand(item) && you.has_mutation(MUT_WIELD_OFFHAND))
+    {
+        vector<item_def*> weapons = you.equipment.get_slot_items(SLOT_WEAPON);
+        if (weapons.size() == 2)
+        {
+            // Choose between the items we can actually remove.
+            vector<item_def*> removable;
+            you.equipment.find_removable_items_for_slot(SLOT_WEAPON, removable,
+                                                        false, false);
+            item_def* drop = removable.empty()
+                                 ? nullptr : _choose_item_to_remove(removable);
+            if (!drop)
+                return false;
+            need_weapon_swap =
+                you.equipment.find_equipped_slot(*drop) == SLOT_WEAPON;
+        }
+        else if (weapons.size() == 1)
+        {
+            need_weapon_swap = you.equipment.find_equipped_slot(*weapons[0])
+                                   == SLOT_WEAPON_OR_OFFHAND;
+        }
+    }
+
     vector<item_def*> to_remove;                   // Queue of items chosen to remove
+
+    // Plan against a copy of our equipment.
+    player_equip_set equipment = you.equipment;
+    if (need_weapon_swap)
+        equipment.swap_offhand_weapon_to_main();
     bool requires_replace;
-    equipment_slot slot = you.equipment.find_slot_to_equip_item(item, requires_replace);
+    equipment_slot slot = equipment.find_slot_to_equip_item(item, requires_replace);
 
     // If there is nowhere to put it and nothing the player can do to change
     // this, abort immediately. (If a cursed item was the cause, a message was
@@ -1367,7 +1423,6 @@ bool try_equip_item(item_def& item)
     // Otherwise, maybe look into removing items to make room.
     if (requires_replace)
     {
-        player_equip_set equipment = you.equipment;
         vector<equipment_slot> slots = get_all_item_slots(item);
         vector<item_def*> candidates;
         for (equipment_slot wanted_slot : slots)
@@ -1382,37 +1437,11 @@ bool try_equip_item(item_def& item)
 
             equipment.find_removable_items_for_slot(wanted_slot, candidates);
 
-            // Check if some number of items are inscribed with {=R} (but less
-            // than all of them), and remove them from the candidates.
-            int num_inscribed = 0;
-            for (int j = candidates.size() - 1; j >= 0; --j)
-            {
-                if (strstr(candidates[j]->inscription.c_str(), "=R"))
-                    ++num_inscribed;
-            }
-            if (num_inscribed > 0 && num_inscribed < (int)candidates.size())
-            {
-                for (int j = candidates.size() - 1; j >= 0; --j)
-                {
-                    if (strstr(candidates[j]->inscription.c_str(), "=R"))
-                    {
-                        candidates[j] = candidates.back();
-                        candidates.pop_back();
-                    }
-                }
-            }
-
-            if (candidates.size() == 1)
-                to_remove.push_back(candidates[0]);
+            // Save which item was selected to remove. (User cancelled if null.)
+            if (item_def* ret = _choose_item_to_remove(candidates))
+                to_remove.push_back(ret);
             else
-            {
-                // Save which item was selected to remove.
-                if (item_def* ret = _item_swap_prompt(candidates))
-                    to_remove.push_back(ret);
-                // User cancelled:
-                else
-                    return false;
-            }
+                return false;
 
             equipment_slot used_slot = equipment.find_compatible_occupied_slot(
                                                              *to_remove.back(),
@@ -1454,6 +1483,8 @@ bool try_equip_item(item_def& item)
 
     // Pick up item, if we need to.
     item_def& real_item = you.inv[_get_item_slot_maybe_with_move(item)];
+    if (need_weapon_swap)
+        you.equipment.swap_offhand_weapon_to_main();
     do_equipment_change(&real_item, slot, to_remove);
 
     return true;
@@ -1484,18 +1515,18 @@ bool handle_chain_removal(vector<item_def*>& to_remove, bool interactive)
 
     for (size_t n = 0; n < to_remove.size(); ++n)
     {
-        item_def& item = *to_remove[n];
-        if (!item_gives_equip_slots(item))
-            continue;
-
-        vector<item_def*> chain_remove;
-        int chain_remove_num = you.equipment.needs_chain_removal(item, chain_remove, !interactive);
-        if (chain_remove_num > 0)
+        for (equipment_slot slot : item_granted_slots(*to_remove[n]))
         {
+            vector<item_def*> chain_remove;
+            int chain_remove_num = you.equipment.needs_chain_removal(
+                slot, chain_remove, !interactive, to_remove);
+            if (chain_remove_num <= 0)
+                continue;
+
             if ((int)chain_remove.size() < chain_remove_num)
             {
                 mprf(MSGCH_PROMPT, "A cursed item is preventing you from removing %s.",
-                        item.name(DESC_INVENTORY).c_str());
+                        to_remove[n]->name(DESC_INVENTORY).c_str());
                 return false;
             }
             // We must remove all of the items found.
@@ -1537,8 +1568,6 @@ bool handle_chain_removal(vector<item_def*>& to_remove, bool interactive)
                     to_remove.push_back(chain_remove[chain_remove.size() - i - 1]);
             }
         }
-        else
-            break;
     }
 
     return true;
@@ -1726,17 +1755,18 @@ static bool _try_unwield_weapons()
  *                    function. If it returns false, continue the prompt rather
  *                    than returning null.
  *
- * @return an operation to apply to the chosen item, OPER_NONE if the menu
- *         was aborted
+ * @return spret::success if an item was chosen, spret::abort if the player
+ *         does not wish to choose an item, spret::seen_hups if we had to
+ *         terminate early due to hups.
  */
-operation_types use_an_item_menu(item_def *&target, operation_types oper, int item_type,
-                      const char* prompt, function<bool ()> allowcancel)
+spret use_an_item_menu(item_def *&target, operation_types oper, int item_type,
+                       const char* prompt, function<bool ()> allowcancel)
 {
     UseItemMenu menu(oper, item_type, prompt);
 
     // First bail if there's nothing appropriate to choose in inv or on floor
     if (menu.empty_check())
-        return OPER_NONE;
+        return spret::abort;
 
     bool choice_made = false;
     item_def *tmp_tgt = nullptr; // We'll change target only if the player
@@ -1791,6 +1821,8 @@ operation_types use_an_item_menu(item_def *&target, operation_types oper, int it
 
         if (!choice_made)
         {
+            if (crawl_state.seen_hups)
+                return spret::seen_hups;
             if (!allowcancel())
                 continue;
             prompt_failed(PROMPT_ABORT);
@@ -1803,7 +1835,7 @@ operation_types use_an_item_menu(item_def *&target, operation_types oper, int it
 
     ASSERT(!choice_made || target || menu.show_unarmed());
 
-    return choice_made ? menu.oper : OPER_NONE;
+    return choice_made ? spret::success : spret::abort;
 }
 
 bool auto_wield()
@@ -1854,20 +1886,12 @@ void prompt_inscribe_item()
     inscribe_item(you.inv[item_slot]);
 }
 
-bool has_drunken_brawl_targets()
-{
-    list<actor*> targets;
-    get_cleave_targets(you, coord_def(), targets, -1, true);
-    return !targets.empty();
-}
-
 // Perform a melee attack against every adjacent hostile target, and print a
 // special message if there are any.
 bool oni_drunken_swing()
 {
     // Use the same logic for target-picking that cleaving does
-    list<actor*> targets;
-    get_cleave_targets(you, coord_def(), targets, -1, true);
+    vector<actor*> targets = get_player_attack_targets();
 
     // Test that we have at least one valid non-prompting attack
     bool valid_swing = false;
@@ -2231,23 +2255,19 @@ static void _brand_weapon(item_def &wpn)
     return;
 }
 
-static item_def* _choose_target_item_for_scroll(bool scroll_known, object_selector selector,
-                                                const char* prompt)
+static spret _choose_target_item_for_scroll(bool scroll_known, object_selector selector,
+                                            const char* prompt, item_def*& target)
 {
-    item_def *target = nullptr;
-
-    auto success = use_an_item_menu(target, OPER_ANY, selector, prompt,
+    return use_an_item_menu(target, OPER_ANY, selector, prompt,
                        [=]()
                        {
                            if (scroll_known
-                               || crawl_state.seen_hups
                                || yesno("Really abort (and waste the scroll)?", false, 0))
                            {
                                return true;
                            }
                            return false;
                        });
-    return success != OPER_NONE ? target : nullptr;
 }
 
 static object_selector _enchant_selector(scroll_type scroll)
@@ -2259,29 +2279,27 @@ static object_selector _enchant_selector(scroll_type scroll)
     die("Invalid scroll type %d for _enchant_selector", (int)scroll);
 }
 
-// Returns nullptr if no weapon was chosen.
-static item_def* _scroll_choose_weapon(bool alreadyknown, const string &pre_msg,
-                                       scroll_type scroll)
+static spret _scroll_choose_weapon(bool alreadyknown, const string &pre_msg,
+                                       scroll_type scroll, item_def*& target)
 {
     const bool branding = scroll == SCR_BRAND_WEAPON;
 
-    item_def* target = _choose_target_item_for_scroll(alreadyknown, _enchant_selector(scroll),
-                                                      branding ? "Brand which weapon?"
-                                                               : "Enchant which weapon?");
-    if (!target)
-        return target;
+    spret result = _choose_target_item_for_scroll(alreadyknown, _enchant_selector(scroll),
+                                                  branding ? "Brand which weapon?"
+                                                           : "Enchant which weapon?",
+                                                  target);
 
-    if (alreadyknown)
+    if (alreadyknown && result == spret::success)
         mpr(pre_msg);
 
-    return target;
+    return result;
 }
 
-// Returns true if succesful
-static bool _handle_brand_weapon(bool alreadyknown, const string &pre_msg)
+static spret _handle_brand_weapon(bool alreadyknown, const string &pre_msg)
 {
     item_def* weapon = nullptr;
     string letter = "";
+    spret result = spret::success;
     if (!clua.callfn("c_choose_brand_weapon", ">s", &letter))
     {
         if (!clua.error.empty())
@@ -2295,45 +2313,50 @@ static bool _handle_brand_weapon(bool alreadyknown, const string &pre_msg)
     }
 
     if (!weapon)
-        weapon = _scroll_choose_weapon(alreadyknown, pre_msg, SCR_BRAND_WEAPON);
+    {
+        result = _scroll_choose_weapon(alreadyknown, pre_msg, SCR_BRAND_WEAPON,
+                                       weapon);
+    }
 
-    if (!weapon)
-        return false;
+    if (result != spret::success)
+        return result;
 
     _brand_weapon(*weapon);
-    return true;
+    return result;
 }
 
 bool uncancel_brand_weapon()
 {
-    return _handle_brand_weapon(false, "");
+    spret result = _handle_brand_weapon(false, "");
+    return result != spret::seen_hups;
 }
 
 bool enchant_weapon(item_def &wpn, bool quiet)
 {
-    bool success = false;
+    // Cannot be enchanted.
+    if (!is_enchantable_weapon(wpn))
+    {
+        if (!quiet)
+            canned_msg(MSG_NOTHING_HAPPENS);
+        return false;
+    }
 
     // Get item name now before changing enchantment.
     string iname = _item_name(wpn);
 
-    if (is_enchantable_weapon(wpn))
+    wpn.plus++;
+    // Make sure newly enchanted items appear as such.
+    item_set_appearance(wpn);
+
+    if (!quiet)
     {
-        wpn.plus++;
-        success = true;
-        if (!quiet)
-        {
-            const char* dur = wpn.plus < MAX_WPN_ENCHANT ? "moment" : "while";
-            mprf("%s glows red for a %s.", iname.c_str(), dur);
-        }
+        const char* dur = wpn.plus < MAX_WPN_ENCHANT ? "moment" : "while";
+        mprf("%s glows red for a %s.", iname.c_str(), dur);
     }
 
-    if (!success && !quiet)
-        canned_msg(MSG_NOTHING_HAPPENS);
+    you.wield_change = true;
 
-    if (success)
-        you.wield_change = true;
-
-    return success;
+    return true;
 }
 
 /**
@@ -2343,13 +2366,14 @@ bool enchant_weapon(item_def &wpn, bool quiet)
  * @param alreadyknown  Did we know that this was an ID scroll before we
  *                      started reading it?
  * @param pre_msg       'As you read the scroll of foo, it crumbles to dust.'
- * @return  true if the scroll is used up. (That is, whether it was used or
- *          whether it was previously unknown (& thus uncancellable).)
+ * @return  spret::success if the scroll is used up. (That is, whether it was
+ *          used or whether it was previously unknown (& thus uncancellable).)
  */
-static bool _identify(bool alreadyknown, const string &pre_msg)
+static spret _identify(bool alreadyknown, const string &pre_msg)
 {
     item_def* itemp = nullptr;
     string letter = "";
+    spret result = spret::success;
     if (!clua.callfn("c_choose_identify", ">s", &letter))
     {
         if (!clua.error.empty())
@@ -2378,12 +2402,12 @@ static bool _identify(bool alreadyknown, const string &pre_msg)
 
     if (!itemp)
     {
-        itemp = _choose_target_item_for_scroll(alreadyknown, OSEL_UNIDENT,
-            "Identify which item? (\\ to view known items)");
+        result = _choose_target_item_for_scroll(alreadyknown, OSEL_UNIDENT,
+            "Identify which item? (\\ to view known items)", itemp);
     }
 
-    if (!itemp)
-        return false;
+    if (result != spret::success)
+        return result;
 
     item_def& item = *itemp;
     if (alreadyknown)
@@ -2410,18 +2434,20 @@ static bool _identify(bool alreadyknown, const string &pre_msg)
     else
         mprf_nocap("%s", menu_colour_item_name(item, DESC_A).c_str());
 
-    return true;
+    return result;
 }
 
 bool uncancel_identify()
 {
-    return _identify(false, "");
+    spret result = _identify(false, "");
+    return result != spret::seen_hups;
 }
 
-static bool _handle_enchant_weapon(bool alreadyknown, const string &pre_msg)
+static spret _handle_enchant_weapon(bool alreadyknown, const string &pre_msg)
 {
     item_def* weapon = nullptr;
     string letter = "";
+    spret result = spret::success;
     if (!clua.callfn("c_choose_enchant_weapon", ">s", &letter))
     {
         if (!clua.error.empty())
@@ -2436,12 +2462,12 @@ static bool _handle_enchant_weapon(bool alreadyknown, const string &pre_msg)
 
     if (!weapon)
     {
-        weapon = _scroll_choose_weapon(alreadyknown, pre_msg,
-                                       SCR_ENCHANT_WEAPON);
+        result = _scroll_choose_weapon(alreadyknown, pre_msg,
+                                       SCR_ENCHANT_WEAPON, weapon);
     }
 
-    if (!weapon)
-        return false;
+    if (result != spret::success)
+        return result;
 
     const bool success = enchant_weapon(*weapon, false);
     if (success && weapon->plus == MAX_WPN_ENCHANT)
@@ -2449,12 +2475,13 @@ static bool _handle_enchant_weapon(bool alreadyknown, const string &pre_msg)
         crawl_state.cancel_cmd_again();
         crawl_state.cancel_cmd_repeat();
     }
-    return true;
+    return result;
 }
 
 bool uncancel_enchant_weapon()
 {
-    return _handle_enchant_weapon(false, "");
+    spret result = _handle_enchant_weapon(false, "");
+    return result != spret::seen_hups;
 }
 
 bool enchant_armour(item_def &arm, bool quiet)
@@ -2470,9 +2497,12 @@ bool enchant_armour(item_def &arm, bool quiet)
         return false;
     }
 
-    string name = _item_name(arm);
+    // Get item name now before changing enchantment.
+    string iname = _item_name(arm);
 
-    ++arm.plus;
+    arm.plus++;
+    // Make sure newly enchanted items appear as such.
+    item_set_appearance(arm);
 
     if (!quiet)
     {
@@ -2480,17 +2510,17 @@ bool enchant_armour(item_def &arm, bool quiet)
                             && arm.sub_type != ARM_TROLL_LEATHER_ARMOUR;
         string glow = conjugate_verb("glow", plural);
         const char* dur = is_enchantable_armour(arm) ? "moment" : "while";
-        mprf("%s %s green for a %s.", name.c_str(), glow.c_str(), dur);
+        mprf("%s %s green for a %s.", iname.c_str(), glow.c_str(), dur);
     }
 
     return true;
 }
 
-/// Returns whether the scroll is used up.
-static bool _handle_enchant_armour(bool alreadyknown, const string &pre_msg)
+static spret _handle_enchant_armour(bool alreadyknown, const string &pre_msg)
 {
     item_def* target= nullptr;
     string letter = "";
+    spret result = spret::success;
     if (!clua.callfn("c_choose_enchant_armour", ">s", &letter))
     {
         if (!clua.error.empty())
@@ -2505,12 +2535,12 @@ static bool _handle_enchant_armour(bool alreadyknown, const string &pre_msg)
 
     if (!target)
     {
-        target = _choose_target_item_for_scroll(alreadyknown,
-            OSEL_ENCHANTABLE_ARMOUR, "Enchant which item?");
+        result = _choose_target_item_for_scroll(alreadyknown,
+            OSEL_ENCHANTABLE_ARMOUR, "Enchant which item?", target);
     }
 
-    if (!target)
-        return false;
+    if (result != spret::success)
+        return result;
 
     // Okay, we may actually (attempt to) enchant something.
     if (alreadyknown)
@@ -2518,7 +2548,7 @@ static bool _handle_enchant_armour(bool alreadyknown, const string &pre_msg)
 
     const bool success = enchant_armour(*target, false);
     if (!success)
-        return true;
+        return result;
 
     you.redraw_armour_class = true;
     if (!is_enchantable_armour(*target))
@@ -2527,12 +2557,13 @@ static bool _handle_enchant_armour(bool alreadyknown, const string &pre_msg)
         crawl_state.cancel_cmd_repeat();
     }
 
-    return true;
+    return result;
 }
 
 bool uncancel_enchant_armour()
 {
-    return _handle_enchant_armour(false, "");
+    spret result = _handle_enchant_armour(false, "");
+    return result != spret::seen_hups;
 }
 
 static void _vulnerability_scroll()
@@ -2556,7 +2587,7 @@ static void _vulnerability_scroll()
     mpr("A wave of despondency washes over your surroundings.");
 }
 
-static bool _handle_amnesia(bool alreadyknown)
+static spret _handle_amnesia(bool alreadyknown)
 {
     while (true)
     {
@@ -2566,27 +2597,28 @@ static bool _handle_amnesia(bool alreadyknown)
         if (!alreadyknown)
         {
             if (crawl_state.seen_hups)
-                return false;
+                return spret::seen_hups;
             if (!yesno("Really abort (and waste the scroll)?", false, 0))
                 continue;
         }
 
         // The scroll has been aborted
         canned_msg(MSG_OK);
-        return false;
+        return spret::abort;
     }
-    return true;
+    return spret::success;
 }
 
 bool uncancel_amnesia()
 {
-    return _handle_amnesia(false);
+    spret result = _handle_amnesia(false);
+    return result != spret::seen_hups;
 }
 
 bool uncancel_blinking()
 {
-    dist target;
-    return controlled_blink(false, &target) != spret::abort;
+    spret result = controlled_blink(false);
+    return result != spret::seen_hups;
 }
 
 static bool _is_cancellable_scroll(scroll_type scroll)
@@ -2807,7 +2839,7 @@ bool scroll_hostile_check(scroll_type which_scroll)
     {
         const monster* mon = monster_at(*ri);
         if (!mon
-            || !mon->visible_to(&you)
+            || !you.aware_of(*mon)
             // Plants/fungi don't count.
             || (!mons_is_threatening(*mon) || mon->wont_attack())
                 && !mons_class_is_test(mon->type))
@@ -2835,6 +2867,16 @@ static bool _scroll_has_forced_targeter(scroll_type scroll)
             || Options.force_scroll_targeter.count(scroll) > 0;
 }
 
+static spret _run_read_scroll_uncancel(uncancellable_type kind,
+                                       const item_def& scroll)
+{
+    bool in_player_inv = in_inventory(scroll);
+    int scroll_index = in_player_inv ? scroll.link : scroll.index();
+    uncancellable uc{kind, in_player_inv ? 1 : 0, scroll_index, 0};
+    bool succeeded = run_uncancel(uc);
+    return succeeded ? spret::success : spret::seen_hups;
+}
+
 /**
  * Read the provided scroll.
  *
@@ -2857,8 +2899,10 @@ bool read(item_def* scroll, dist *target)
     ASSERT(scroll);
 
     const scroll_type which_scroll = static_cast<scroll_type>(scroll->sub_type);
+    const bool alreadyknown = item_type_known(*scroll);
+
     // Handle player cancels before we waste time
-    if (item_type_known(*scroll))
+    if (alreadyknown)
     {
         const bool hostile_check = scroll_hostile_check(which_scroll);
         string verb_object = "read the " + scroll->name(DESC_DBNAME);
@@ -2869,7 +2913,7 @@ bool read(item_def* scroll, dist *target)
                                     || is_bad_item(*scroll))
                             && Options.bad_item_prompt
                             // Don't double-prompt if we're already asking for confirmation.
-                            && !_scroll_has_forced_targeter(static_cast<scroll_type>(scroll->sub_type));
+                            && !_scroll_has_forced_targeter(which_scroll);
 
         if (stop_attack_prompt(hitfunc, verb_object.c_str(),
                                [which_scroll] (const actor* m)
@@ -2922,11 +2966,6 @@ bool read(item_def* scroll, dist *target)
     }
 
     // Ok - now we FINALLY get to read a scroll !!! {dlb}
-    you.turn_is_over = true;
-
-    const int prev_quantity = scroll->quantity;
-    int link = in_inventory(*scroll) ? scroll->link : -1;
-    const bool alreadyknown = item_type_known(*scroll);
 
     if (alreadyknown
         && scroll_has_targeter(which_scroll)
@@ -2940,13 +2979,11 @@ bool read(item_def* scroll, dist *target)
         {
             // a targeter can't be used for unid'd or uncancellable scrolls, so
             // we can skip the rest of the function
-            you.turn_is_over = false;
             return false;
         }
     }
 
-    const bool is_loud = you.has_mutation(MUT_BOOMING_VOICE)
-                         && there_are_monsters_nearby(true, true, false);
+    const bool is_loud = you.has_mutation(MUT_BOOMING_VOICE) && nearby_mons;
     const coord_def original_pos = you.pos();
 
     // For cancellable scrolls leave printing this message to their
@@ -2965,7 +3002,7 @@ bool read(item_def* scroll, dist *target)
     const bool dangerous = player_in_a_dangerous_place();
 
     // ... but some scrolls may still be cancelled afterwards.
-    bool cancel_scroll = false;
+    spret result = spret::success;
     bool bad_effect = false; // for Xom: result is bad (or at least dangerous)
 
     switch (which_scroll)
@@ -2984,14 +3021,13 @@ bool read(item_def* scroll, dist *target)
         {
             mpr(pre_succ_msg);
 
-            run_uncancel(UNC_BLINKING);
+            result = _run_read_scroll_uncancel(UNC_BLINKING, *scroll);
         }
         else
         {
-            cancel_scroll = (controlled_blink(alreadyknown, target)
-                == spret::abort);
+            result = controlled_blink(alreadyknown, target);
 
-            if (!cancel_scroll)
+            if (result == spret::success)
                 mpr(pre_succ_msg); // ordering is iffy but w/e
         }
     }
@@ -3024,11 +3060,12 @@ bool read(item_def* scroll, dist *target)
         if (feat_eliminates_items(env.grid(you.pos())))
         {
             mpr("Anything you acquired here would fall and be lost!");
-            cancel_scroll = true;
+            result = spret::abort;
             break;
         }
 
-        cancel_scroll = !acquirement_menu();
+        if (!acquirement_menu())
+            result = spret::abort;
         break;
 
     case SCR_FEAR:
@@ -3041,12 +3078,11 @@ bool read(item_def* scroll, dist *target)
         break;
 
     case SCR_SUMMONING:
-        cancel_scroll = summon_shadow_creatures() == spret::abort
-                        && alreadyknown;
+        result = summon_shadow_creatures();
         break;
 
     case SCR_BUTTERFLIES:
-        cancel_scroll = summon_butterflies() == spret::abort && alreadyknown;
+        result = summon_butterflies();
         break;
 
     case SCR_FOG:
@@ -3064,7 +3100,7 @@ bool read(item_def* scroll, dist *target)
     case SCR_TORMENT:
         torment(&you, TORMENT_SCROLL, you.pos());
 
-        if (!item_type_known(*scroll))
+        if (!alreadyknown)
             god_forgive_inadvertent_act(FORBID_EVIL);
         bad_effect = !you.res_torment();
         break;
@@ -3096,9 +3132,8 @@ bool read(item_def* scroll, dist *target)
 
     case SCR_POISON:
     {
-        const spret result = scroll_of_poison(!alreadyknown);
-        cancel_scroll = result == spret::abort;
-        if (!cancel_scroll)
+        result = scroll_of_poison(!alreadyknown);
+        if (result != spret::abort)
             mpr(pre_succ_msg);
         // amusing to Xom, at least
         bad_effect = result == spret::success && !player_res_poison();
@@ -3112,10 +3147,10 @@ bool read(item_def* scroll, dist *target)
             mpr("It is a scroll of enchant weapon.");
             // included in default force_more_message (to show it before menu)
 
-            run_uncancel(UNC_ENCHANT_WEAPON);
+            result = _run_read_scroll_uncancel(UNC_ENCHANT_WEAPON, *scroll);
         }
         else
-            cancel_scroll = !_handle_enchant_weapon(alreadyknown, pre_succ_msg);
+            result = _handle_enchant_weapon(alreadyknown, pre_succ_msg);
 
         break;
 
@@ -3126,10 +3161,10 @@ bool read(item_def* scroll, dist *target)
             mpr("It is a scroll of brand weapon.");
             // included in default force_more_message (to show it before menu)
 
-            run_uncancel(UNC_BRAND_WEAPON);
+            result = _run_read_scroll_uncancel(UNC_BRAND_WEAPON, *scroll);
         }
         else
-            cancel_scroll = !_handle_brand_weapon(alreadyknown, pre_succ_msg);
+            result = _handle_brand_weapon(alreadyknown, pre_succ_msg);
 
         break;
 
@@ -3142,10 +3177,10 @@ bool read(item_def* scroll, dist *target)
             // Do this here so it doesn't turn up in the ID menu.
             identify_item(*scroll);
 
-            run_uncancel(UNC_IDENTIFY);
+            result = _run_read_scroll_uncancel(UNC_IDENTIFY, *scroll);
         }
         else
-            cancel_scroll = !_identify(alreadyknown, pre_succ_msg);
+            result = _identify(alreadyknown, pre_succ_msg);
 
         break;
 
@@ -3156,10 +3191,10 @@ bool read(item_def* scroll, dist *target)
             mpr("It is a scroll of enchant armour.");
             // included in default force_more_message (to show it before menu)
 
-            run_uncancel(UNC_ENCHANT_ARMOUR);
+            result = _run_read_scroll_uncancel(UNC_ENCHANT_ARMOUR, *scroll);
         }
         else
-            cancel_scroll = !_handle_enchant_armour(alreadyknown, pre_succ_msg);
+            result = _handle_enchant_armour(alreadyknown, pre_succ_msg);
 
         break;
 #if TAG_MAJOR_VERSION == 34
@@ -3171,7 +3206,7 @@ bool read(item_def* scroll, dist *target)
     case SCR_HOLY_WORD:
     {
         mpr("This item has been removed, sorry!");
-        cancel_scroll = true;
+        result = spret::abort;
         break;
     }
 #endif
@@ -3198,9 +3233,9 @@ bool read(item_def* scroll, dist *target)
         }
 
         if (!alreadyknown)
-            run_uncancel(UNC_AMNESIA);
+            result = _run_read_scroll_uncancel(UNC_AMNESIA, *scroll);
         else
-            cancel_scroll = !_handle_amnesia(alreadyknown);
+            result = _handle_amnesia(alreadyknown);
 
         break;
 
@@ -3209,15 +3244,37 @@ bool read(item_def* scroll, dist *target)
         break;
     }
 
-    if (cancel_scroll)
-        you.turn_is_over = false;
+    if (alreadyknown && result == spret::seen_hups)
+        result = spret::abort;
+    ASSERT(result != spret::seen_hups || has_uncancel());
+
+    handle_post_scroll_effects(scroll, result, original_pos,
+                               nearby_mons, alreadyknown, dangerous,
+                               bad_effect);
+
+    return true;
+}
+
+void handle_post_scroll_effects(item_def* scroll, spret read_result,
+                                coord_def original_pos, bool nearby_mons,
+                                bool alreadyknown, bool dangerous,
+                                bool bad_effect)
+{
+    if (read_result == spret::seen_hups)
+        return;
+
+    if (read_result != spret::abort)
+        you.turn_is_over = true;
 
     identify_item(*scroll);
 
     string scroll_name = scroll->name(DESC_QUALNAME);
+    const bool is_loud = you.has_mutation(MUT_BOOMING_VOICE) && nearby_mons;
 
-    if (!cancel_scroll)
+    if (read_result != spret::abort)
     {
+        int link = in_inventory(*scroll) ? scroll->link : -1;
+
         if (in_inventory(*scroll))
             dec_inv_item_quantity(link, 1);
         else
@@ -3230,6 +3287,8 @@ bool read(item_def* scroll, dist *target)
             noisy(40, original_pos, MID_PLAYER);
     }
 
+    const scroll_type which_scroll = static_cast<scroll_type>(scroll->sub_type);
+
     if (!alreadyknown
         && which_scroll != SCR_BRAND_WEAPON
         && which_scroll != SCR_ENCHANT_WEAPON
@@ -3239,7 +3298,7 @@ bool read(item_def* scroll, dist *target)
         && which_scroll != SCR_ACQUIREMENT)
     {
         mprf("It %s %s.",
-             scroll->quantity < prev_quantity ? "was" : "is",
+             read_result == spret::abort ? "is" : "was",
              article_a(scroll_name).c_str());
     }
 
@@ -3263,14 +3322,13 @@ bool read(item_def* scroll, dist *target)
     // Reading with hostile visible mons nearby resets unrand "Victory" stats.
     if (you.unrand_equipped(UNRAND_VICTORY, true)
         && nearby_mons
-        && !cancel_scroll)
+        && read_result != spret::abort)
     {
         you.props[VICTORY_CONDUCT_KEY] = true;
     }
 
     if (!alreadyknown)
         auto_assign_item_slot(*scroll);
-    return true;
 }
 
 class targeter_invisibility : public targeter_multimonster

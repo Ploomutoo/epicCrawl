@@ -147,6 +147,9 @@ static void _update_feat_at(const coord_def &gp)
     if (is_blasphemy(gp))
         env.map_knowledge(gp).flags |= MAP_BLASPHEMY;
 
+    if (feat_is_tree(feat) && forest_awoken(gp))
+        env.map_knowledge(gp).flags |= MAP_AWOKEN_FOREST;
+
     if (you.get_beholder(gp))
         env.map_knowledge(gp).flags |= MAP_WITHHELD;
 
@@ -247,35 +250,18 @@ void update_item_at(const coord_def &gp, bool wizard)
         return;
 
     item_def eitem;
-    bool more_items = false;
 
     if (you.see_cell(gp) || wizard)
     {
         const int item_grid = wizard ? env.igrid(gp) : you.visible_igrd(gp);
         if (item_grid == NON_ITEM)
             return;
-        eitem = env.item[item_grid];
-
-        // monster(mimic)-owned items have link = NON_ITEM+1+midx
-        if (eitem.link > NON_ITEM)
-            more_items = true;
-        else if (eitem.link < NON_ITEM && !crawl_state.game_is_arena())
-            more_items = true;
 
         if (wizard)
             StashTrack.add_stash(gp);
     }
-    else
-    {
-        const vector<item_def> stash = item_list_in_stash(gp);
-        if (stash.empty())
-            return;
 
-        eitem = stash[0];
-        if (stash.size() > 1)
-            more_items = true;
-    }
-    env.map_knowledge(gp).set_item(eitem, more_items);
+    populate_map_cell_with_item(gp, env.map_knowledge(gp));
 }
 
 static int _get_cloud_variety(cloud_struct& cloud)
@@ -349,8 +335,7 @@ static bool _update_monster(monster* mons)
     if (mons->visible_to(&you))
     {
         mons->ensure_has_client_id();
-        monster_info mi(mons);
-        env.map_knowledge(gp).set_monster(mi);
+        record_monster_seen_at(gp, *mons);
         return true;
     }
 
@@ -359,7 +344,7 @@ static bool _update_monster(monster* mons)
 
     if (you.aware_of(*mons))
     {
-        env.map_knowledge(gp).set_invisible_monster(mons);
+        record_invisible_monster_seen_at(gp, *mons);
         return true;
     }
 

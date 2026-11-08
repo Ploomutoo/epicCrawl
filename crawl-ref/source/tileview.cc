@@ -906,6 +906,18 @@ void tile_draw_map_cells()
         }
 }
 
+void tile_draw_entire_map()
+{
+    for (rectangle_iterator ri(coord_def(0, 0), coord_def(GXM-1, GYM-1));
+         ri; ++ri)
+    {
+        tile_draw_map_cell(*ri);
+#ifdef USE_TILE_WEB
+        tiles.mark_for_redraw(*ri);
+#endif
+    }
+}
+
 static tile_with_flags_t _get_floor_bg(const coord_def& gc)
 {
     tile_with_flags_t bg(TILE_DNGN_UNSEEN, tileidx_unseen_flag(gc));
@@ -961,10 +973,14 @@ void tile_forget_map(const coord_def &gc)
 }
 
 static void _tile_place_item(const coord_def &gc, const item_def &item,
-                             bool more_items)
+                             map_flag_t tile_flags)
 {
     tile_with_flags_t t = tileidx_item(item);
-    if (more_items)
+    if (tile_flags & MAP_MORE_ITEMS_ARTEFACT)
+        t |= TILE_FLAG_S_UNDER_ARTEFACT;
+    else if (tile_flags & MAP_MORE_ITEMS_GOOD)
+        t |= TILE_FLAG_S_UNDER_GOOD;
+    else if (tile_flags & MAP_MORE_ITEMS)
         t |= TILE_FLAG_S_UNDER;
 
     tile_env.bk_fg(gc) = t;
@@ -973,10 +989,16 @@ static void _tile_place_item(const coord_def &gc, const item_def &item,
         tile_env.bk_bg(gc) |= TILE_FLAG_CURSOR3;
 }
 
-static void _tile_place_item_marker(const coord_def &gc, const item_def &item)
+static void _tile_place_item_marker(const coord_def &gc, const item_def &item,
+                                    map_flag_t tile_flags)
 {
     tile_with_flags_t fg = tile_env.bk_fg(gc);
-    tile_env.bk_fg(gc) = fg | TILE_FLAG_S_UNDER;
+    if (tile_flags & MAP_MORE_ITEMS_ARTEFACT)
+        tile_env.bk_fg(gc) = fg | TILE_FLAG_S_UNDER_ARTEFACT;
+    else if (tile_flags & MAP_MORE_ITEMS_GOOD)
+        tile_env.bk_fg(gc) = fg | TILE_FLAG_S_UNDER_GOOD;
+    else if (tile_flags & MAP_MORE_ITEMS)
+        tile_env.bk_fg(gc) = fg | TILE_FLAG_S_UNDER;
 
     if (item_needs_autopickup(item))
         tile_env.bk_bg(gc) |= TILE_FLAG_CURSOR3;
@@ -1081,9 +1103,9 @@ void tile_draw_map_cell(const coord_def& gc, bool foreground_only)
     else if (cell.item())
     {
         if (feat_is_stair(cell.feat()))
-            _tile_place_item_marker(gc, *cell.item());
+            _tile_place_item_marker(gc, *cell.item(), cell.flags);
         else
-            _tile_place_item(gc, *cell.item(), (cell.flags & MAP_MORE_ITEMS) != 0);
+            _tile_place_item(gc, *cell.item(), cell.flags);
     }
 
     // Always place clouds now they have their own layer
@@ -1256,7 +1278,7 @@ void tile_apply_properties(const coord_def &gc, packed_cell &cell)
 
     if (feat == DNGN_MANGROVE)
         cell.mangrove_water = true;
-    cell.awakened_forest = feat_is_tree(feat) && env.forest_awoken_until;
+    cell.awakened_forest = bool(mc.flags & MAP_AWOKEN_FOREST);
 
     if (mc.flags & MAP_ORB_HALOED)
         cell.orb_glow = get_orb_phase(gc) ? 2 : 1;

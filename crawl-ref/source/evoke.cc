@@ -480,7 +480,6 @@ void wind_blast(actor* agent, int pow, coord_def target)
     wind_beam.pierce          = true;
     wind_beam.affects_nothing = true;
     wind_beam.source          = agent->pos();
-    wind_beam.range           = LOS_RADIUS;
     wind_beam.set_is_tracer(true);
 
     if (agent->is_player())
@@ -833,7 +832,6 @@ static spret _tremorstone()
     beam.source_id  = MID_PLAYER;
     beam.thrower    = KILL_YOU;
     zappy(ZAP_TREMORSTONE, power, false, beam);
-    beam.range = 3;
     beam.ex_size = 2;
     beam.target = center;
 
@@ -1178,7 +1176,7 @@ bool evoke_item(item_def& item, dist *preselect)
             you.duration[DUR_QUAD_DAMAGE] = 30 * BASELINE_DELAY;
             ASSERT(in_inventory(item));
             dec_inv_item_quantity(item.link, 1);
-            invalidate_agrid(true);
+            invalidate_agrid();
             break;
 
         case MISC_PHANTOM_MIRROR:
@@ -1405,6 +1403,6 @@ void stardust_orb_trigger(int mp_spent)
         && !you.has_mutation(MUT_HP_CASTING))
     {
         schedule_stardust_fineff(&you, stardust_orb_power(mp_spent),
-                                 stardust_orb_max());
+                                 stardust_orb_max(), SHOOTING_STAR_ORB);
     }
 }

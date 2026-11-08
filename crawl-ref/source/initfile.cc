@@ -949,7 +949,7 @@ const vector<GameOption*> game_options::build_options_list()
         // it'd be a pain to maintain without further macros
 #ifdef USE_TILE_WEB
         new BoolGameOption(SIMPLE_NAME(tile_realtime_anim), false),
-        new BoolGameOption(SIMPLE_NAME(tile_level_map_hide_messages), true),
+        new BoolGameOption(SIMPLE_NAME(tile_level_map_hide_messages), false),
         new BoolGameOption(SIMPLE_NAME(tile_level_map_hide_sidebar), false),
         new BoolGameOption(SIMPLE_NAME(tile_web_mouse_control), true),
         new MultipleChoiceGameOption<string>(
@@ -3491,7 +3491,7 @@ sound_mapping::sound_mapping(const string &s)
         mprf(MSGCH_ERROR, "Options error: invalid sound mapping '%s'", s.c_str());
         return;
     }
-#if !defined(USE_SOUND) || !defined(WINMM_PLAY_SOUNDS) || !defined(SOUND_PLAY_COMMAND) || !defined(USE_SDL)
+#if !(defined(USE_SOUND) && (defined(WINMM_PLAY_SOUNDS) || defined(SOUND_PLAY_COMMAND) || defined(USE_SDL)))
     static bool _sound_warning_issued = false;
     if (!_sound_warning_issued)
     {
@@ -5903,6 +5903,7 @@ bool parse_args(int argc, char **argv, bool rc_only)
         case CLO_MAPSTAT_DUMP_DISCONNECT:
 #ifdef DEBUG_STATISTICS
             crawl_state.map_stat_dump_disconnect = true;
+            break;
 #else
             end(1, false, "%s", dbg_stat_err);
 #endif

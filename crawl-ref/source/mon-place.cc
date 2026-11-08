@@ -899,6 +899,13 @@ static void _place_monster_maybe_override_god(monster *mon, monster_type cls,
     }
 }
 
+static void _abort_monster_creation(monster *mon)
+{
+    mon->destroy_inventory();
+    env.mid_cache.erase(mon->mid);
+    mon->reset();
+}
+
 static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
                                    level_id place,
                                    bool force_pos, bool dont_place)
@@ -1060,15 +1067,8 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
         _place_monster_maybe_override_god(mon, mg.cls, mg.place);
     }
 
-    // Monsters that need halos/silence auras/umbras.
-    if ((mon->holiness() & MH_HOLY)
-         || mg.cls == MONS_SILENT_SPECTRE
-         || mg.cls == MONS_PROFANE_SERVITOR
-         || mg.cls == MONS_DEATH_KNIGHT
-         || mons_is_ghost_demon(mg.cls))
-    {
-        invalidate_agrid(true);
-    }
+    if (mon->affects_agrid())
+        invalidate_agrid();
 
     // If the caller requested a specific colour for this monster, apply
     // it now.
@@ -1083,7 +1083,7 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
         mon->mname = mg.mname;
 
     if (mg.props.exists(MGEN_NUM_HEADS))
-        mon->num_heads = mg.props[MGEN_NUM_HEADS];
+        mons_set_starting_heads(*mon, mg.props[MGEN_NUM_HEADS].get_int());
     if (mg.props.exists(MGEN_BLOB_SIZE))
         mon->blob_size = mg.props[MGEN_BLOB_SIZE];
     if (mg.props.exists(MGEN_TENTACLE_CONNECT))
@@ -1211,7 +1211,7 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
             mon->props[TUKIMA_WEAPON] = true;
         }
         else
-            give_item(mon, place.absdepth(), mg.is_summoned());
+            give_item(mon, place.absdepth());
 
 
         // Dancing weapons *always* have a weapon. Fail to create them
@@ -1228,9 +1228,7 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
             }
             else
             {
-                mon->destroy_inventory();
-                env.mid_cache.erase(mon->mid);
-                mon->reset();
+                _abort_monster_creation(mon);
                 env.mgrid(fpos) = NON_MONSTER;
                 return 0;
             }
@@ -1241,13 +1239,22 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
     else if (mons_class_itemuse(mg.cls) >= MONUSE_STARTING_EQUIPMENT
              && !mg.props.exists(KIKU_WRETCH_KEY))
     {
-        give_item(mon, place.absdepth(), mg.is_summoned());
+        give_item(mon, place.absdepth());
         // Give these monsters a second weapon. - bwr
         if (mons_class_wields_two_weapons(mg.cls))
             give_weapon(mon, place.absdepth());
 
+        // If a monster was given two weapons, start with a ranged weapon
+        // wielded if they're an archer, and a melee weapon wielded otherwise.
+        // (But if they only have one weapon, don't stow it away, even if it's
+        // a launcher.)
         unwind_var<int> save_speedinc(mon->speed_increment);
-        mon->wield_melee_weapon(false);
+        const item_def *weap = mon->mslot_item(MSLOT_WEAPON);
+        const item_def *alt = mon->mslot_item(MSLOT_ALT_WEAPON);
+        if (!weap && alt)
+            mon->swap_weapons(false);
+        else if (!(mon->flags & MF_ARCHER))
+            mon->wield_melee_weapon(false);
     }
 
     if (mon->type == MONS_SLIME_CREATURE && mon->blob_size > 1)
@@ -1309,8 +1316,7 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
     // as a Fedhas-worshipping player.)
     if (!dont_place && !mon->move_to(fpos, MV_INTERNAL))
     {
-        env.mid_cache.erase(mon->mid);
-        mon->reset();
+        _abort_monster_creation(mon);
         return 0;
     }
 
@@ -1945,6 +1951,9 @@ static const map<monster_type, band_set> bands_by_leader = {
     { MONS_ALLIGATOR,       { { 5, 0, []() {
         return !player_in_branch(BRANCH_LAIR); }},
                                   {{ BAND_ALLIGATOR, {1, 2} }}}},
+    { MONS_ABYSSAL_ACOLYTE, { { 0, 0, []() {
+        return player_in_branch(BRANCH_ABYSS); }},
+                                  {{ BAND_ABYSSAL_ACOLYTES, {1, 3} }}}},
     { MONS_FORMLESS_JELLYFISH, { { 0, 0, []() {
         return player_in_branch(BRANCH_SLIME); }},
                                   {{ BAND_JELLYFISH, {1, 3} }}}},
@@ -2088,6 +2097,7 @@ static const map<monster_type, band_set> bands_by_leader = {
     { MONS_THRASHING_HORROR, { {}, {{ BAND_THRASHING_HORRORS, {0, 1} }}}},
     { MONS_BRAIN_WORM, { {}, {{ BAND_BRAIN_WORMS, {0, 1} }}}},
     { MONS_LAUGHING_SKULL, { {}, {{ BAND_LAUGHING_SKULLS, {0, 1} }}}},
+    { MONS_HERALD_OF_THE_ABYSS, { {}, {{ BAND_HERALD_FOLLOWERS, {0, 1} }}}},
     { MONS_WEEPING_SKULL, { {}, {{ BAND_WEEPING_SKULLS, {0, 1} }}}},
     { MONS_SPHINX_MARAUDER, { {}, {{ BAND_HARPIES, {0, 1} }}}},
     { MONS_PROTEAN_PROGENITOR, { {}, {{ BAND_PROTEAN_PROGENITORS, {0, 1} }}}},
@@ -2255,6 +2265,11 @@ static band_type _choose_band(monster_type mon_type, int *band_size_p,
         band_size = one_chance_in(3) ? 2 : 1;
         break;
 
+    case MONS_HERALD_OF_THE_ABYSS:
+        if (player_in_branch(BRANCH_ABYSS) && x_chance_in_y(3, 4))
+            band_size = 2;
+        break;
+
     case MONS_BRAIN_WORM:
         if (player_in_branch(BRANCH_ABYSS))
             band_size = random2(you.depth) / 2;
@@ -2420,16 +2435,16 @@ static const map<band_type, vector<member_possibilities>> band_membership = {
     { BAND_BLASTMINER,          {{{MONS_KOBOLD_BLASTMINER, 1}}}},
     { BAND_THERMIC_DYNAMOS,     {{{MONS_THERMIC_DYNAMO, 1}}}},
     { BAND_PROTEAN_PROGENITORS, {{{MONS_PROTEAN_PROGENITOR, 1}}}},
-    { BAND_DEEP_ELF_KNIGHT,     {{{MONS_DEEP_ELF_AIR_MAGE, 46},
-                                  {MONS_DEEP_ELF_FIRE_MAGE, 46},
+    { BAND_DEEP_ELF_KNIGHT,     {{{MONS_DEEP_ELF_ZEPHYRMANCER, 46},
+                                  {MONS_DEEP_ELF_PYROMANCER, 46},
                                   {MONS_DEEP_ELF_KNIGHT, 24},
                                   {MONS_DEEP_ELF_ARCHER, 24},
                                   {MONS_DEEP_ELF_DEATH_MAGE, 3},
                                   {MONS_DEEP_ELF_DEMONOLOGIST, 2},
                                   {MONS_DEEP_ELF_ANNIHILATOR, 2},
                                   {MONS_DEEP_ELF_SORCERER, 2}}}},
-    { BAND_DEEP_ELF_HIGH_PRIEST, {{{MONS_DEEP_ELF_AIR_MAGE, 3},
-                                   {MONS_DEEP_ELF_FIRE_MAGE, 3},
+    { BAND_DEEP_ELF_HIGH_PRIEST, {{{MONS_DEEP_ELF_ZEPHYRMANCER, 3},
+                                   {MONS_DEEP_ELF_PYROMANCER, 3},
                                    {MONS_DEEP_ELF_KNIGHT, 2},
                                    {MONS_DEEP_ELF_ARCHER, 2},
                                    {MONS_DEEP_ELF_DEMONOLOGIST, 1},
@@ -2471,6 +2486,23 @@ static const map<band_type, vector<member_possibilities>> band_membership = {
                                   {MONS_VERY_UGLY_THING, 1}},
 
                                  {{MONS_VERY_UGLY_THING, 1}}}},
+
+    { BAND_ABYSSAL_ACOLYTES,    {{{MONS_ABYSSAL_ACOLYTE, 5},
+                                  {MONS_ABOMINATION_SMALL, 5},
+                                  {MONS_EFREET, 1},
+                                  {MONS_FREEZING_WRAITH, 1}},
+
+                                {{MONS_ABOMINATION_SMALL, 9},
+                                 {MONS_UGLY_THING, 1}}}},
+
+    { BAND_HERALD_FOLLOWERS,    {{{MONS_ABYSSAL_ACOLYTE, 10},
+                                  {MONS_COGNITOGAUNT, 4},
+                                  {MONS_RAKSHASA, 3},
+                                  {MONS_WORLDBINDER, 3}},
+
+                                 {{MONS_ABOMINATION_LARGE, 4},
+                                  {MONS_GOLDEN_EYE, 3},
+                                  {MONS_THRASHING_HORROR, 3}}}},
 
     { BAND_AMOEBA_ORGANS,       {{{MONS_GLASS_EYE, 2},
                                   {MONS_GLOWING_ORANGE_BRAIN, 1}}}},
@@ -3283,7 +3315,7 @@ bool you_can_see_habitable_spot_near(coord_def pos, habitat_type habitat,
             continue;
 
         actor* blocking_actor = actor_at(*ri);
-        if (blocking_actor && blocking_actor->visible_to(&you)
+        if (blocking_actor && you.aware_of(*blocking_actor)
             && (ignore_summons_of == SPELL_NO_SPELL
                 || !blocking_actor->was_created_by(you, ignore_summons_of)))
         {
